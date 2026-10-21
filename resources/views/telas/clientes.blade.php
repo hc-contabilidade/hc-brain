@@ -9,17 +9,13 @@
   <section class="page active" id="clientes">
     <div class="page-header">
       <div class="page-header-copy">
-        <span class="page-overline">Banco central • empresa como entidade principal</span>
+        <span class="page-overline">Banco central • só consulta</span>
         <h1>Empresas &amp; clientes</h1>
         <p class="muted">
-          Cada empresa é o registro principal: possui um sócio responsável, fontes
-          vinculadas diretamente a ela e as reuniões realizadas ao longo do
-          relacionamento.
+          Consulta das empresas sincronizadas com a automação: sócio responsável,
+          fontes vinculadas e as reuniões do relacionamento. O cadastro não é feito
+          por aqui.
         </p>
-      </div>
-
-      <div class="page-header-actions">
-        <button class="primary" id="novaEmpresa" type="button">Nova empresa</button>
       </div>
     </div>
 

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Documento;
-use App\Models\Empresa;
 use App\Models\Pasta;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,37 +56,14 @@ class EscritaTest extends TestCase
         $this->postJson('/api/empresas', $this->empresaValida())->assertUnauthorized();
     }
 
-    public function test_empresa_nasce_com_o_socio_na_mesma_requisicao(): void
+    public function test_empresa_nao_pode_ser_criada_pela_api(): void
     {
         $this->autenticado()
             ->postJson('/api/empresas', $this->empresaValida())
-            ->assertCreated()
-            ->assertJsonPath('data.id', 'clinica-bonsucesso')
-            ->assertJsonPath('data.socio.nome', 'Helena Dias');
-
-        $this->assertDatabaseHas('socios', ['nome' => 'Helena Dias']);
+            ->assertForbidden();
     }
 
-    public function test_empresa_sem_socio_e_recusada(): void
-    {
-        $dados = $this->empresaValida();
-        unset($dados['socio']);
-
-        $this->autenticado()
-            ->postJson('/api/empresas', $dados)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('socio.nome');
-    }
-
-    public function test_empresa_recusa_nome_que_ja_existe(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/empresas', $this->empresaValida(['nome' => 'Empresa X']))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('nome');
-    }
-
-    public function test_edicao_de_empresa_atualiza_o_socio_junto(): void
+    public function test_empresa_nao_pode_ser_editada_pela_api(): void
     {
         $this->autenticado()
             ->putJson('/api/empresas/empresaX', $this->empresaValida([
@@ -95,19 +71,16 @@ class EscritaTest extends TestCase
                 'status' => 'Em renovação',
                 'statusTag' => 'yellow',
             ]))
-            ->assertOk()
-            ->assertJsonPath('data.status', 'Em renovação')
-            ->assertJsonPath('data.socio.nome', 'Helena Dias');
+            ->assertForbidden();
     }
 
-    /** Sócio, fontes, financeiro e reuniões saem junto: são da empresa. */
-    public function test_excluir_empresa_leva_o_que_depende_dela(): void
+    public function test_empresa_nao_pode_ser_excluida_pela_api(): void
     {
-        $this->autenticado()->deleteJson('/api/empresas/empresaX')->assertNoContent();
+        $this->autenticado()
+            ->deleteJson('/api/empresas/empresaX')
+            ->assertForbidden();
 
-        $this->assertDatabaseMissing('empresas', ['id' => 'empresaX']);
-        $this->assertDatabaseMissing('socios', ['empresa_id' => 'empresaX']);
-        $this->assertDatabaseMissing('reunioes', ['empresa_id' => 'empresaX']);
+        $this->assertDatabaseHas('empresas', ['id' => 'empresaX']);
     }
 
     public function test_reuniao_entra_na_base_com_as_listas(): void

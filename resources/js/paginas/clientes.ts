@@ -19,7 +19,6 @@ import {
     type VisualizacaoLista,
 } from "../comum/estado.ts";
 import { escapar, iniciais, numero } from "../comum/formato.ts";
-import { abrirFormularioDeEmpresa } from "../comum/formulario-empresa.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
@@ -195,16 +194,6 @@ porId("empresaViewToggle").addEventListener("click", (evento) => {
             visualizacao: dado(botao, "empresaView") as VisualizacaoLista,
         });
     }
-});
-
-// Cadastrar abre direto a página da empresa nova: é lá que se continua o
-// trabalho, anexando fontes e registrando a primeira reunião.
-porId("novaEmpresa").addEventListener("click", () => {
-    void abrirFormularioDeEmpresa(undefined, {
-        aoSalvar(id) {
-            window.location.href = caminhoDaPagina("cliente", { id });
-        },
-    });
 });
 
 observarEstado(["empresas"], renderEmpresas);

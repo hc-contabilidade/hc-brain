@@ -3,18 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\SalvarEmpresaRequest;
 use App\Http\Resources\EmpresaResource;
 use App\Http\Resources\ReuniaoResource;
 use App\Http\Resources\TreinamentoResource;
 use App\Models\Empresa;
 use App\Models\ReceitaMensal;
 use App\Models\Transacao;
-use App\Support\Chave;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class EmpresaController extends Controller
 {
@@ -69,55 +67,21 @@ class EmpresaController extends Controller
     }
 
     /**
-     * A empresa e o sócio nascem juntos, dentro da mesma transação: uma
-     * empresa gravada sem o sócio quebraria toda tela que lê `socio->nome`.
+     * A carteira é só leitura no Brain: empresas entram pela sincronização
+     * com a automação, não pelo cadastro manual.
      */
-    public function store(SalvarEmpresaRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $empresa = DB::transaction(function () use ($request) {
-            $empresa = Empresa::create([
-                'id' => Chave::apartirDe($request->string('nome')->toString(), 'empresas'),
-                'nome' => $request->string('nome')->toString(),
-                'setor' => $request->string('setor')->toString(),
-                'status' => $request->string('status')->toString(),
-                'status_tag' => $request->string('statusTag')->toString(),
-            ]);
-
-            $empresa->socio()->create($request->dadosDoSocio());
-
-            return $empresa;
-        });
-
-        return (new EmpresaResource($empresa->load(['socio', 'fontes', 'ultimaReuniao'])))
-            ->response()
-            ->setStatusCode(201);
+        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
     }
 
-    public function update(SalvarEmpresaRequest $request, Empresa $empresa): EmpresaResource
+    public function update(Request $request, Empresa $empresa): JsonResponse
     {
-        DB::transaction(function () use ($request, $empresa) {
-            $empresa->update([
-                'nome' => $request->string('nome')->toString(),
-                'setor' => $request->string('setor')->toString(),
-                'status' => $request->string('status')->toString(),
-                'status_tag' => $request->string('statusTag')->toString(),
-            ]);
-
-            $empresa->socio()->updateOrCreate([], $request->dadosDoSocio());
-        });
-
-        return new EmpresaResource($empresa->load(['socio', 'fontes', 'ultimaReuniao']));
+        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
     }
 
-    /**
-     * Excluir a empresa leva junto sócio, fontes, financeiro e reuniões — é o
-     * que as chaves estrangeiras em cascata fazem. Projetos ficam, só perdem
-     * o vínculo, porque o trabalho existiu independente do cliente.
-     */
     public function destroy(Empresa $empresa): Response
     {
-        $empresa->delete();
-
-        return response()->noContent();
+        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
     }
 }

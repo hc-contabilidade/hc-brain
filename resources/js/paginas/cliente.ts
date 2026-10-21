@@ -18,7 +18,6 @@ import { aparenciaPorTipo, type ConteudoTreinamento } from "../dados/treinamento
 import { dado, porId, porSeletor, talvez, todos } from "../comum/dom.ts";
 import { atualizarSecao } from "../comum/estado.ts";
 import { duracaoEmMeses, escapar, iniciais, moeda } from "../comum/formato.ts";
-import { abrirFormularioDeEmpresa } from "../comum/formulario-empresa.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { openMeetingModal, showModal } from "../comum/modal.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
@@ -46,19 +45,6 @@ if (detalhe) {
     porId("verTodasReunioesEmpresa").addEventListener("click", () => {
         atualizarSecao("reunioes", { empresa: empresa.nome });
         window.location.href = caminhoDaPagina("reunioes");
-    });
-
-    porId("editarEmpresa").addEventListener("click", () => {
-        void abrirFormularioDeEmpresa(empresa, {
-            // A página inteira é montada a partir da empresa, do cabeçalho ao
-            // financeiro: recarregar é mais honesto do que redesenhar pedaços.
-            aoSalvar() {
-                window.location.reload();
-            },
-            aoExcluir() {
-                window.location.href = caminhoDaPagina("clientes");
-            },
-        });
     });
 }
 
