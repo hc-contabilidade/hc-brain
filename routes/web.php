@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SenhaController;
+use App\Http\Controllers\GoogleController;
 use App\Http\Controllers\TelaController;
 use Illuminate\Support\Facades\Route;
 
@@ -53,6 +54,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/processos', [TelaController::class, 'processos'])->name('processos');
     Route::get('/perfil', [TelaController::class, 'perfil'])->name('perfil');
 
+    Route::get('/google/conectar', [GoogleController::class, 'conectar'])->name('google.conectar');
+    Route::get('/google/retorno', [GoogleController::class, 'retorno'])->name('google.retorno');
+
     Route::prefix('api')->group(function () {
         Route::get('/contadores', [Api\ContadorController::class, 'index']);
         Route::get('/inicio', [Api\InicioController::class, 'index']);
@@ -94,6 +98,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/usuarios', [Api\UsuarioController::class, 'store']);
         Route::put('/usuarios/{usuario}', [Api\UsuarioController::class, 'update']);
         Route::delete('/usuarios/{usuario}', [Api\UsuarioController::class, 'destroy']);
+
+        Route::get('/agendas-google', [Api\ContaGoogleController::class, 'index']);
+        Route::post('/agendas-google/sincronizar', [Api\ContaGoogleController::class, 'sincronizar']);
+        Route::delete('/agendas-google/{contaGoogle}', [Api\ContaGoogleController::class, 'destroy']);
 
         Route::post('/pastas', [Api\PastaController::class, 'store']);
         Route::put('/pastas/{pasta}', [Api\PastaController::class, 'update']);

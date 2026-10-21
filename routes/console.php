@@ -9,3 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('hc:sincronizar-empresas')->hourly()->withoutOverlapping();
+// O próprio comando evita duas leituras ao mesmo tempo, inclusive com o botão
+// "Sincronizar agora", e sua trava expira em minutos, não em um dia.
+Schedule::command('hc:sincronizar-agendas')->everyFiveMinutes();

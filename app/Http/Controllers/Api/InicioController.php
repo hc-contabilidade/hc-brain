@@ -40,7 +40,7 @@ class InicioController extends Controller
             ->limit(self::LIMITE_ATIVIDADE)
             ->get()
             ->map(fn (Reuniao $reuniao) => [
-                'titulo' => "Reunião de {$reuniao->tipo} — {$reuniao->empresa?->nome}",
+                'titulo' => "Reunião de {$reuniao->tipo} — {$reuniao->nomeDaEmpresa()}",
                 'detalhe' => $reuniao->resumo,
                 'etiqueta' => $reuniao->tipo,
                 'quando' => $reuniao->data->format('d/m/Y'),

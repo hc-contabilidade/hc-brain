@@ -35,6 +35,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function ehAdministrador(): bool
+    {
+        return $this->perfil === 'Administrador';
+    }
+
     /** O e-mail de recuperação sai em português e com a marca do HC Brain. */
     public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
     {

@@ -869,6 +869,18 @@
     color: var(--vermelho);
 }
 
+/* A cor do Google pode ser clara ou escura demais para virar texto, então ela
+   fica no fundo suave e na faixa, e o texto segue o tema. */
+.calendar-meeting.cor-google {
+    background: color-mix(in srgb, var(--cor-linha) 22%, transparent);
+    color: var(--texto-forte);
+    box-shadow: inset 3px 0 0 var(--cor-linha);
+}
+
+.calendar-meeting.passada {
+    opacity: 0.55;
+}
+
 .calendar-more {
     display: block;
     margin-top: 2px;
@@ -1022,6 +1034,39 @@
     background: var(--surface-hover);
 }
 
+/* Já passou: continua legível, só perde ênfase para o que ainda vem. */
+.agenda-evento.passada {
+    opacity: 0.55;
+}
+
+.agenda-evento.passada strong {
+    color: var(--texto-suave);
+}
+
+.agenda-evento.passada:hover {
+    opacity: 0.8;
+}
+
+/* No dia de hoje, marca o instante atual entre o que já foi e o que falta. */
+.agenda-agora {
+    display: flex;
+    align-items: center;
+    gap: var(--esp-2);
+    margin: var(--esp-1) 0;
+    color: var(--roxo-claro);
+    font-size: var(--texto-xs);
+    font-weight: var(--peso-forte);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.agenda-agora::before,
+.agenda-agora::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid color-mix(in srgb, var(--roxo-claro) 55%, transparent);
+}
+
 .agenda-evento.verde {
     --cor-linha: var(--verde);
 }
@@ -1059,6 +1104,24 @@
     font-size: var(--texto-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Conta Google de origem (Rafa, comercial, …). */
+.agenda-evento-origem {
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--roxo-claro);
+    font-size: var(--texto-xs);
+    font-weight: var(--peso-forte);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agenda-linha-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--esp-2);
+    align-items: center;
 }
 
 /* --------------------------------------------------------------------------

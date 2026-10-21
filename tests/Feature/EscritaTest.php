@@ -145,6 +145,28 @@ class EscritaTest extends TestCase
             ->assertJsonValidationErrors('empresaId');
     }
 
+    public function test_so_reuniao_interna_fica_sem_empresa(): void
+    {
+        $semEmpresa = [
+            'empresaId' => '',
+            'data' => '2026-10-02',
+            'responsavel' => 'Matheus',
+            'status' => 'Agendada',
+            'resumo' => 'Planejamento da equipe.',
+        ];
+
+        $this->autenticado()
+            ->postJson('/api/reunioes', [...$semEmpresa, 'tipo' => 'Alinhamento'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('empresaId');
+
+        $this->autenticado()
+            ->postJson('/api/reunioes', [...$semEmpresa, 'tipo' => 'Interna'])
+            ->assertCreated()
+            ->assertJsonPath('data.empresaId', null)
+            ->assertJsonPath('data.empresa', 'Sem empresa');
+    }
+
     public function test_projeto_e_cadastrado_e_excluido(): void
     {
         $id = $this->autenticado()

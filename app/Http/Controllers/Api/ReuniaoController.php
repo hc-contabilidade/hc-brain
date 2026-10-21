@@ -15,7 +15,10 @@ class ReuniaoController extends Controller
     /** Histórico completo, já ordenado como a linha do tempo mostra. */
     public function index(): JsonResponse
     {
-        $reunioes = Reuniao::with('empresa.socio')->orderByDesc('data')->orderByDesc('id')->get();
+        $reunioes = Reuniao::with(['empresa.socio', 'contaGoogle'])
+            ->orderByDesc('data')
+            ->orderByDesc('id')
+            ->get();
 
         return response()->json([
             'reunioes' => ReuniaoResource::collection($reunioes),
@@ -54,7 +57,7 @@ class ReuniaoController extends Controller
      */
     private static function envelope(Reuniao $reuniao, int $status = 200): JsonResponse
     {
-        $recurso = new ReuniaoResource($reuniao->load('empresa.socio'));
+        $recurso = new ReuniaoResource($reuniao->load(['empresa.socio', 'contaGoogle']));
 
         return response()->json(['data' => $recurso], $status);
     }

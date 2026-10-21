@@ -279,7 +279,7 @@ final class Sofia
         }
 
         $lista = $reunioes
-            ->map(fn (Reuniao $r) => "• {$r->empresa->nome} — {$r->data->format('d/m/Y')} ({$r->status})")
+            ->map(fn (Reuniao $r) => "• {$r->nomeDaEmpresa()} — {$r->data->format('d/m/Y')} ({$r->status})")
             ->implode("\n");
 
         return "Encontrei {$reunioes->count()} reunião(ões) de {$tipo}:\n{$lista}";
@@ -294,7 +294,7 @@ final class Sofia
         }
 
         $lista = $pendentes
-            ->map(fn (Reuniao $r) => "• {$r->empresa->nome} — {$r->tipo} em {$r->data->format('d/m/Y')}")
+            ->map(fn (Reuniao $r) => "• {$r->nomeDaEmpresa()} — {$r->tipo} em {$r->data->format('d/m/Y')}")
             ->implode("\n");
 
         return "Há {$pendentes->count()} reunião(ões) agendada(s):\n{$lista}";

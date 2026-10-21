@@ -7,14 +7,10 @@
    ========================================================= */
 
 import {
-    cadastrarReuniao,
     carregarReunioes,
-    excluirReuniao,
-    salvarReuniao,
     STATUS_DE_REUNIAO,
     tagDoStatus,
     tagDoTipoDeReuniao,
-    TIPOS_DE_REUNIAO,
     type Reuniao,
     type StatusReuniao,
 } from "../dados/reunioes.ts";
@@ -25,12 +21,12 @@ import {
     observarEstado,
     obterSecao,
     type EscalaCalendario,
+    type EstadoReunioes,
     type VisualizacaoAgenda,
 } from "../comum/estado.ts";
 import { dataCurta, escapar, mesPorExtenso, plural } from "../comum/formato.ts";
-import { abrirFormulario } from "../comum/formulario.ts";
 import { desenharIcones, icone, type NomeDeIcone } from "../comum/icones.ts";
-import { openMeetingModal, showModal } from "../comum/modal.ts";
+import { openMeetingModal } from "../comum/modal.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
 iniciarPagina("reunioes");
@@ -52,6 +48,15 @@ const deCampo = campo("meetingFrom");
 const ateCampo = campo("meetingTo");
 
 let { reunioes: meetingsData, empresas } = await carregarReunioes();
+
+/** Os filtros da lista, menos o período, cada um no seu "todos". */
+const SEM_FILTROS = {
+    busca: "",
+    tipo: "Todas",
+    empresa: "Todas",
+    status: "Todos",
+    responsavel: "Todos",
+} satisfies Partial<EstadoReunioes>;
 
 /** Cor da etiqueta de cada status, reaproveitada na barra e na legenda. */
 const CLASSE_DO_STATUS: Record<StatusReuniao, string> = {
@@ -78,10 +83,12 @@ function preencherOpcoes(): void {
         });
     };
 
-    repovoar(
-        empresaFilter,
-        empresas.map(({ nome }) => nome),
-    );
+    repovoar(empresaFilter, [
+        ...(meetingsData.some(({ empresaId }) => empresaId === null)
+            ? ["Sem empresa"]
+            : []),
+        ...empresas.map(({ nome }) => nome),
+    ]);
 
     // Os responsáveis não têm cadastro próprio; a lista sai das reuniões
     // existentes, que é exatamente o conjunto que o filtro consegue achar.
@@ -104,6 +111,50 @@ function paraIso(data: Date): string {
     return `${data.getFullYear()}-${mes}-${dia}`;
 }
 
+/**
+ * Minutos desde meia-noite para ordenar. Aceita `H:i` ou `H:i:s` (MySQL TIME).
+ * Sem horário válido fica no fim do dia.
+ */
+function minutosDoHorario(horario: string | null): number {
+    if (!horario) {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    const partes = horario.split(":").map(Number);
+    const hora = partes[0];
+    const minuto = partes[1] ?? 0;
+    if (!Number.isFinite(hora) || !Number.isFinite(minuto)) {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    return hora * 60 + minuto;
+}
+
+/** Dentro do dia: da mais cedo para a mais tarde. */
+function ordenarDoDia(reunioes: Reuniao[]): Reuniao[] {
+    return [...reunioes].sort(
+        (a, b) => minutosDoHorario(a.horario) - minutosDoHorario(b.horario),
+    );
+}
+
+/**
+ * Já começou (ou o dia já passou). Sem horário no dia de hoje ainda conta
+ * como por vir — não dá para marcar o horário sem inventar um.
+ */
+function jaPassou(reuniao: Reuniao, agora = new Date()): boolean {
+    const hoje = paraIso(agora);
+    if (reuniao.dataOrd < hoje) {
+        return true;
+    }
+    if (reuniao.dataOrd > hoje || !reuniao.horario) {
+        return false;
+    }
+
+    return (
+        minutosDoHorario(reuniao.horario) <= agora.getHours() * 60 + agora.getMinutes()
+    );
+}
+
 /* ---------------------------------------------------------
    RECORTE
    `recorte` é tudo menos o status, porque são os cartões do
@@ -116,9 +167,17 @@ function recorte(): Reuniao[] {
 
     return meetingsData
         .filter((reuniao) => estado.tipo === "Todas" || reuniao.tipo === estado.tipo)
-        .filter(
-            (reuniao) => estado.empresa === "Todas" || reuniao.empresa === estado.empresa,
-        )
+        .filter((reuniao) => {
+            if (estado.empresa === "Todas") {
+                return true;
+            }
+            // Sem empresa o card mostra o título do Google; o filtro agrupa pelo id.
+            if (estado.empresa === "Sem empresa") {
+                return reuniao.empresaId === null;
+            }
+
+            return reuniao.empresa === estado.empresa;
+        })
         .filter(
             (reuniao) =>
                 estado.responsavel === "Todos" ||
@@ -152,7 +211,7 @@ function agruparPorDia(reunioes: Reuniao[]): [string, Reuniao[]][] {
         return mapa;
     }, {});
 
-    return Object.entries(grupos);
+    return Object.entries(grupos).map(([dia, doDia]) => [dia, ordenarDoDia(doDia)]);
 }
 
 /* ---------------------------------------------------------
@@ -329,6 +388,11 @@ function classeDoStatus(reuniao: Reuniao): string {
     return `status-${CLASSE_DO_STATUS[reuniao.status]}`;
 }
 
+/** Reunião vinda do Google pinta a faixa com a cor do evento lá; as outras, com a do status. */
+function estiloDaCor(reuniao: Reuniao): string {
+    return reuniao.cor ? ` style="--cor-linha: ${escapar(reuniao.cor)}"` : "";
+}
+
 function etiquetaDeStatus(reuniao: Reuniao): string {
     return `<span class="tag ${tagDoStatus[reuniao.status]}"><i class="agenda-ponto"></i>${escapar(reuniao.status)}</span>`;
 }
@@ -337,9 +401,37 @@ function etiquetaDeTipo(reuniao: Reuniao): string {
     return `<span class="agenda-tipo ${tagDoTipoDeReuniao[reuniao.tipo]}"><i class="agenda-ponto"></i>${escapar(reuniao.tipo)}</span>`;
 }
 
+/** Rótulo curto da conta Google (a API já manda "Equipe HC", "Rafael", …). */
+function rotuloDaAgenda(reuniao: Reuniao): string | null {
+    if (!reuniao.agenda) {
+        return null;
+    }
+
+    return reuniao.agenda.nome.trim() || reuniao.agenda.email;
+}
+
+/** Cor estável por e-mail: Rafa e comercial ficam com tons diferentes. */
+function tomDaAgenda(email: string): string {
+    let soma = 0;
+    for (const caractere of email) {
+        soma += caractere.charCodeAt(0);
+    }
+
+    return (["blue", "purple", "yellow"] as const)[soma % 3];
+}
+
+function etiquetaDeAgenda(reuniao: Reuniao): string {
+    const rotulo = rotuloDaAgenda(reuniao);
+    if (!rotulo || !reuniao.agenda) {
+        return "";
+    }
+
+    return `<span class="tag ${tomDaAgenda(reuniao.agenda.email)}" title="${escapar(reuniao.agenda.email)}">${escapar(rotulo)}</span>`;
+}
+
 function renderLinha(reuniao: Reuniao): string {
     return `
-    <div class="agenda-linha ${classeDoStatus(reuniao)}" role="button" tabindex="0"
+    <div class="agenda-linha ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
          data-meeting-id="${reuniao.id}" data-date-ord="${reuniao.dataOrd}"
          aria-label="Abrir reunião de ${escapar(reuniao.tipo)} com ${escapar(reuniao.empresa)}">
       <div>
@@ -353,7 +445,7 @@ function renderLinha(reuniao: Reuniao): string {
         <div class="agenda-linha-titulo">${escapar(reuniao.empresa)}</div>
         <div class="agenda-linha-motivo">${escapar(reuniao.resumo)}</div>
       </div>
-      <div>${etiquetaDeTipo(reuniao)}</div>
+      <div class="agenda-linha-etiquetas">${etiquetaDeTipo(reuniao)}${etiquetaDeAgenda(reuniao)}</div>
       <div>${etiquetaDeStatus(reuniao)}</div>
       <div class="agenda-pessoa">${escapar(reuniao.responsavel)}</div>
       <div class="agenda-pessoa">${plural(reuniao.participantes.length, "pessoa", "pessoas")}</div>
@@ -363,7 +455,7 @@ function renderLinha(reuniao: Reuniao): string {
 
 function renderCartao(reuniao: Reuniao): string {
     return `
-    <article class="agenda-card ${classeDoStatus(reuniao)}" role="button" tabindex="0"
+    <article class="agenda-card ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
              data-meeting-id="${reuniao.id}"
              aria-label="Abrir reunião de ${escapar(reuniao.tipo)} com ${escapar(reuniao.empresa)}">
       <div class="agenda-card-topo">
@@ -377,6 +469,7 @@ function renderCartao(reuniao: Reuniao): string {
       <div class="agenda-card-meta">
         ${etiquetaDeTipo(reuniao)}
         ${etiquetaDeStatus(reuniao)}
+        ${etiquetaDeAgenda(reuniao)}
         <span class="agenda-pessoa">Realiza: ${escapar(reuniao.responsavel)}</span>
       </div>
     </article>`;
@@ -474,17 +567,16 @@ function guardarAncora(data: Date): void {
     atualizarSecao("reunioes", { ancoraCalendario: paraIso(data) });
 }
 
-/** A segunda-feira da semana que contém a data. */
-function segundaDaSemana(data: Date): Date {
+/** O domingo da semana que contém a data (Dom → Sáb). */
+function domingoDaSemana(data: Date): Date {
     const inicio = meiaNoite(data);
-    const desvio = (inicio.getDay() + 6) % 7;
-    inicio.setDate(inicio.getDate() - desvio);
+    inicio.setDate(inicio.getDate() - inicio.getDay());
     return inicio;
 }
 
 /** Onde a janela começa, que depende da escala. */
 function inicioDaJanela(escala: EscalaCalendario, ancora: Date): Date {
-    if (escala === "semana") return segundaDaSemana(ancora);
+    if (escala === "semana") return domingoDaSemana(ancora);
     if (escala === "mes") return new Date(ancora.getFullYear(), ancora.getMonth(), 1);
     if (escala === "ano") return new Date(ancora.getFullYear(), 0, 1);
     return meiaNoite(ancora);
@@ -507,10 +599,16 @@ function deslocarJanela(escala: EscalaCalendario, passos: number): void {
 
 /** As reuniões de toda a base indexadas por dia, para o calendário consultar. */
 function reunioesPorDia(): Record<string, Reuniao[]> {
-    return meetingsData.reduce<Record<string, Reuniao[]>>((mapa, reuniao) => {
-        (mapa[reuniao.dataOrd] ||= []).push(reuniao);
-        return mapa;
+    const mapa = meetingsData.reduce<Record<string, Reuniao[]>>((acc, reuniao) => {
+        (acc[reuniao.dataOrd] ||= []).push(reuniao);
+        return acc;
     }, {});
+
+    for (const dia of Object.keys(mapa)) {
+        mapa[dia] = ordenarDoDia(mapa[dia]);
+    }
+
+    return mapa;
 }
 
 function tituloDaJanela(escala: EscalaCalendario, inicio: Date): string {
@@ -552,18 +650,62 @@ function tituloDaJanela(escala: EscalaCalendario, inicio: Date): string {
 }
 
 /** Um evento clicável, igual nas colunas e no mês. */
-function renderEvento(reuniao: Reuniao): string {
+function renderEvento(reuniao: Reuniao, passada = false): string {
     const hora = reuniao.horario
         ? escapar(reuniao.horario)
         : `<span class="agenda-evento-sem-hora">Sem horário</span>`;
+    const classes = [
+        "agenda-evento",
+        CLASSE_DO_STATUS[reuniao.status],
+        passada ? "passada" : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     return `
-    <button type="button" class="agenda-evento ${CLASSE_DO_STATUS[reuniao.status]}"
+    <button type="button" class="${classes}"${estiloDaCor(reuniao)}
             data-meeting-id="${reuniao.id}">
       <span class="agenda-evento-hora">${hora}</span>
       <strong>${escapar(reuniao.empresa)}</strong>
       <span class="agenda-evento-tipo">${escapar(reuniao.tipo)}</span>
+      ${(() => {
+          const origem = rotuloDaAgenda(reuniao);
+          return origem
+              ? `<span class="agenda-evento-origem">${escapar(origem)}</span>`
+              : "";
+      })()}
     </button>`;
+}
+
+/**
+ * Corpo de um dia nas colunas: ordem cronológica, as que já passaram
+ * apagadas, e no dia de hoje uma linha "Agora" entre o que foi e o que vem.
+ */
+function corpoDaColuna(reunioes: Reuniao[], data: Date, hoje: Date): string {
+    if (!reunioes.length) {
+        return `<p class="agenda-coluna-vazia">Sem reuniões</p>`;
+    }
+
+    if (data.getTime() < hoje.getTime()) {
+        return reunioes.map((reuniao) => renderEvento(reuniao, true)).join("");
+    }
+
+    if (data.getTime() > hoje.getTime()) {
+        return reunioes.map((reuniao) => renderEvento(reuniao, false)).join("");
+    }
+
+    const passadas = reunioes.filter((reuniao) => jaPassou(reuniao));
+    const proximas = reunioes.filter((reuniao) => !jaPassou(reuniao));
+    const separador =
+        passadas.length && proximas.length
+            ? `<div class="agenda-agora" role="separator"><span>Agora</span></div>`
+            : "";
+
+    return (
+        passadas.map((reuniao) => renderEvento(reuniao, true)).join("") +
+        separador +
+        proximas.map((reuniao) => renderEvento(reuniao, false)).join("")
+    );
 }
 
 /** Dia, 4 dias e semana: uma coluna por dia, reuniões empilhadas. */
@@ -591,11 +733,7 @@ function renderColunas(escala: EscalaCalendario, inicio: Date, dias: HTMLElement
           <strong>${data.getDate()}</strong>
         </button>
         <div class="agenda-coluna-corpo">
-          ${
-              reunioes.length
-                  ? reunioes.map(renderEvento).join("")
-                  : `<p class="agenda-coluna-vazia">Sem reuniões</p>`
-          }
+          ${corpoDaColuna(reunioes, data, hoje)}
         </div>
       </div>`;
     }).join("");
@@ -606,13 +744,14 @@ function renderMes(inicio: Date, dias: HTMLElement): void {
     const ano = inicio.getFullYear();
     const mes = inicio.getMonth();
     const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-    const indiceSegunda = (new Date(ano, mes, 1).getDay() + 6) % 7;
+    // Mesma ordem da visão Semana: Dom → Sáb (`getDay()` já nasce no domingo).
+    const indiceDomingo = new Date(ano, mes, 1).getDay();
     const diasMesAnterior = new Date(ano, mes, 0).getDate();
     const hoje = meiaNoite(new Date());
     const porDia = reunioesPorDia();
 
     const celulas: CelulaCalendario[] = [];
-    for (let i = indiceSegunda - 1; i >= 0; i--) {
+    for (let i = indiceDomingo - 1; i >= 0; i--) {
         celulas.push({
             dia: diasMesAnterior - i,
             data: new Date(ano, mes - 1, diasMesAnterior - i),
@@ -623,7 +762,7 @@ function renderMes(inicio: Date, dias: HTMLElement): void {
         celulas.push({ dia, data: new Date(ano, mes, dia), fora: false });
     }
     while (celulas.length % 7 !== 0) {
-        const dia = celulas.length - (indiceSegunda + diasNoMes) + 1;
+        const dia = celulas.length - (indiceDomingo + diasNoMes) + 1;
         celulas.push({ dia, data: new Date(ano, mes + 1, dia), fora: true });
     }
 
@@ -648,10 +787,16 @@ function renderMes(inicio: Date, dias: HTMLElement): void {
         <span class="calendar-day-number">${dia}</span>
         ${reunioes
             .slice(0, 3)
-            .map(
-                (reuniao) =>
-                    `<span class="calendar-meeting ${CLASSE_DO_STATUS[reuniao.status]}">${reuniao.horario || "—"} · ${escapar(reuniao.empresa)}</span>`,
-            )
+            .map((reuniao) => {
+                const classes = [
+                    "calendar-meeting",
+                    reuniao.cor ? "cor-google" : CLASSE_DO_STATUS[reuniao.status],
+                    jaPassou(reuniao) ? "passada" : "",
+                ]
+                    .filter(Boolean)
+                    .join(" ");
+                return `<span class="${classes}"${estiloDaCor(reuniao)}>${reuniao.horario || "—"} · ${escapar(reuniao.empresa)}</span>`;
+            })
             .join("")}
         ${reunioes.length > 3 ? `<span class="calendar-more">+${plural(reunioes.length - 3, "reunião", "reuniões")}</span>` : ""}
       </div>`;
@@ -669,10 +814,10 @@ function renderAno(inicio: Date, dias: HTMLElement): void {
     dias.style.removeProperty("--colunas");
     dias.innerHTML = Array.from({ length: 12 }, (_, mes) => {
         const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-        const indiceSegunda = (new Date(ano, mes, 1).getDay() + 6) % 7;
+        const indiceDomingo = new Date(ano, mes, 1).getDay();
         let noMes = 0;
 
-        const celulas = Array.from({ length: indiceSegunda }, () => `<span></span>`);
+        const celulas = Array.from({ length: indiceDomingo }, () => `<span></span>`);
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const data = new Date(ano, mes, dia);
             const reunioes = porDia[paraIso(data)] || [];
@@ -760,7 +905,7 @@ function renderReunioes(): void {
                 const reuniao = meetingsData.find(
                     (registro) => registro.id === Number(dado(elemento, "meetingId")),
                 );
-                if (reuniao) openMeetingModal(reuniao, () => abrirFormularioDe(reuniao));
+                if (reuniao) openMeetingModal(reuniao);
             };
 
             elemento.addEventListener("click", abrir);
@@ -896,15 +1041,7 @@ porId("meetingViewToggle").addEventListener("click", (evento) => {
 });
 
 porId("clearMeetingFilters").addEventListener("click", () => {
-    atualizarSecao("reunioes", {
-        busca: "",
-        tipo: "Todas",
-        empresa: "Todas",
-        status: "Todos",
-        responsavel: "Todos",
-        de: "",
-        ate: "",
-    });
+    atualizarSecao("reunioes", { ...SEM_FILTROS, de: "", ate: "" });
 });
 
 porId("calendarPrev").addEventListener("click", () => deslocarJanela(escalaAtual(), -1));
@@ -921,7 +1058,7 @@ calendario.addEventListener("click", (evento) => {
         const reuniao = meetingsData.find(
             (registro) => registro.id === Number(dado(evt, "meetingId")),
         );
-        if (reuniao) openMeetingModal(reuniao, () => abrirFormularioDe(reuniao));
+        if (reuniao) openMeetingModal(reuniao);
         return;
     }
 
@@ -934,10 +1071,17 @@ calendario.addEventListener("click", (evento) => {
         return;
     }
 
+    // O calendário mostra todas as reuniões, sem filtro; o dia aberto nele
+    // precisa listar as mesmas, não só as que passam num filtro esquecido.
     const dia = alvoMaisProximo(evento, "[data-recortar-dia]");
     if (dia) {
         const iso = dado(dia, "recortarDia");
-        atualizarSecao("reunioes", { de: iso, ate: iso, visualizacao: "list" });
+        atualizarSecao("reunioes", {
+            ...SEM_FILTROS,
+            de: iso,
+            ate: iso,
+            visualizacao: "list",
+        });
     }
 });
 
@@ -976,151 +1120,45 @@ document.addEventListener("keydown", (evento) => {
 });
 
 /**
- * O mesmo formulário registra e edita: os campos são os mesmos, muda só se já
- * existe uma reunião por trás. `reuniao` ausente é um registro novo.
+ * Um filtro salvo que a tela não consegue mostrar — empresa ou responsável que
+ * não estão mais na lista, data fora do formato do campo — esconderia reuniões
+ * com todos os controles aparentando "Todos". Ele volta ao padrão.
  */
-function abrirFormularioDe(reuniao?: Reuniao): void {
-    if (!empresas.length) {
-        showModal(
-            "Nenhuma empresa cadastrada",
-            "Toda reunião pertence a uma empresa da carteira. Cadastre a empresa primeiro, em Empresas & clientes.",
-        );
-        return;
-    }
+function descartarFiltrosInvisiveis(): boolean {
+    const estado = obterSecao("reunioes");
+    const temOpcao = (seletor: HTMLSelectElement, valor: string): boolean =>
+        [...seletor.options].some((opcao) => opcao.value === valor);
+    const dataValida = (valor: string): boolean =>
+        valor === "" || /^\d{4}-\d{2}-\d{2}$/.test(valor);
 
-    void abrirFormulario({
-        titulo: reuniao ? `Reunião de ${reuniao.tipo}` : "Nova reunião",
-        descricao: reuniao
-            ? `${reuniao.empresa} • registrada em ${reuniao.data}.`
-            : "A reunião entra no histórico da empresa e aparece na agenda.",
-        campos: [
-            {
-                nome: "empresaId",
-                rotulo: "Empresa",
-                tipo: "selecao",
-                valor: reuniao?.empresaId,
-                opcoes: empresas.map(({ id, nome }) => ({ valor: id, rotulo: nome })),
-            },
-            {
-                nome: "tipo",
-                rotulo: "Tipo",
-                tipo: "selecao",
-                valor: reuniao?.tipo,
-                opcoes: TIPOS_DE_REUNIAO.map((tipo) => ({ valor: tipo, rotulo: tipo })),
-            },
-            {
-                nome: "data",
-                rotulo: "Data",
-                tipo: "data",
-                valor: reuniao?.dataOrd,
-                obrigatorio: true,
-            },
-            {
-                nome: "horario",
-                rotulo: "Horário",
-                tipo: "hora",
-                valor: reuniao?.horario ?? "",
-                dica: "Opcional.",
-            },
-            {
-                nome: "responsavel",
-                rotulo: "Responsável interno",
-                valor: reuniao?.responsavel,
-                obrigatorio: true,
-            },
-            {
-                nome: "status",
-                rotulo: "Status",
-                tipo: "selecao",
-                valor: reuniao?.status ?? "Agendada",
-                opcoes: STATUS_DE_REUNIAO.map((status) => ({
-                    valor: status,
-                    rotulo: status,
-                })),
-            },
-            {
-                nome: "participantes",
-                rotulo: "Participantes",
-                tipo: "linhas",
-                valor: reuniao?.participantes.join("\n"),
-                dica: "Um nome por linha.",
-                largo: true,
-            },
-            {
-                nome: "resumo",
-                rotulo: "Resumo",
-                tipo: "longo",
-                valor: reuniao?.resumo,
-                obrigatorio: true,
-                largo: true,
-            },
-            {
-                nome: "decisoes",
-                rotulo: "Decisões tomadas",
-                tipo: "linhas",
-                valor: reuniao?.decisoes.join("\n"),
-                dica: "Uma por linha.",
-                largo: true,
-            },
-            {
-                nome: "proximosPassos",
-                rotulo: "Próximos passos",
-                tipo: "linhas",
-                valor: reuniao?.proximosPassos.join("\n"),
-                dica: "Um por linha.",
-                largo: true,
-            },
-        ],
-        confirmar: reuniao ? "Salvar reunião" : "Registrar reunião",
-        excluir: reuniao
-            ? {
-                  rotulo: "Excluir reunião",
-                  confirmacao:
-                      "A reunião sai do histórico da empresa e da agenda. Não há como desfazer.",
-                  aoExcluir: async () => {
-                      await excluirReuniao(reuniao.id);
-                      await recarregar();
-                  },
-              }
-            : undefined,
-        aoSalvar: async (valores) => {
-            const dados = {
-                empresaId: valores.texto("empresaId"),
-                tipo: valores.texto("tipo"),
-                data: valores.texto("data"),
-                horario: valores.texto("horario") || null,
-                responsavel: valores.texto("responsavel"),
-                status: valores.texto("status"),
-                resumo: valores.texto("resumo"),
-                participantes: valores.linhas("participantes"),
-                decisoes: valores.linhas("decisoes"),
-                proximosPassos: valores.linhas("proximosPassos"),
-            };
+    const correcoes: Partial<EstadoReunioes> = {
+        ...(typeof estado.busca === "string" ? {} : { busca: SEM_FILTROS.busca }),
+        ...(temOpcao(tipoFilter, estado.tipo) ? {} : { tipo: SEM_FILTROS.tipo }),
+        ...(temOpcao(empresaFilter, estado.empresa)
+            ? {}
+            : { empresa: SEM_FILTROS.empresa }),
+        ...(temOpcao(statusFilter, estado.status) ? {} : { status: SEM_FILTROS.status }),
+        ...(temOpcao(responsavelFilter, estado.responsavel)
+            ? {}
+            : { responsavel: SEM_FILTROS.responsavel }),
+        ...(dataValida(estado.de) ? {} : { de: "" }),
+        ...(dataValida(estado.ate) ? {} : { ate: "" }),
+    };
 
-            if (reuniao) {
-                await salvarReuniao(reuniao.id, dados);
-            } else {
-                await cadastrarReuniao(dados);
-            }
+    if (!Object.keys(correcoes).length) return false;
 
-            await recarregar();
-        },
-    });
+    atualizarSecao("reunioes", correcoes);
+    return true;
 }
 
-async function recarregar(): Promise<void> {
-    ({ reunioes: meetingsData, empresas } = await carregarReunioes());
-    preencherOpcoes();
+function atualizarTela(): void {
+    // A correção grava o estado, e o observador redesenha a tela com ele.
+    if (descartarFiltrosInvisiveis()) return;
+
     aplicarEstadoNosControles();
     renderReunioes();
 }
 
-porId("newMeeting").addEventListener("click", () => abrirFormularioDe());
+observarEstado(["reunioes"], atualizarTela);
 
-observarEstado(["reunioes"], () => {
-    aplicarEstadoNosControles();
-    renderReunioes();
-});
-
-aplicarEstadoNosControles();
-renderReunioes();
+atualizarTela();

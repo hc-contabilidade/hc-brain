@@ -2,7 +2,7 @@ FROM php:8.5-apache
 
 WORKDIR /app
 
-# Dependências do sistema e PHP
+# Dependências do sistema e PHP (incluindo bibliotecas necessárias para GD)
 RUN apt-get update && \
     apt-get install -y \
         curl \
@@ -14,16 +14,22 @@ RUN apt-get update && \
         libonig-dev \
         libxml2-dev \
         libcurl4-openssl-dev \
+        libpng-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
         unzip \
         && rm -rf /var/lib/apt/lists/*
 
-# Instala extensões PHP
-RUN docker-php-ext-install \
-    pdo_sqlite \
-    pdo_pgsql \
-    bcmath \
-    intl \
-    zip
+# Configura e instala extensões PHP (incluindo GD)
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install \
+        pdo_sqlite \
+        pdo_pgsql \
+        pdo_mysql \
+        bcmath \
+        intl \
+        zip \
+        gd
 
 # Apache: habilita URLs do Laravel
 RUN a2enmod rewrite
@@ -52,7 +58,7 @@ RUN composer install \
 # Dependências JS e Build do Vite
 RUN npm install && npm run build
 
-# Torna o script de entrada executavel
+# Torna o script de entrada executável
 RUN chmod +x docker/entrypoint.sh
 
 # Render usa PORT=10000 por padrão

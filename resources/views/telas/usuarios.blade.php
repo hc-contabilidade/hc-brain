@@ -88,5 +88,22 @@
         </table>
       </div>
     </div>
+
+    {{-- Só administradores veem: o script mostra o painel conforme o perfil. --}}
+    <div class="panel agendas-google" id="agendasGoogle" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Agendas do Google</h2>
+          <p class="muted">
+            Os eventos com Meet destas agendas entram em Reuniões a cada 5 minutos.
+          </p>
+        </div>
+        <div class="page-header-actions">
+          <button type="button" class="secondary" id="sincronizarAgendas" hidden>Sincronizar agora</button>
+          <a class="primary" id="conectarAgenda" href="{{ route('google.conectar') }}">Conectar conta Google</a>
+        </div>
+      </div>
+      <div id="agendasGoogleLista"></div>
+    </div>
   </section>
 @endsection

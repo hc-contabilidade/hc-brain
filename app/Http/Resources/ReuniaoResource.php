@@ -13,10 +13,10 @@ class ReuniaoResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'empresa' => $this->empresa->nome,
+            'empresa' => $this->nomeDaEmpresa(),
             'empresaId' => $this->empresa_id,
             // O modal da reunião mostra o sócio da empresa, então ele vem junto.
-            'socio' => $this->whenLoaded('empresa', fn () => $this->empresa->relationLoaded('socio')
+            'socio' => $this->whenLoaded('empresa', fn () => $this->empresa?->relationLoaded('socio')
                 ? "{$this->empresa->socio->nome} ({$this->empresa->socio->cargo})"
                 : null),
             'tipo' => $this->tipo,
@@ -30,6 +30,13 @@ class ReuniaoResource extends JsonResource
             'decisoes' => $this->decisoes,
             'proximosPassos' => $this->proximos_passos,
             'status' => $this->status,
+            'linkMeet' => $this->link_meet,
+            'cor' => $this->cor,
+            // Qual conta Google trouxe a reunião (Rafa, comercial, …).
+            'agenda' => $this->contaGoogle === null ? null : [
+                'nome' => $this->contaGoogle->rotuloNaAgenda(),
+                'email' => $this->contaGoogle->email,
+            ],
         ];
     }
 }

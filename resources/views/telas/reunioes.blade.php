@@ -17,10 +17,6 @@
           quando precisar.
         </p>
       </div>
-
-      <div class="page-header-actions">
-        <button class="primary" id="newMeeting" type="button">Nova reunião</button>
-      </div>
     </div>
 
     <section class="agenda-resumo" aria-label="Resumo do período">
@@ -87,6 +83,7 @@
             <option value="Comercial">Comercial</option>
             <option value="Alinhamento">Alinhamento</option>
             <option value="Financeira">Financeira</option>
+            <option value="Interna">Interna</option>
           </select>
         </div>
 
@@ -187,8 +184,8 @@
         </div>
         {{-- A régua de dias da semana só faz sentido sobre a grade do mês. --}}
         <div class="calendar-weekdays" id="calendarWeekdays" aria-hidden="true">
-          <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span>
-          <span>Sex</span><span>Sáb</span><span>Dom</span>
+          <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span>
+          <span>Qui</span><span>Sex</span><span>Sáb</span>
         </div>
         <div class="calendar-days" id="calendarDays"></div>
       </div>

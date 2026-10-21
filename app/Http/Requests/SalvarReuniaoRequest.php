@@ -11,7 +11,7 @@ class SalvarReuniaoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'empresaId' => ['required', 'string', 'exists:empresas,id'],
+            'empresaId' => ['nullable', 'required_unless:tipo,'.Reuniao::INTERNA, 'string', 'exists:empresas,id'],
             'tipo' => ['required', Rule::in(Reuniao::TIPOS)],
             'data' => ['required', 'date'],
             'horario' => ['nullable', 'date_format:H:i'],
@@ -42,6 +42,7 @@ class SalvarReuniaoRequest extends FormRequest
     {
         return [
             'empresaId.exists' => 'Escolha uma empresa da carteira.',
+            'empresaId.required_unless' => 'Escolha a empresa: só reunião interna fica sem empresa.',
             'horario.date_format' => 'Informe o horário como 14:30.',
         ];
     }
@@ -50,7 +51,7 @@ class SalvarReuniaoRequest extends FormRequest
     public function paraOBanco(): array
     {
         return [
-            'empresa_id' => $this->string('empresaId')->toString(),
+            'empresa_id' => $this->filled('empresaId') ? $this->string('empresaId')->toString() : null,
             'tipo' => $this->string('tipo')->toString(),
             'data' => $this->date('data'),
             'horario' => $this->input('horario'),
