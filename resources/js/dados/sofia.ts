@@ -1,8 +1,7 @@
 /* =========================================================
    SOFIA — sugestões iniciais e respostas do assistente
-   A resposta é montada no servidor, onde está o banco: a Sofia lê
-   exatamente as mesmas empresas, reuniões e treinamentos das
-   outras telas.
+   A tela manda a pergunta e o histórico; o servidor consulta a
+   base pelas ferramentas da Sofia e devolve o texto.
    ========================================================= */
 
 import { enviar, enviarArquivo, obter } from "../comum/api.ts";
@@ -41,8 +40,33 @@ export function carregarSugestoes(): Promise<SugestaoSofia[]> {
     return obter<SugestaoSofia[]>("/sofia/sugestoes");
 }
 
-export async function perguntarSofia(pergunta: string): Promise<string> {
-    const resposta = await enviar<{ resposta: string }>("/sofia/perguntar", { pergunta });
+/** Troca anterior enviada ao modelo. `bot` na tela vira `assistant`. */
+export interface TurnoSofia {
+    papel: "user" | "assistant";
+    texto: string;
+}
+
+const MAX_HISTORICO = 20;
+
+/** Últimas trocas da conversa, já no formato da API. */
+export function historicoDaConversa(mensagens: MensagemSofia[]): TurnoSofia[] {
+    return mensagens
+        .filter((mensagem) => mensagem.texto.trim() !== "")
+        .map((mensagem): TurnoSofia => ({
+            papel: mensagem.autor === "bot" ? "assistant" : "user",
+            texto: mensagem.texto,
+        }))
+        .slice(-MAX_HISTORICO);
+}
+
+export async function perguntarSofia(
+    pergunta: string,
+    historico: TurnoSofia[] = [],
+): Promise<string> {
+    const resposta = await enviar<{ resposta: string }>("/sofia/perguntar", {
+        pergunta,
+        historico,
+    });
     return resposta.resposta;
 }
 
@@ -50,6 +74,7 @@ export async function perguntarSofia(pergunta: string): Promise<string> {
 export function enviarAudioSofia(
     arquivo: Blob,
     nome: string,
+    historico: TurnoSofia[] = [],
 ): Promise<{ transcricao: string; resposta: string }> {
     const dados = new FormData();
     const envio =
@@ -57,6 +82,10 @@ export function enviarAudioSofia(
             ? arquivo
             : new File([arquivo], nome, { type: arquivo.type || "audio/webm" });
     dados.append("audio", envio, nome);
+    historico.forEach((turno, indice) => {
+        dados.append(`historico[${indice}][papel]`, turno.papel);
+        dados.append(`historico[${indice}][texto]`, turno.texto);
+    });
 
     return enviarArquivo("/sofia/audio", dados);
 }

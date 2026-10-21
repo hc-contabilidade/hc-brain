@@ -197,10 +197,10 @@ Alguns caminhos aproveitam esse estado para atravessar páginas:
 
 ## A Sofia
 
-A Sofia lê a mesma base das outras telas, então a resposta é montada no servidor
-(`app/Support/Sofia.php`), onde o banco está. A tela só envia a pergunta e mostra o texto que
-volta. Pergunte por uma empresa, por um tipo de reunião, por sócios, por treinamentos, por
-projetos, por processos — ou por quantos registros existem de cada coisa.
+A Sofia responde com Chat Completions (`gpt-4o-mini`) e consulta a mesma base das outras
+telas por ferramentas (`app/Support/Sofia.php`). A tela envia a pergunta e o histórico da
+conversa; o servidor devolve o texto. Sem `OPENAI_API_KEY` a API avisa — não há casamento
+de palavras escondido.
 
 ## A barra lateral
 

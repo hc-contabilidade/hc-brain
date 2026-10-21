@@ -53,21 +53,27 @@ return [
     ],
 
     /*
-    | Áudio enviado à Sofia. O navegador que reconhece voz transcreve sozinho
-    | e manda o texto. Arquivo anexado — e gravação num navegador sem esse
-    | recurso — passa pela transcrição daqui. Sem a chave, a tela avisa; a
-    | pergunta digitada continua valendo.
+    | A Sofia responde por Chat Completions e transcreve áudio com a mesma
+    | chave. Sem ela, a tela e a API avisam: não há casamento de palavras
+    | escondido atrás. O navegador que reconhece voz transcreve sozinho e
+    | manda o texto; arquivo anexado passa pela transcrição daqui.
     */
     'sofia' => [
+        'chave' => env('OPENAI_API_KEY'),
+
         /* Teto por áudio, em kilobytes. */
         'audio_kb' => 10240,
 
         'extensoes' => ['webm', 'mp3', 'mpeg', 'mpga', 'm4a', 'mp4', 'wav', 'ogg', 'oga'],
 
         'transcricao' => [
-            'chave' => env('OPENAI_API_KEY'),
             'url' => env('OPENAI_TRANSCRIPTION_URL', 'https://api.openai.com/v1/audio/transcriptions'),
             'modelo' => env('OPENAI_TRANSCRIPTION_MODEL', 'whisper-1'),
+        ],
+
+        'chat' => [
+            'url' => env('OPENAI_CHAT_URL', 'https://api.openai.com/v1/chat/completions'),
+            'modelo' => env('OPENAI_CHAT_MODEL', 'gpt-4o-mini'),
         ],
     ],
 
