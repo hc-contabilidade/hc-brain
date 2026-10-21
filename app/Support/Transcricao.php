@@ -16,7 +16,7 @@ final class Transcricao
 {
     public static function configurada(): bool
     {
-        return filled(config('hc.sofia.transcricao.chave'));
+        return filled(config('hc.sofia.chave'));
     }
 
     public static function deArquivo(UploadedFile $arquivo): string
@@ -28,7 +28,7 @@ final class Transcricao
             throw new RuntimeException('A transcrição do áudio falhou.');
         }
 
-        $resposta = Http::withToken((string) config('hc.sofia.transcricao.chave'))
+        $resposta = Http::withToken((string) config('hc.sofia.chave'))
             ->timeout(45)
             ->acceptJson()
             ->attach('file', $conteudo, $arquivo->getClientOriginalName())

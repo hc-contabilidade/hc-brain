@@ -25,6 +25,7 @@ import { ErroDeApi } from "../comum/api.ts";
 import {
     carregarSugestoes,
     enviarAudioSofia,
+    historicoDaConversa,
     perguntarSofia,
     tituloDaConversa,
     type AutorMensagem,
@@ -561,11 +562,17 @@ async function enviarPergunta(pergunta: string, voz: boolean): Promise<string | 
     aguardando.add(id);
     renderConversa();
 
+    const conversa = obterSecao("sofia").conversas.find((item) => item.id === id);
+    const historico = historicoDaConversa((conversa?.mensagens ?? []).slice(0, -1));
+
     let resposta: string;
     try {
-        resposta = await perguntarSofia(texto);
-    } catch {
-        resposta = "Não consegui consultar a base agora. Tente novamente em instantes.";
+        resposta = await perguntarSofia(texto, historico);
+    } catch (erro) {
+        resposta =
+            erro instanceof ErroDeApi
+                ? erro.message
+                : "Não consegui consultar a base agora. Tente novamente em instantes.";
     }
 
     aguardando.delete(id);
@@ -608,7 +615,10 @@ async function enviarBlob(arquivo: Blob, nome: string): Promise<void> {
     }
 
     try {
-        const resultado = await enviarAudioSofia(arquivo, nome);
+        const historico = historicoDaConversa(
+            obterSecao("sofia").conversas.find((item) => item.id === id)?.mensagens ?? [],
+        );
+        const resultado = await enviarAudioSofia(arquivo, nome, historico);
         transcrevendoId = null;
         aguardando.delete(id);
         if (!conversaAindaExiste(id)) return;

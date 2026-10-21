@@ -33,7 +33,19 @@ class EnviarAudioSofiaRequest extends FormRequest
                     }
                 },
             ],
+            ...PerguntarSofiaRequest::regrasDoHistorico(),
         ];
+    }
+
+    /**
+     * @return list<array{papel: string, texto: string}>
+     */
+    public function historico(): array
+    {
+        /** @var list<array{papel: string, texto: string}> $historico */
+        $historico = array_values($this->validated('historico') ?? []);
+
+        return $historico;
     }
 
     public function messages(): array

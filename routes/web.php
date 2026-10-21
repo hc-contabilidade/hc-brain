@@ -116,7 +116,9 @@ Route::middleware('auth')->group(function () {
             ->name('documentos.arquivo');
 
         Route::get('/sofia/sugestoes', [Api\SofiaController::class, 'sugestoes']);
-        Route::post('/sofia/perguntar', [Api\SofiaController::class, 'perguntar']);
-        Route::post('/sofia/audio', [Api\SofiaController::class, 'audio']);
+        Route::post('/sofia/perguntar', [Api\SofiaController::class, 'perguntar'])
+            ->middleware('throttle:10,1');
+        Route::post('/sofia/audio', [Api\SofiaController::class, 'audio'])
+            ->middleware('throttle:10,1');
     });
 });

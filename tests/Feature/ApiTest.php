@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Empresa;
 use App\Models\Reuniao;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -235,77 +234,5 @@ class ApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(6)
             ->assertJsonStructure([['icon', 'text']]);
-    }
-
-    public function test_sofia_conta_as_empresas_da_base(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quais empresas temos?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_starts_with($r, 'Temos 5 empresas'));
-    }
-
-    /** Com a carteira real, listar mais de mil empresas no chat não serve para nada. */
-    public function test_sofia_resume_a_lista_quando_a_carteira_e_grande(): void
-    {
-        foreach (range(1, 26) as $indice) {
-            Empresa::create(['id' => "extra-{$indice}", 'nome' => "Extra {$indice}", 'setor' => 'Saúde', 'status' => 'Ativo', 'status_tag' => 'green']);
-        }
-
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quais empresas temos?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_starts_with($r, 'Temos 31 empresas')
-                && substr_count($r, '•') === 30
-                && str_contains($r, '…e mais 1.'));
-    }
-
-    public function test_sofia_encontra_reunioes_por_tipo(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Me mostre as reuniões de abertura'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_contains($r, 'de Abertura'));
-    }
-
-    public function test_sofia_responde_sobre_uma_empresa(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quem é o sócio da Empresa X?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_contains($r, 'Flávia Silva'));
-    }
-
-    /** "Quantas reuniões temos?" caía na resposta genérica. */
-    public function test_sofia_responde_quantas_reunioes_existem(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quantas reuniões temos?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', 'A base tem 10 reuniões registradas.');
-    }
-
-    public function test_sofia_conhece_os_projetos(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quais projetos estão em andamento?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_contains($r, 'Automação do processo comercial'));
-    }
-
-    public function test_sofia_conhece_os_processos(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Qual é o processo de análise de documentos?'])
-            ->assertOk()
-            ->assertJsonPath('resposta', fn (string $r) => str_contains($r, 'Análise de documentos'));
-    }
-
-    public function test_sofia_exige_uma_pergunta(): void
-    {
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => ''])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('pergunta');
     }
 }

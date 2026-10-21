@@ -11,9 +11,9 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * Áudio da Sofia: o arquivo vira texto e a resposta sai da mesma base das
- * outras perguntas. Sem chave de transcrição, a tela já abre sabendo disso e
- * esconde o caminho do áudio — nada é enviado para fora.
+ * Áudio da Sofia: o arquivo vira texto e a resposta sai do mesmo assistente
+ * das perguntas digitadas. Sem chave, a tela já abre sabendo disso e esconde
+ * o caminho do áudio — nada é enviado para fora.
  */
 class SofiaAudioTest extends TestCase
 {
@@ -26,7 +26,7 @@ class SofiaAudioTest extends TestCase
         parent::setUp();
 
         $this->seed();
-        config()->set('hc.sofia.transcricao.chave', null);
+        config()->set('hc.sofia.chave', null);
     }
 
     private function autenticado(): static
@@ -58,7 +58,7 @@ class SofiaAudioTest extends TestCase
 
     public function test_tela_libera_o_audio_quando_a_transcricao_esta_configurada(): void
     {
-        config()->set('hc.sofia.transcricao.chave', 'chave-de-teste');
+        config()->set('hc.sofia.chave', 'chave-de-teste');
 
         $this->autenticado()
             ->get('/sofia-ia')
@@ -99,28 +99,37 @@ class SofiaAudioTest extends TestCase
 
     public function test_audio_responde_com_a_transcricao_e_a_base(): void
     {
-        config()->set('hc.sofia.transcricao.chave', 'chave-de-teste');
+        config()->set('hc.sofia.chave', 'chave-de-teste');
         Http::preventStrayRequests();
         Http::fake([
             'https://api.openai.com/v1/audio/transcriptions' => Http::response([
                 'text' => 'Quais empresas temos?',
+            ]),
+            'https://api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => 'Temos 5 empresas na base.',
+                    ],
+                ]],
             ]),
         ]);
 
         $this->enviar($this->audio())
             ->assertOk()
             ->assertJsonPath('transcricao', 'Quais empresas temos?')
-            ->assertJsonPath('resposta', fn (string $resposta) => str_starts_with($resposta, 'Temos 5 empresas'));
+            ->assertJsonPath('resposta', 'Temos 5 empresas na base.');
 
         Http::assertSent(function (Request $request): bool {
             return $request->url() === 'https://api.openai.com/v1/audio/transcriptions'
                 && $request->hasHeader('Authorization', 'Bearer chave-de-teste');
         });
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/chat/completions');
     }
 
     public function test_audio_avisa_quando_a_transcricao_falha(): void
     {
-        config()->set('hc.sofia.transcricao.chave', 'chave-de-teste');
+        config()->set('hc.sofia.chave', 'chave-de-teste');
         Http::preventStrayRequests();
         Http::fake([
             'https://api.openai.com/v1/audio/transcriptions' => Http::response(['error' => 'falhou'], 500),
@@ -133,7 +142,7 @@ class SofiaAudioTest extends TestCase
 
     public function test_audio_avisa_quando_nao_ha_fala(): void
     {
-        config()->set('hc.sofia.transcricao.chave', 'chave-de-teste');
+        config()->set('hc.sofia.chave', 'chave-de-teste');
         Http::preventStrayRequests();
         Http::fake([
             'https://api.openai.com/v1/audio/transcriptions' => Http::response(['text' => '   ']),
