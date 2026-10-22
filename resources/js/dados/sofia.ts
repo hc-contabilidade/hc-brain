@@ -98,37 +98,61 @@ export async function perguntarSofia(
     historico: TurnoSofia[] = [],
     pedido: PedidoSofia,
 ): Promise<RespostaSofia> {
+    const corpo = {
+        pergunta,
+        historico,
+        modo: pedido.modo,
+        conversa_id: pedido.conversaId,
+    };
+
+    try {
+        return await perguntarEmFluxo(corpo, pedido);
+    } catch (erro) {
+        // Sem chave ou sessão caída: não adianta tentar de outro jeito.
+        if (
+            erro instanceof ErroDeApi
+            && (erro.status === 401 || erro.status === 419 || erro.status === 503)
+        ) {
+            throw erro;
+        }
+
+        // No Render/Apache o SSE às vezes volta sem event-stream; a API JSON
+        // responde igual, só sem tokens um a um.
+        return enviar<RespostaSofia>("/sofia/perguntar", corpo);
+    }
+}
+
+async function perguntarEmFluxo(
+    corpo: {
+        pergunta: string;
+        historico: TurnoSofia[];
+        modo: ModoSofia;
+        conversa_id: string | null;
+    },
+    pedido: PedidoSofia,
+): Promise<RespostaSofia> {
     let resposta = "";
     let conversa: ConversaSofia | null = null;
     let erro: string | null = null;
 
-    await enviarFluxo(
-        "/sofia/perguntar",
-        {
-            pergunta,
-            historico,
-            modo: pedido.modo,
-            conversa_id: pedido.conversaId,
-        },
-        (evento) => {
-            if (typeof evento.erro === "string") {
-                erro = evento.erro;
-                return;
-            }
-            if (typeof evento.token === "string") {
-                resposta += evento.token;
-                pedido.aoToken?.(evento.token);
-            }
-            if (
-                evento.done === true &&
-                evento.conversa &&
-                typeof evento.resposta === "string"
-            ) {
-                resposta = evento.resposta;
-                conversa = evento.conversa as ConversaSofia;
-            }
-        },
-    );
+    await enviarFluxo("/sofia/perguntar", corpo, (evento) => {
+        if (typeof evento.erro === "string") {
+            erro = evento.erro;
+            return;
+        }
+        if (typeof evento.token === "string") {
+            resposta += evento.token;
+            pedido.aoToken?.(evento.token);
+        }
+        if (
+            evento.done === true
+            && evento.conversa
+            && typeof evento.resposta === "string"
+        ) {
+            resposta = evento.resposta;
+            conversa = evento.conversa as ConversaSofia;
+        }
+    });
 
     if (erro) {
         throw new ErroDeApi(502, erro);

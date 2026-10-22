@@ -136,9 +136,14 @@ export async function enviarFluxo(
     if (!tipo.includes("text/event-stream")) {
         const json: unknown = await resposta.json().catch(() => null);
         const erro = (json ?? {}) as CorpoDeErro;
+        const validacao = Object.values(erro.errors ?? {}).flat()[0];
         throw new ErroDeApi(
-            resposta.status,
-            erro.message ?? "Não foi possível falar com o servidor.",
+            resposta.status || 502,
+            erro.message
+                ?? (typeof validacao === "string" ? validacao : null)
+                ?? (resposta.status
+                    ? `Não foi possível falar com o servidor (${resposta.status}).`
+                    : "Não foi possível falar com o servidor."),
             erro.errors ?? {},
         );
     }

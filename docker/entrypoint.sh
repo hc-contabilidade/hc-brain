@@ -20,7 +20,6 @@ if [ -n "$MYSQL_ATTR_SSL_CA" ] && [ -f "$MYSQL_ATTR_SSL_CA" ]; then
 fi
 
 # Porta literal: o Apache não expande variável de ambiente no VirtualHost.
-# Sem a porta aberta cedo, o Render corta o deploy (port scan timeout).
 PORT="${PORT:-10000}"
 printf 'Listen %s\n' "${PORT}" > /etc/apache2/ports.conf
 cat > /etc/apache2/sites-available/000-default.conf <<EOF
@@ -42,12 +41,15 @@ EOF
 a2ensite 000-default >/dev/null 2>&1 || true
 apache2ctl configtest
 
-# Abre a porta imediatamente — migrate/preparar podem demorar minutos.
+# Migrate curto em primeiro plano: a Sofia e o restante precisam das tabelas.
+# Se o banco travar, o timeout evita derrubar o prazo da porta do Render.
+timeout 45 php artisan migrate --force || true
+
+# Abre a porta; preparar/import podem demorar e ficam em background.
 apache2-foreground &
 APACHE_PID=$!
 
 (
-    php artisan migrate --force || true
     php artisan hc:preparar || true
     runuser -u www-data -- php artisan db:seed --class=ImportEmpresasSeeder --force || true
     if [ -f /app/storage/app/colaboradores.xlsx ]; then
