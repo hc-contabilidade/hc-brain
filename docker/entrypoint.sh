@@ -19,23 +19,25 @@ if [ -n "$MYSQL_ATTR_SSL_CA" ] && [ -f "$MYSQL_ATTR_SSL_CA" ]; then
     export MYSQL_ATTR_SSL_CA=/app/storage/mysql-ca.pem
 fi
 
-# Configura a porta no Apache
-sed -i "s/Listen 80/Listen ${PORT:-10000}/" /etc/apache2/ports.conf
+# O Apache não lê variável de ambiente no VirtualHost: precisa do número
+# literal. Sem isso o contêiner sobe, mas nenhuma porta abre no Render.
+PORT="${PORT:-10000}"
+sed -i "s/Listen 80/Listen ${PORT}/" /etc/apache2/ports.conf
+sed -i "s/\${PORT}/${PORT}/g" /etc/apache2/sites-available/000-default.conf
 
 # Atualiza o schema sem apagar nada
 php artisan migrate --force
 
-# Semeia só se a base estiver vazia e garante o acesso inicial do ambiente.
-php artisan hc:preparar
-
-# A planilha é pesada: importa em segundo plano para o Apache abrir a porta
-# dentro do prazo do Render. Uma falha aqui não derruba o contêiner.
-runuser -u www-data -- php artisan db:seed --class=ImportEmpresasSeeder --force &
-
-# Colaboradores: se a planilha estiver em storage/app (via deploy), importa em background.
-if [ -f /app/storage/app/colaboradores.xlsx ]; then
-    runuser -u www-data -- php artisan hc:importar-colaboradores &
-fi
+# Preparar e as planilhas podem demorar (base vazia / Excel grande). Em
+# primeiro plano o Render corta o deploy por timeout de porta. Falha aqui
+# não derruba o Apache.
+(
+    php artisan hc:preparar || true
+    runuser -u www-data -- php artisan db:seed --class=ImportEmpresasSeeder --force || true
+    if [ -f /app/storage/app/colaboradores.xlsx ]; then
+        runuser -u www-data -- php artisan hc:importar-colaboradores || true
+    fi
+) &
 
 # O agendador roda ao lado do Apache
 runuser -u www-data -- php artisan schedule:work &
