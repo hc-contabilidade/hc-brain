@@ -83,11 +83,11 @@
           <div class="sofia-centro">
             <div class="sofia-welcome" id="sofiaWelcome">
               <div class="sofia-marca" aria-hidden="true"><span>S</span></div>
-              <p class="sofia-kicker">Assistente da base HC</p>
+              <p class="sofia-kicker">Assistente oficial do HC Brain</p>
               <h1 id="sofiaSaudacao">O que você quer saber?</h1>
               <p class="sofia-welcome-texto" id="sofiaWelcomeTexto">
-                Pergunte por texto, grave um áudio ou anexe um arquivo de som. A Sofia responde com
-                empresas, reuniões, documentos, projetos e processos da HC.
+                Pergunte por texto, grave um áudio ou anexe um arquivo. A Sofia consulta empresas,
+                reuniões, documentos, projetos e processos da base.
               </p>
             </div>
 
@@ -218,11 +218,9 @@
               <p class="sofia-aviso" id="sofiaAviso" role="alert" hidden></p>
 
               <small class="sofia-disclaimer">
-                A Sofia pode cometer erros. Confira informações importantes antes de tomar decisões.
+                Assistente oficial do HC Brain. Confira informações importantes na base antes de decidir.
               </small>
             </div>
-
-            <div class="sofia-suggestions" id="sofiaSuggestions"></div>
           </div>
         </div>
       </div>

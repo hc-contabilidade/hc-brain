@@ -754,8 +754,7 @@
 }
 
 .sofia-coluna.gravando .sofia-pill,
-.sofia-coluna.gravando .sofia-attachment,
-.sofia-coluna.gravando .sofia-suggestions {
+.sofia-coluna.gravando .sofia-attachment {
     display: none;
 }
 

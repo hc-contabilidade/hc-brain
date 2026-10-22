@@ -1,5 +1,5 @@
 /* =========================================================
-   SOFIA — sugestões iniciais e respostas do assistente
+   SOFIA — respostas do assistente oficial do HC Brain
    A tela manda a pergunta e o histórico; o servidor consulta a
    base pelas ferramentas da Sofia e devolve o texto.
    ========================================================= */

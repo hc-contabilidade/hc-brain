@@ -23,7 +23,6 @@
 
 import { ErroDeApi } from "../comum/api.ts";
 import {
-    carregarSugestoes,
     enviarAudioSofia,
     historicoDaConversa,
     perguntarSofia,
@@ -49,7 +48,7 @@ import {
     type ModoSofia,
 } from "../comum/estado.ts";
 import { escapar } from "../comum/formato.ts";
-import { desenharIcones, icone, iconeSeguro } from "../comum/icones.ts";
+import { desenharIcones, icone } from "../comum/icones.ts";
 import { showModal } from "../comum/modal.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
@@ -106,7 +105,6 @@ const titulo = porId("sofiaTituloConversa");
 const chat = porId("chat");
 const boasVindas = porId("sofiaWelcome");
 const boasVindasTexto = porId("sofiaWelcomeTexto");
-const sugestoes = porId("sofiaSuggestions");
 const entrada = porId<HTMLTextAreaElement>("question");
 const envio = porId<HTMLButtonElement>("sofiaSend");
 const micWrap = porId("sofiaMicWrap");
@@ -427,7 +425,6 @@ function renderConversa(): void {
     coluna.classList.toggle("em-conversa", conversando);
     coluna.classList.toggle("enviando-audio", transcrevendo);
     boasVindas.hidden = conversando;
-    sugestoes.hidden = conversando;
     titulo.hidden = !conversando;
     titulo.textContent = aberta?.titulo ?? "Novo chat";
 
@@ -686,27 +683,6 @@ function apagarConversa(id: string): void {
             conversaAtiva: atual.conversaAtiva === id ? null : atual.conversaAtiva,
         };
     });
-}
-
-function renderSugestoes(itens: { icon: string; text: string }[]): void {
-    sugestoes.innerHTML = itens
-        .map(
-            (sugestao) => `
-        <button type="button" class="sofia-suggestion" data-suggestion="${escapar(sugestao.text)}">
-          <span class="sofia-suggestion-icon">${iconeSeguro(sugestao.icon)}</span>
-          <span>${escapar(sugestao.text)}</span>
-        </button>
-      `,
-        )
-        .join("");
-
-    todos("[data-suggestion]", sugestoes).forEach((botao) => {
-        botao.addEventListener("click", () => {
-            void perguntar(dado(botao, "suggestion"));
-        });
-    });
-
-    desenharIcones(sugestoes);
 }
 
 function aplicarModo(modo: ModoSofia): void {
@@ -1616,5 +1592,4 @@ prepararEntradaDeVoz();
 aplicarModo(obterSecao("sofia").modo);
 renderHistorico();
 renderConversa();
-renderSugestoes(await carregarSugestoes());
 entrada.focus();
