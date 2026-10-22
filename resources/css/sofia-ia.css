@@ -533,10 +533,23 @@
     white-space: pre-line;
 }
 
+.message.bot .message-texto strong {
+    font-weight: var(--peso-forte);
+    color: var(--texto);
+}
+
+.message.bot .message-texto em {
+    font-style: italic;
+}
+
 .message.bot .message-texto a {
     color: var(--azul);
     text-decoration: underline;
     text-underline-offset: 2px;
+}
+
+.message.bot .message-texto a:hover {
+    color: var(--roxo);
 }
 
 .sofia-avatar {

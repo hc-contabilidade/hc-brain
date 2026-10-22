@@ -52,6 +52,7 @@ import {
 } from "../comum/estado.ts";
 import { escapar } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
+import { htmlDeMarkdown, textoSemMarkdown } from "../comum/markdown.ts";
 import { showModal } from "../comum/modal.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
@@ -292,7 +293,7 @@ function escolherVozPortuguesa(): void {
 
 /** Fala o texto e resolve quando termina — ou quando alguém interrompe. */
 function falar(texto: string): Promise<void> {
-    const limpo = texto.trim();
+    const limpo = textoSemMarkdown(texto);
     if (!sinteseDeVoz || !limpo) return Promise.resolve();
 
     return new Promise((resolver) => {
@@ -761,10 +762,7 @@ function apagarConversa(id: string): void {
 }
 
 function htmlDaSofia(texto: string): string {
-    return escapar(texto).replace(
-        /\[([^\]]+)\]\(((\/[^)\s]+)|(https?:\/\/[^)\s]+))\)/g,
-        '<a href="$2">$1</a>',
-    );
+    return htmlDeMarkdown(texto);
 }
 
 function aplicarModo(modo: ModoSofia): void {
