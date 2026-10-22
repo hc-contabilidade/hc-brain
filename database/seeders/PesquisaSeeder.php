@@ -30,11 +30,11 @@ class PesquisaSeeder extends Seeder
 
     /** O ícone é um nome da Lucide — o mesmo vocabulário do resto da interface. */
     private const SUGESTOES = [
+        ['calendar-days', 'Quais reuniões estão agendadas hoje?'],
         ['building-2', 'Quais reuniões tivemos com a Empresa X?'],
         ['users', 'Quem é o sócio responsável pela Empresa Y?'],
-        ['graduation-cap', 'Quais treinamentos estão relacionados à Empresa X?'],
-        ['book-open', 'Quais cursos existem sobre atendimento?'],
-        ['calendar-days', 'Quais reuniões de abertura estão registradas?'],
+        ['file-text', 'Quais documentos temos sobre a Empresa X?'],
+        ['circle-dollar-sign', 'Qual o honorário atual da Empresa X?'],
         ['rocket', 'Quais projetos estão em andamento?'],
     ];
 

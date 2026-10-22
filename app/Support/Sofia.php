@@ -2,11 +2,15 @@
 
 namespace App\Support;
 
+use App\Models\SofiaConversa;
+use App\Models\User;
+use Illuminate\Support\Str;
+
 /**
  * RESPOSTAS DA SOFIA
  * A Sofia lê a mesma base das outras telas por ferramentas Eloquent e
- * redige a resposta com Chat Completions. A tela só envia a pergunta
- * (e o histórico da conversa) e mostra o texto que volta.
+ * redige a resposta com Chat Completions. A tela manda a pergunta (o
+ * modo e, se houver, o chat) e mostra o texto que volta.
  */
 final class Sofia
 {
@@ -17,10 +21,97 @@ final class Sofia
 
     /**
      * @param  list<array{papel?: string, texto?: string}>  $historico
+     * @param  (callable(string): void)|null  $onToken
      */
-    public static function responder(string $pergunta, array $historico = []): string
+    public static function responder(string $pergunta, array $historico = [], ?callable $onToken = null): string
     {
-        return SofiaAssistant::responder($pergunta, self::historicoParaModelo($historico));
+        return SofiaAssistant::responder($pergunta, self::historicoParaModelo($historico), $onToken);
+    }
+
+    /**
+     * @param  list<array{papel?: string, texto?: string}>  $historico
+     * @param  (callable(string): void)|null  $onToken
+     * @return array{resposta: string, conversa: SofiaConversa}
+     */
+    public static function responderNaConversa(
+        User $usuario,
+        string $pergunta,
+        string $modo,
+        ?string $conversaId,
+        array $historico = [],
+        bool $voz = false,
+        ?callable $onToken = null,
+    ): array {
+        $conversa = self::resolverConversa($usuario, $modo, $conversaId, $pergunta);
+        $anterior = $conversa->mensagens()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($mensagem) => [
+                'papel' => $mensagem->autor === 'bot' ? 'assistant' : 'user',
+                'texto' => $mensagem->texto,
+            ])
+            ->all();
+
+        $historicoModelo = $anterior !== []
+            ? self::historicoParaModelo($anterior)
+            : self::historicoParaModelo($historico);
+
+        $resposta = SofiaAssistant::responder($pergunta, $historicoModelo, $onToken);
+
+        $conversa->mensagens()->create([
+            'autor' => 'user',
+            'texto' => $pergunta,
+            'voz' => $voz,
+        ]);
+        $conversa->mensagens()->create([
+            'autor' => 'bot',
+            'texto' => $resposta,
+            'voz' => false,
+        ]);
+        $conversa->update(['modo' => $modo]);
+
+        return [
+            'resposta' => $resposta,
+            'conversa' => $conversa->fresh(['mensagens']) ?? $conversa,
+        ];
+    }
+
+    public static function tituloDe(string $pergunta): string
+    {
+        $limpo = trim(preg_replace('/\s+/u', ' ', $pergunta) ?? $pergunta);
+        if ($limpo === '') {
+            return 'Novo chat';
+        }
+
+        return mb_strlen($limpo) > 48
+            ? mb_substr($limpo, 0, 45).'…'
+            : $limpo;
+    }
+
+    private static function resolverConversa(User $usuario, string $modo, ?string $conversaId, string $pergunta): SofiaConversa
+    {
+        if ($conversaId !== null && $conversaId !== '') {
+            $existente = SofiaConversa::query()->find($conversaId);
+            if ($existente !== null) {
+                abort_unless($existente->user_id === $usuario->id, 404);
+
+                return $existente;
+            }
+
+            return SofiaConversa::create([
+                'id' => $conversaId,
+                'user_id' => $usuario->id,
+                'titulo' => self::tituloDe($pergunta),
+                'modo' => $modo,
+            ]);
+        }
+
+        return SofiaConversa::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $usuario->id,
+            'titulo' => self::tituloDe($pergunta),
+            'modo' => $modo,
+        ]);
     }
 
     /**

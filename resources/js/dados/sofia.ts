@@ -1,10 +1,18 @@
 /* =========================================================
    SOFIA — respostas do assistente oficial do HC Brain
-   A tela manda a pergunta e o histórico; o servidor consulta a
-   base pelas ferramentas da Sofia e devolve o texto.
+   A tela manda a pergunta, o modo e o chat; o servidor consulta a
+   base pelas ferramentas da Sofia e devolve o texto em fluxo.
    ========================================================= */
 
-import { enviar, enviarArquivo, obter } from "../comum/api.ts";
+import {
+    enviarArquivo,
+    enviarFluxo,
+    obter,
+    remover,
+    enviar,
+    ErroDeApi,
+} from "../comum/api.ts";
+import type { ModoSofia } from "../comum/estado.ts";
 
 export type AutorMensagem = "user" | "bot";
 
@@ -15,7 +23,7 @@ export interface MensagemSofia {
     voz?: boolean;
 }
 
-/** Uma conversa guardada no navegador, como um chat da lista lateral. */
+/** Uma conversa da Sofia: no servidor, com cache no navegador. */
 export interface ConversaSofia {
     id: string;
     titulo: string;
@@ -40,6 +48,21 @@ export function carregarSugestoes(): Promise<SugestaoSofia[]> {
     return obter<SugestaoSofia[]>("/sofia/sugestoes");
 }
 
+export function carregarConversasSofia(): Promise<ConversaSofia[]> {
+    return obter<ConversaSofia[]>("/sofia/conversas");
+}
+
+export function importarConversasSofia(
+    conversas: ConversaSofia[],
+    modo: ModoSofia,
+): Promise<ConversaSofia[]> {
+    return enviar<ConversaSofia[]>("/sofia/conversas/importar", { conversas, modo });
+}
+
+export function apagarConversaSofia(id: string): Promise<void> {
+    return remover(`/sofia/conversas/${id}`);
+}
+
 /** Troca anterior enviada ao modelo. `bot` na tela vira `assistant`. */
 export interface TurnoSofia {
     papel: "user" | "assistant";
@@ -59,15 +82,66 @@ export function historicoDaConversa(mensagens: MensagemSofia[]): TurnoSofia[] {
         .slice(-MAX_HISTORICO);
 }
 
+export interface PedidoSofia {
+    modo: ModoSofia;
+    conversaId: string | null;
+    aoToken?: (token: string) => void;
+}
+
+export interface RespostaSofia {
+    resposta: string;
+    conversa: ConversaSofia;
+}
+
 export async function perguntarSofia(
     pergunta: string,
     historico: TurnoSofia[] = [],
-): Promise<string> {
-    const resposta = await enviar<{ resposta: string }>("/sofia/perguntar", {
-        pergunta,
-        historico,
-    });
-    return resposta.resposta;
+    pedido: PedidoSofia,
+): Promise<RespostaSofia> {
+    let resposta = "";
+    let conversa: ConversaSofia | null = null;
+    let erro: string | null = null;
+
+    await enviarFluxo(
+        "/sofia/perguntar",
+        {
+            pergunta,
+            historico,
+            modo: pedido.modo,
+            conversa_id: pedido.conversaId,
+        },
+        (evento) => {
+            if (typeof evento.erro === "string") {
+                erro = evento.erro;
+                return;
+            }
+            if (typeof evento.token === "string") {
+                resposta += evento.token;
+                pedido.aoToken?.(evento.token);
+            }
+            if (
+                evento.done === true &&
+                evento.conversa &&
+                typeof evento.resposta === "string"
+            ) {
+                resposta = evento.resposta;
+                conversa = evento.conversa as ConversaSofia;
+            }
+        },
+    );
+
+    if (erro) {
+        throw new ErroDeApi(502, erro);
+    }
+
+    if (!conversa) {
+        throw new ErroDeApi(
+            502,
+            "Não consegui consultar a base agora. Tente novamente em instantes.",
+        );
+    }
+
+    return { resposta, conversa };
 }
 
 /** Áudio anexado ou gravado sem reconhecimento no navegador. */
@@ -75,13 +149,16 @@ export function enviarAudioSofia(
     arquivo: Blob,
     nome: string,
     historico: TurnoSofia[] = [],
-): Promise<{ transcricao: string; resposta: string }> {
+    pedido: { modo: ModoSofia; conversaId: string | null },
+): Promise<{ transcricao: string; resposta: string; conversa: ConversaSofia }> {
     const dados = new FormData();
     const envio =
         arquivo instanceof File
             ? arquivo
             : new File([arquivo], nome, { type: arquivo.type || "audio/webm" });
     dados.append("audio", envio, nome);
+    dados.append("modo", pedido.modo);
+    if (pedido.conversaId) dados.append("conversa_id", pedido.conversaId);
     historico.forEach((turno, indice) => {
         dados.append(`historico[${indice}][papel]`, turno.papel);
         dados.append(`historico[${indice}][texto]`, turno.texto);

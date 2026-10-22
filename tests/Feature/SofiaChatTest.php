@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Api\SofiaController;
 use App\Models\Empresa;
+use App\Models\Reuniao;
 use App\Models\User;
 use App\Support\SofiaTools;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,6 +86,22 @@ class SofiaChatTest extends TestCase
         ];
     }
 
+    private function agendarReuniao(string $data, string $horario): Reuniao
+    {
+        return Reuniao::create([
+            'empresa_id' => 'empresaX',
+            'tipo' => 'Alinhamento',
+            'data' => $data,
+            'horario' => $horario,
+            'responsavel' => 'Ana',
+            'participantes' => [],
+            'resumo' => 'Pauta do dia',
+            'decisoes' => [],
+            'proximos_passos' => [],
+            'status' => 'Agendada',
+        ]);
+    }
+
     public function test_perguntar_exige_sessao(): void
     {
         $this->postJson('/api/sofia/perguntar', ['pergunta' => 'Oi'])->assertUnauthorized();
@@ -125,6 +142,181 @@ class SofiaChatTest extends TestCase
                 && collect($request->data()['tools'] ?? [])->contains(
                     fn ($tool) => data_get($tool, 'function.name') === 'buscar_empresas',
                 );
+        });
+    }
+
+    public function test_sofia_informa_a_data_de_hoje_no_prompt(): void
+    {
+        $this->travelTo('2026-10-22 15:00:00');
+        $this->simularChat('A agenda de hoje está em dia.');
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Tem reunião hoje?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $system = collect($request->data()['messages'] ?? [])->firstWhere('role', 'system');
+
+            return is_array($system)
+                && str_contains((string) ($system['content'] ?? ''), '22/10/2026');
+        });
+    }
+
+    public function test_sofia_lista_so_as_reunioes_do_dia(): void
+    {
+        $this->travelTo('2026-10-22 15:00:00');
+        $this->agendarReuniao('2026-10-22', '09:00');
+        $this->agendarReuniao('2026-10-23', '14:00');
+        $this->simularChat(
+            'Hoje tem uma reunião de alinhamento às 09:00 com a Empresa X.',
+            $this->chamada('listar_reunioes', ['data' => 'hoje', 'status' => 'Agendada']),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quais reuniões estão agendadas hoje?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+                $reunioes = is_array($corpo) ? ($corpo['reunioes'] ?? []) : [];
+
+                return is_array($corpo)
+                    && ($corpo['hoje'] ?? null) === '22/10/2026'
+                    && ($corpo['total'] ?? 0) === 1
+                    && ($reunioes[0]['data'] ?? null) === '22/10/2026'
+                    && ($reunioes[0]['horario'] ?? null) === '09:00'
+                    && ($reunioes[0]['status'] ?? null) === 'Agendada';
+            });
+        });
+    }
+
+    public function test_sofia_lista_as_proximas_reunioes_na_ordem_do_calendario(): void
+    {
+        $this->travelTo('2026-10-22 15:00:00');
+        $this->agendarReuniao('2026-10-23', '14:00');
+        $this->agendarReuniao('2026-12-01', '09:00');
+        $this->agendarReuniao('2026-10-22', '09:00');
+        $this->simularChat(
+            'As próximas são hoje às 09:00 e amanhã às 14:00.',
+            $this->chamada('listar_reunioes', ['proximas' => true]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Quais são as próximas reuniões?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+                $datas = is_array($corpo) ? collect($corpo['reunioes'] ?? [])->pluck('data')->all() : [];
+
+                return is_array($corpo)
+                    && ($corpo['total'] ?? 0) === 3
+                    && $datas === ['22/10/2026', '23/10/2026', '01/12/2026'];
+            });
+        });
+    }
+
+    public function test_sofia_recorta_reunioes_desta_semana(): void
+    {
+        $this->travelTo('2026-10-22 15:00:00');
+        $this->agendarReuniao('2026-10-20', '09:00');
+        $this->agendarReuniao('2026-10-23', '11:00');
+        $this->agendarReuniao('2026-10-27', '10:00');
+        $this->simularChat(
+            'Esta semana tem reunião na terça e na sexta.',
+            $this->chamada('listar_reunioes', ['data' => 'esta semana']),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'O que tem esta semana?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+                $datas = is_array($corpo) ? collect($corpo['reunioes'] ?? [])->pluck('data')->all() : [];
+
+                return is_array($corpo)
+                    && ($corpo['total'] ?? 0) === 2
+                    && $datas === ['20/10/2026', '23/10/2026'];
+            });
+        });
+    }
+
+    public function test_sofia_encontra_documento_pelo_nome(): void
+    {
+        $this->simularChat(
+            'A proposta comercial está na pasta Comercial.',
+            $this->chamada('buscar_documentos', ['termo' => 'Proposta']),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Cadê a proposta comercial?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+                $nomes = is_array($corpo) ? collect($corpo['documentos'] ?? [])->pluck('nome')->all() : [];
+
+                return in_array('Proposta comercial.pdf', $nomes, true)
+                    && ($corpo['caminho'] ?? null) === '/documentos';
+            });
+        });
+    }
+
+    public function test_sofia_avisa_quando_a_data_da_reuniao_e_invalida(): void
+    {
+        $this->simularChat(
+            'Não reconheci essa data.',
+            $this->chamada('listar_reunioes', ['data' => 'daqui a 10 luas']),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Tem reunião daqui a 10 luas?'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+
+                return is_array($corpo)
+                    && ($corpo['reunioes'] ?? null) === []
+                    && is_string($corpo['erro'] ?? null)
+                    && str_contains($corpo['erro'], 'Data inválida');
+            });
         });
     }
 
