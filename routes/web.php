@@ -116,6 +116,9 @@ Route::middleware('auth')->group(function () {
             ->name('documentos.arquivo');
 
         Route::get('/sofia/sugestoes', [Api\SofiaController::class, 'sugestoes']);
+        Route::get('/sofia/conversas', [Api\SofiaController::class, 'conversas']);
+        Route::post('/sofia/conversas/importar', [Api\SofiaController::class, 'importar']);
+        Route::delete('/sofia/conversas/{conversa}', [Api\SofiaController::class, 'destroy']);
         Route::post('/sofia/perguntar', [Api\SofiaController::class, 'perguntar'])
             ->middleware('throttle:10,1');
         Route::post('/sofia/audio', [Api\SofiaController::class, 'audio'])

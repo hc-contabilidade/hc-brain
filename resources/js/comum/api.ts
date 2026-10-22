@@ -107,6 +107,66 @@ export function enviarArquivo<T>(caminho: string, dados: FormData): Promise<T> {
     });
 }
 
+/**
+ * POST que lê um fluxo SSE. Cada `data:` vira um objeto; 4xx/5xx em JSON
+ * seguem o mesmo ErroDeApi das outras chamadas.
+ */
+export async function enviarFluxo(
+    caminho: string,
+    corpo: unknown,
+    aoEvento: (evento: Record<string, unknown>) => void,
+): Promise<void> {
+    const resposta = await fetch(`${BASE}${caminho}`, {
+        method: "POST",
+        headers: {
+            Accept: "text/event-stream",
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRF-TOKEN": tokenCsrf(),
+        },
+        body: JSON.stringify(corpo),
+    });
+
+    if (resposta.status === 401 || resposta.status === 419) {
+        window.location.href = "/login";
+        throw new ErroDeApi(resposta.status, "Sua sessão expirou.");
+    }
+
+    const tipo = resposta.headers.get("content-type") ?? "";
+    if (!tipo.includes("text/event-stream")) {
+        const json: unknown = await resposta.json().catch(() => null);
+        const erro = (json ?? {}) as CorpoDeErro;
+        throw new ErroDeApi(
+            resposta.status,
+            erro.message ?? "Não foi possível falar com o servidor.",
+            erro.errors ?? {},
+        );
+    }
+
+    if (!resposta.body) {
+        throw new ErroDeApi(resposta.status, "Não consegui ler a resposta da Sofia.");
+    }
+
+    const leitor = resposta.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+        const lido = await leitor.read();
+        if (lido.done) break;
+        buffer += decoder.decode(lido.value, { stream: true });
+        const blocos = buffer.split("\n\n");
+        buffer = blocos.pop() ?? "";
+        for (const bloco of blocos) {
+            const linha = bloco.split("\n").find((item) => item.startsWith("data:"));
+            if (!linha) continue;
+            const bruto = linha.slice(5).trim();
+            if (!bruto) continue;
+            aoEvento(JSON.parse(bruto) as Record<string, unknown>);
+        }
+    }
+}
+
 /** Coleções vêm embrulhadas em `data` quando saem de um API Resource. */
 export async function obterColecao<T>(caminho: string): Promise<T[]> {
     const resposta = await obter<{ data: T[] }>(caminho);

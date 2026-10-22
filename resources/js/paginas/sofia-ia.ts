@@ -23,8 +23,11 @@
 
 import { ErroDeApi } from "../comum/api.ts";
 import {
+    apagarConversaSofia,
+    carregarConversasSofia,
     enviarAudioSofia,
     historicoDaConversa,
+    importarConversasSofia,
     perguntarSofia,
     tituloDaConversa,
     type AutorMensagem,
@@ -376,7 +379,7 @@ function htmlMensagem(mensagem: MensagemSofia, indice: number): string {
       <div class="message bot">
         <span class="sofia-avatar" aria-hidden="true">S</span>
         <div class="message-corpo">
-          <div class="message-texto">${escapar(mensagem.texto)}</div>
+          <div class="message-texto">${htmlDaSofia(mensagem.texto)}</div>
           <div class="message-acoes">
             <button type="button" class="sofia-copiar" data-copiar="${indice}">Copiar</button>
             ${ouvir}
@@ -562,19 +565,48 @@ async function enviarPergunta(pergunta: string, voz: boolean): Promise<string | 
     const conversa = obterSecao("sofia").conversas.find((item) => item.id === id);
     const historico = historicoDaConversa((conversa?.mensagens ?? []).slice(0, -1));
 
-    let resposta: string;
+    let resposta = "";
+    let comecou = false;
+    const { modo } = obterSecao("sofia");
+
     try {
-        resposta = await perguntarSofia(texto, historico);
+        const resultado = await perguntarSofia(texto, historico, {
+            modo,
+            conversaId: id,
+            aoToken(token) {
+                if (!conversaAindaExiste(id)) return;
+                resposta += token;
+                if (!comecou) {
+                    comecou = true;
+                    aguardando.delete(id);
+                    anexar(id, "bot", resposta);
+                    return;
+                }
+                substituirUltima(id, resposta);
+            },
+        });
+        resposta = resultado.resposta;
+        if (!conversaAindaExiste(id)) return null;
+        if (!comecou) {
+            aguardando.delete(id);
+            anexar(id, "bot", resposta);
+        } else {
+            substituirUltima(id, resposta);
+        }
     } catch (erro) {
         resposta =
             erro instanceof ErroDeApi
                 ? erro.message
                 : "Não consegui consultar a base agora. Tente novamente em instantes.";
+        aguardando.delete(id);
+        if (!conversaAindaExiste(id)) return null;
+        if (comecou) {
+            substituirUltima(id, resposta);
+        } else {
+            anexar(id, "bot", resposta);
+        }
     }
 
-    aguardando.delete(id);
-    if (!conversaAindaExiste(id)) return null;
-    anexar(id, "bot", resposta);
     return resposta;
 }
 
@@ -615,7 +647,10 @@ async function enviarBlob(arquivo: Blob, nome: string): Promise<void> {
         const historico = historicoDaConversa(
             obterSecao("sofia").conversas.find((item) => item.id === id)?.mensagens ?? [],
         );
-        const resultado = await enviarAudioSofia(arquivo, nome, historico);
+        const resultado = await enviarAudioSofia(arquivo, nome, historico, {
+            modo: obterSecao("sofia").modo,
+            conversaId: id,
+        });
         transcrevendoId = null;
         aguardando.delete(id);
         if (!conversaAindaExiste(id)) return;
@@ -673,9 +708,49 @@ function abrirConversa(id: string): void {
     entrada.focus();
 }
 
+function substituirUltima(id: string, texto: string): void {
+    atualizarSecao("sofia", (atual) => ({
+        conversas: atual.conversas.map((conversa) => {
+            if (conversa.id !== id || conversa.mensagens.length === 0) return conversa;
+            const mensagens = [...conversa.mensagens];
+            const ultima = mensagens[mensagens.length - 1];
+            if (!ultima || ultima.autor !== "bot") return conversa;
+            mensagens[mensagens.length - 1] = { ...ultima, texto };
+            return { ...conversa, mensagens, atualizadoEm: Date.now() };
+        }),
+    }));
+}
+
+function aplicarConversas(conversas: ConversaSofia[]): void {
+    const ativa = obterSecao("sofia").conversaAtiva;
+    atualizarSecao("sofia", {
+        conversas,
+        conversaAtiva: conversas.some((conversa) => conversa.id === ativa) ? ativa : null,
+    });
+}
+
+async function hidratarConversas(): Promise<void> {
+    try {
+        const servidor = await carregarConversasSofia();
+        const locais = obterSecao("sofia").conversas;
+        if (servidor.length === 0 && locais.length > 0) {
+            aplicarConversas(
+                await importarConversasSofia(locais, obterSecao("sofia").modo),
+            );
+            return;
+        }
+        if (servidor.length > 0) {
+            aplicarConversas(servidor);
+        }
+    } catch {
+        // Sem o servidor, o cache do navegador continua valendo.
+    }
+}
+
 function apagarConversa(id: string): void {
     aguardando.delete(id);
     if (transcrevendoId === id) transcrevendoId = null;
+    void apagarConversaSofia(id).catch(() => undefined);
     atualizarSecao("sofia", (atual) => {
         const conversas = atual.conversas.filter((conversa) => conversa.id !== id);
         return {
@@ -685,9 +760,20 @@ function apagarConversa(id: string): void {
     });
 }
 
+function htmlDaSofia(texto: string): string {
+    return escapar(texto).replace(
+        /\[([^\]]+)\]\(((\/[^)\s]+)|(https?:\/\/[^)\s]+))\)/g,
+        '<a href="$2">$1</a>',
+    );
+}
+
 function aplicarModo(modo: ModoSofia): void {
     modoPesquisa.classList.toggle("active", modo === "search");
     modoBase.classList.toggle("active", modo === "base");
+    boasVindasTexto.textContent =
+        modo === "search"
+            ? "Modo Pesquisar: busca ampla na base — documentos, índice interno, empresas e o restante do HC Brain."
+            : "Modo Base HC: consulta os cadastros — reuniões, clientes, financeiro, projetos e processos.";
 }
 
 function enviarFormulario(): void {
@@ -1314,12 +1400,6 @@ function iniciarGravacao(): void {
 function prepararEntradaDeVoz(): void {
     anexarBtn.hidden = !transcricaoNoServidor;
 
-    if (!transcricaoNoServidor) {
-        boasVindasTexto.textContent = audioDisponivel
-            ? "Pergunte por texto ou grave um áudio. A Sofia responde com empresas, reuniões, documentos, projetos e processos da HC."
-            : "Pergunte por texto. A Sofia responde com empresas, reuniões, documentos, projetos e processos da HC.";
-    }
-
     if (!ditadoNoNavegador) {
         const explicacao = audioDisponivel ? SEM_CONVERSA_POR_VOZ : SEM_VOZ;
         vozWrap.classList.add("sem-voz");
@@ -1464,7 +1544,7 @@ modoBase.addEventListener("click", () => atualizarSecao("sofia", { modo: "base" 
 porId("sofiaModelBtn").addEventListener("click", () => {
     showModal(
         "Modelo da Sofia",
-        `A Sofia responde a partir da base da HC: empresas, sócios, reuniões, documentos, treinamentos, projetos e processos. ${explicacaoDoAudio()} Ela não consulta nada fora daqui.`,
+        `A Sofia responde a partir da base da HC: empresas, sócios, reuniões, documentos, financeiro, treinamentos, projetos e processos. Pesquisar faz a busca ampla; Base HC consulta os cadastros. ${explicacaoDoAudio()} Ela não consulta nada fora daqui.`,
     );
 });
 
@@ -1590,6 +1670,7 @@ if (sinteseDeVoz) {
 
 prepararEntradaDeVoz();
 aplicarModo(obterSecao("sofia").modo);
+await hidratarConversas();
 renderHistorico();
 renderConversa();
 entrada.focus();

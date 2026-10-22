@@ -533,6 +533,12 @@
     white-space: pre-line;
 }
 
+.message.bot .message-texto a {
+    color: var(--azul);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .sofia-avatar {
     display: grid;
     flex: 0 0 24px;

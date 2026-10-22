@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -25,8 +26,9 @@ final class SofiaAssistant
 
     /**
      * @param  list<array{role: 'user'|'assistant', content: string}>  $historico
+     * @param  (callable(string): void)|null  $onToken
      */
-    public static function responder(string $pergunta, array $historico = []): string
+    public static function responder(string $pergunta, array $historico = [], ?callable $onToken = null): string
     {
         if (! self::configurada()) {
             throw new RuntimeException('A Sofia não está configurada.');
@@ -39,22 +41,22 @@ final class SofiaAssistant
         ];
 
         for ($round = 0; $round < self::MAX_ROUNDS; $round++) {
-            $choice = self::completar($messages);
-            $calls = $choice['tool_calls'] ?? [];
+            $choice = self::completar($messages, $onToken);
+            $calls = $choice['tool_calls'];
 
-            if (! is_array($calls) || $calls === []) {
-                $texto = trim((string) ($choice['content'] ?? ''));
+            if ($calls === []) {
+                $texto = trim($choice['content']);
 
                 return $texto !== '' ? $texto : self::FALLBACK;
             }
 
-            $messages[] = $choice;
+            $messages[] = [
+                'role' => 'assistant',
+                'content' => $choice['content'] !== '' ? $choice['content'] : null,
+                'tool_calls' => $calls,
+            ];
 
             foreach ($calls as $call) {
-                if (! is_array($call)) {
-                    continue;
-                }
-
                 $nome = data_get($call, 'function.name', '');
                 $bruto = data_get($call, 'function.arguments', '{}');
                 $argumentos = json_decode(is_string($bruto) ? $bruto : '{}', true);
@@ -76,21 +78,24 @@ final class SofiaAssistant
 
     /**
      * @param  list<array<string, mixed>>  $messages
-     * @return array<string, mixed>
+     * @param  (callable(string): void)|null  $onToken
+     * @return array{content: string, tool_calls: list<array<string, mixed>>}
      */
-    private static function completar(array $messages): array
+    private static function completar(array $messages, ?callable $onToken): array
     {
-        $resposta = Http::withToken((string) config('hc.sofia.chave'))
-            ->acceptJson()
-            ->connectTimeout(5)
-            ->timeout(45)
-            ->post((string) config('hc.sofia.chat.url'), [
-                'model' => config('hc.sofia.chat.modelo'),
-                'temperature' => 0.3,
-                'max_tokens' => 500,
-                'messages' => $messages,
-                'tools' => SofiaTools::definicoes(),
-            ]);
+        $corpo = [
+            'model' => config('hc.sofia.chat.modelo'),
+            'temperature' => 0.3,
+            'max_tokens' => 1200,
+            'messages' => $messages,
+            'tools' => SofiaTools::definicoes(),
+        ];
+
+        if ($onToken !== null) {
+            return self::completarStream($corpo, $onToken);
+        }
+
+        $resposta = self::cliente()->post((string) config('hc.sofia.chat.url'), $corpo);
 
         if ($resposta->failed()) {
             throw new RequestException($resposta);
@@ -102,6 +107,110 @@ final class SofiaAssistant
             throw new RuntimeException('A consulta à Sofia falhou.');
         }
 
-        return $choice;
+        $calls = $choice['tool_calls'] ?? [];
+
+        return [
+            'content' => (string) ($choice['content'] ?? ''),
+            'tool_calls' => is_array($calls) ? array_values($calls) : [],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $corpo
+     * @param  callable(string): void  $onToken
+     * @return array{content: string, tool_calls: list<array<string, mixed>>}
+     */
+    private static function completarStream(array $corpo, callable $onToken): array
+    {
+        $resposta = self::cliente()
+            ->withOptions(['stream' => true])
+            ->post((string) config('hc.sofia.chat.url'), [...$corpo, 'stream' => true]);
+
+        if ($resposta->failed()) {
+            throw new RequestException($resposta);
+        }
+
+        $body = $resposta->toPsrResponse()->getBody();
+        $buffer = '';
+        $content = '';
+        $calls = [];
+        $viuFerramenta = false;
+
+        while (! $body->eof()) {
+            $buffer .= $body->read(512);
+
+            while (($quebra = strpos($buffer, "\n")) !== false) {
+                $linha = trim(substr($buffer, 0, $quebra));
+                $buffer = substr($buffer, $quebra + 1);
+
+                if ($linha === '' || ! str_starts_with($linha, 'data:')) {
+                    continue;
+                }
+
+                $data = trim(substr($linha, 5));
+                if ($data === '[DONE]') {
+                    break 2;
+                }
+
+                $json = json_decode($data, true);
+                $delta = is_array($json) ? ($json['choices'][0]['delta'] ?? null) : null;
+                if (! is_array($delta)) {
+                    continue;
+                }
+
+                $pedaco = $delta['content'] ?? null;
+                if (is_string($pedaco) && $pedaco !== '') {
+                    $content .= $pedaco;
+                    if (! $viuFerramenta) {
+                        $onToken($pedaco);
+                    }
+                }
+
+                foreach ($delta['tool_calls'] ?? [] as $callDelta) {
+                    if (! is_array($callDelta)) {
+                        continue;
+                    }
+
+                    $viuFerramenta = true;
+                    $indice = (int) ($callDelta['index'] ?? 0);
+                    if (! isset($calls[$indice])) {
+                        $calls[$indice] = [
+                            'id' => '',
+                            'type' => 'function',
+                            'function' => ['name' => '', 'arguments' => ''],
+                        ];
+                    }
+
+                    if (isset($callDelta['id']) && is_string($callDelta['id'])) {
+                        $calls[$indice]['id'] = $callDelta['id'];
+                    }
+
+                    $funcao = $callDelta['function'] ?? [];
+                    if (is_array($funcao)) {
+                        if (isset($funcao['name']) && is_string($funcao['name'])) {
+                            $calls[$indice]['function']['name'] .= $funcao['name'];
+                        }
+                        if (isset($funcao['arguments']) && is_string($funcao['arguments'])) {
+                            $calls[$indice]['function']['arguments'] .= $funcao['arguments'];
+                        }
+                    }
+                }
+            }
+        }
+
+        ksort($calls);
+
+        return [
+            'content' => $content,
+            'tool_calls' => array_values($calls),
+        ];
+    }
+
+    private static function cliente(): PendingRequest
+    {
+        return Http::withToken((string) config('hc.sofia.chave'))
+            ->acceptJson()
+            ->connectTimeout(5)
+            ->timeout(60);
     }
 }

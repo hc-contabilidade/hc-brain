@@ -11,7 +11,19 @@ class PerguntarSofiaRequest extends FormRequest
     {
         return [
             'pergunta' => ['required', 'string', 'max:1000'],
+            ...self::regrasDoModo(),
             ...self::regrasDoHistorico(),
+        ];
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function regrasDoModo(): array
+    {
+        return [
+            'modo' => ['sometimes', 'in:search,base'],
+            'conversa_id' => ['sometimes', 'nullable', 'uuid'],
         ];
     }
 
@@ -30,6 +42,20 @@ class PerguntarSofiaRequest extends FormRequest
     public function pergunta(): string
     {
         return (string) $this->validated('pergunta');
+    }
+
+    public function modo(): string
+    {
+        $modo = $this->validated('modo') ?? 'search';
+
+        return is_string($modo) ? $modo : 'search';
+    }
+
+    public function conversaId(): ?string
+    {
+        $id = $this->validated('conversa_id') ?? null;
+
+        return is_string($id) && $id !== '' ? $id : null;
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Notifications\RedefinirSenha;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -38,6 +39,11 @@ class User extends Authenticatable
     public function ehAdministrador(): bool
     {
         return $this->perfil === 'Administrador';
+    }
+
+    public function sofiaConversas(): HasMany
+    {
+        return $this->hasMany(SofiaConversa::class)->orderByDesc('updated_at');
     }
 
     /** O e-mail de recuperação sai em português e com a marca do HC Brain. */

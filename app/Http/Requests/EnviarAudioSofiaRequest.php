@@ -33,8 +33,23 @@ class EnviarAudioSofiaRequest extends FormRequest
                     }
                 },
             ],
+            ...PerguntarSofiaRequest::regrasDoModo(),
             ...PerguntarSofiaRequest::regrasDoHistorico(),
         ];
+    }
+
+    public function modo(): string
+    {
+        $modo = $this->validated('modo') ?? 'search';
+
+        return is_string($modo) ? $modo : 'search';
+    }
+
+    public function conversaId(): ?string
+    {
+        $id = $this->validated('conversa_id') ?? null;
+
+        return is_string($id) && $id !== '' ? $id : null;
     }
 
     /**

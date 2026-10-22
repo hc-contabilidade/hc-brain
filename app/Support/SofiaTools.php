@@ -2,11 +2,17 @@
 
 namespace App\Support;
 
+use App\Models\Documento;
 use App\Models\Empresa;
 use App\Models\Processo;
 use App\Models\Projeto;
+use App\Models\ResultadoPesquisa;
 use App\Models\Reuniao;
+use App\Models\Socio;
 use App\Models\Treinamento;
+use App\Models\User;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use stdClass;
 use Throwable;
 
@@ -34,6 +40,14 @@ final class SofiaTools
                 [],
             ),
             self::funcao(
+                'pesquisar',
+                'Busca ampla no índice interno, em documentos e em empresas. Use no modo Pesquisar ou quando a pessoa não souber o cadastro exato.',
+                [
+                    'termo' => ['type' => 'string', 'description' => 'O que procurar: nome, tema, documento, pessoa ou processo.'],
+                ],
+                ['termo'],
+            ),
+            self::funcao(
                 'buscar_empresas',
                 'Busca empresas da carteira pelo nome. Use antes de detalhar quando a pessoa citar um cliente. Não lista a carteira inteira.',
                 [
@@ -43,7 +57,7 @@ final class SofiaTools
             ),
             self::funcao(
                 'detalhar_empresa',
-                'Detalha uma empresa: status, sócio, fontes, última reunião e treinamentos vinculados.',
+                'Detalha uma empresa: status, sócio, fontes, última reunião, treinamentos, financeiro e o caminho da tela.',
                 [
                     'empresa_id' => ['type' => 'string', 'description' => 'Id da empresa, se já conhecido.'],
                     'nome' => ['type' => 'string', 'description' => 'Nome da empresa, se o id ainda não for conhecido.'],
@@ -51,27 +65,50 @@ final class SofiaTools
             ),
             self::funcao(
                 'listar_reunioes',
-                'Lista reuniões da base, com filtros opcionais de tipo, status ou empresa.',
+                'Lista reuniões. Para hoje/amanhã/esta semana/semana que vem, passe data. Para as que ainda vão acontecer, passe proximas=true. Sem filtro devolve as mais recentes.',
                 [
+                    'data' => ['type' => 'string', 'description' => 'hoje, amanhã, ontem, esta semana, semana que vem, próxima segunda, YYYY-MM-DD ou dd/mm/aaaa.'],
+                    'de' => ['type' => 'string', 'description' => 'Início do período, inclusive. Mesmos formatos de data.'],
+                    'ate' => ['type' => 'string', 'description' => 'Fim do período, inclusive. Mesmos formatos de data.'],
+                    'proximas' => ['type' => 'boolean', 'description' => 'Só as reuniões de hoje em diante, da mais cedo para a mais tarde.'],
+                    'minhas' => ['type' => 'boolean', 'description' => 'Só as reuniões em que quem pergunta é responsável.'],
                     'tipo' => ['type' => 'string', 'enum' => Reuniao::TIPOS, 'description' => 'Tipo da reunião.'],
                     'status' => ['type' => 'string', 'enum' => Reuniao::STATUS, 'description' => 'Status da reunião.'],
                     'empresa' => ['type' => 'string', 'description' => 'Id ou nome da empresa.'],
+                    'responsavel' => ['type' => 'string', 'description' => 'Nome de quem conduz a reunião.'],
                 ],
             ),
             self::funcao(
                 'listar_projetos',
-                'Lista projetos da carteira da HC, com filtro opcional de status ou termo.',
+                'Lista projetos da carteira da HC, com filtro opcional de status, termo ou responsável.',
                 [
                     'status' => ['type' => 'string', 'enum' => Projeto::STATUS, 'description' => 'Status do projeto.'],
                     'termo' => ['type' => 'string', 'description' => 'Trecho do nome ou da descrição.'],
+                    'minhas' => ['type' => 'boolean', 'description' => 'Só os projetos em que quem pergunta é responsável.'],
                 ],
             ),
             self::funcao(
                 'listar_processos',
-                'Lista processos internos documentados, com filtro opcional por termo.',
+                'Lista processos internos documentados, com as etapas na ordem de execução.',
                 [
                     'termo' => ['type' => 'string', 'description' => 'Trecho do nome, da área ou da descrição.'],
                 ],
+            ),
+            self::funcao(
+                'buscar_documentos',
+                'Busca arquivos da base de documentos pelo nome ou pela pasta.',
+                [
+                    'termo' => ['type' => 'string', 'description' => 'Trecho do nome do arquivo.'],
+                    'pasta' => ['type' => 'string', 'description' => 'Nome da pasta (Comercial, Projetos, Financeiro…).'],
+                ],
+            ),
+            self::funcao(
+                'buscar_pessoas',
+                'Busca sócios de clientes e pessoas da equipe pelo nome.',
+                [
+                    'nome' => ['type' => 'string', 'description' => 'Trecho do nome da pessoa.'],
+                ],
+                ['nome'],
             ),
             self::funcao(
                 'buscar_treinamentos',
@@ -92,11 +129,14 @@ final class SofiaTools
         try {
             $resultado = match ($nome) {
                 'contar' => self::contar(),
+                'pesquisar' => self::pesquisar($argumentos),
                 'buscar_empresas' => self::buscarEmpresas($argumentos),
                 'detalhar_empresa' => self::detalharEmpresa($argumentos),
                 'listar_reunioes' => self::listarReunioes($argumentos),
                 'listar_projetos' => self::listarProjetos($argumentos),
                 'listar_processos' => self::listarProcessos($argumentos),
+                'buscar_documentos' => self::buscarDocumentos($argumentos),
+                'buscar_pessoas' => self::buscarPessoas($argumentos),
                 'buscar_treinamentos' => self::buscarTreinamentos($argumentos),
                 default => ['erro' => 'ferramenta não encontrada'],
             };
@@ -145,6 +185,61 @@ final class SofiaTools
      * @param  array<string, mixed>  $argumentos
      * @return array<string, mixed>
      */
+    private static function pesquisar(array $argumentos): array
+    {
+        $termo = self::texto($argumentos, 'termo');
+        if ($termo === '') {
+            return ['erro' => 'Informe o que procurar.'];
+        }
+
+        $como = self::contem($termo);
+
+        $indice = ResultadoPesquisa::query()
+            ->where(function (Builder $consulta) use ($como): void {
+                $consulta->where('titulo', 'like', $como)
+                    ->orWhere('texto', 'like', $como)
+                    ->orWhere('meta', 'like', $como)
+                    ->orWhere('area', 'like', $como);
+            })
+            ->orderBy('ordem')
+            ->limit(self::LIMITE_BUSCA)
+            ->get();
+
+        $empresas = Empresa::query()
+            ->where('nome', 'like', $como)
+            ->orderBy('nome')
+            ->limit(5)
+            ->get(['id', 'nome', 'status']);
+
+        $documentos = Documento::query()
+            ->with('pasta')
+            ->where('nome', 'like', $como)
+            ->orderByDesc('updated_at')
+            ->limit(5)
+            ->get();
+
+        return [
+            'caminho' => Telas::caminho('pesquisa'),
+            'indice' => $indice->map(fn (ResultadoPesquisa $item) => [
+                'tipo' => $item->tipo,
+                'area' => $item->area,
+                'titulo' => $item->titulo,
+                'texto' => self::trecho($item->texto, 280),
+                'meta' => $item->meta,
+            ])->all(),
+            'empresas' => $empresas->map(fn (Empresa $empresa) => [
+                'nome' => $empresa->nome,
+                'status' => $empresa->status,
+                'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
+            ])->all(),
+            'documentos' => $documentos->map(fn (Documento $documento) => self::resumoDocumento($documento))->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
     private static function buscarEmpresas(array $argumentos): array
     {
         $nome = self::texto($argumentos, 'nome');
@@ -166,6 +261,7 @@ final class SofiaTools
                 'nome' => $empresa->nome,
                 'setor' => $empresa->setor,
                 'status' => $empresa->status,
+                'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
             ])->all(),
         ];
     }
@@ -185,19 +281,23 @@ final class SofiaTools
             return ['erro' => 'Empresa não encontrada na base.'];
         }
 
-        $empresa->load(['socio', 'fontes', 'treinamentos', 'ultimaReuniao']);
+        $empresa->load(['socio', 'fontes', 'treinamentos', 'ultimaReuniao', 'financeiro']);
         $socio = $empresa->socio;
         $ultima = $empresa->ultimaReuniao;
+        $financeiro = $empresa->financeiro;
 
         return [
             'id' => $empresa->id,
             'nome' => $empresa->nome,
             'setor' => $empresa->setor,
             'status' => $empresa->status,
+            'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
+            'caminho_financeiro' => Telas::caminho('financeiro'),
             'socio' => $socio === null ? null : [
                 'nome' => $socio->nome,
                 'cargo' => $socio->cargo,
                 'email' => $socio->email,
+                'telefone' => $socio->telefone,
                 'participacao' => $socio->participacao,
             ],
             'fontes' => $empresa->fontes->map(fn ($fonte) => $fonte->nome)->all(),
@@ -205,6 +305,18 @@ final class SofiaTools
                 'tipo' => $ultima->tipo,
                 'data' => $ultima->data?->format('d/m/Y'),
                 'status' => $ultima->status,
+            ],
+            'financeiro' => $financeiro === null ? null : [
+                'regime' => $financeiro->regime,
+                'desde' => $financeiro->desde?->format('d/m/Y'),
+                'meses' => $financeiro->mesesDeVida(),
+                'honorario_atual' => $financeiro->atual,
+                'honorario_primeiro' => $financeiro->primeiro,
+                'total' => $financeiro->total,
+                'saldo' => $financeiro->saldo,
+                'receber' => $financeiro->receber,
+                'despesas' => $financeiro->despesas,
+                'margem' => $financeiro->margem,
             ],
             'treinamentos' => $empresa->treinamentos
                 ->take(self::LIMITE_TREINAMENTO)
@@ -221,7 +333,53 @@ final class SofiaTools
      */
     private static function listarReunioes(array $argumentos): array
     {
-        $consulta = Reuniao::query()->with('empresa')->orderByDesc('data')->orderByDesc('id');
+        $consulta = Reuniao::query()->with('empresa');
+        $hoje = now(GoogleAgenda::FUSO)->toDateString();
+        $ordemDoDia = false;
+        $proximas = self::booleano($argumentos, 'proximas');
+        $quando = null;
+
+        $data = self::texto($argumentos, 'data');
+        if ($data !== '') {
+            $quando = self::interpretarQuando($data);
+            if ($quando === null) {
+                return self::erroDeData('Data inválida. Use hoje, amanhã, ontem, esta semana, semana que vem, próxima segunda, YYYY-MM-DD ou dd/mm/aaaa.');
+            }
+
+            if (($quando['tipo'] ?? '') === 'proximas') {
+                $proximas = true;
+            } elseif (($quando['tipo'] ?? '') === 'dia') {
+                $consulta->whereDate('data', $quando['iso']);
+                $ordemDoDia = true;
+            } else {
+                $consulta->whereDate('data', '>=', $quando['de']);
+                $consulta->whereDate('data', '<=', $quando['ate']);
+            }
+        } else {
+            $de = self::texto($argumentos, 'de');
+            if ($de !== '') {
+                $isoDe = self::dataDoArgumento($de);
+                if ($isoDe === null) {
+                    return self::erroDeData('Data inicial inválida. Use hoje, amanhã, ontem, YYYY-MM-DD ou dd/mm/aaaa.');
+                }
+                $consulta->whereDate('data', '>=', $isoDe);
+            }
+
+            $ate = self::texto($argumentos, 'ate');
+            if ($ate !== '') {
+                $isoAte = self::dataDoArgumento($ate);
+                if ($isoAte === null) {
+                    return self::erroDeData('Data final inválida. Use hoje, amanhã, ontem, YYYY-MM-DD ou dd/mm/aaaa.');
+                }
+                $consulta->whereDate('data', '<=', $isoAte);
+            }
+        }
+
+        if ($proximas && $data === '') {
+            $consulta->whereDate('data', '>=', $hoje);
+        } elseif ($proximas && ($quando['tipo'] ?? '') === 'proximas') {
+            $consulta->whereDate('data', '>=', $hoje);
+        }
 
         $tipo = self::texto($argumentos, 'tipo');
         if ($tipo !== '' && in_array($tipo, Reuniao::TIPOS, true)) {
@@ -231,6 +389,8 @@ final class SofiaTools
         $status = self::texto($argumentos, 'status');
         if ($status !== '' && in_array($status, Reuniao::STATUS, true)) {
             $consulta->where('status', $status);
+        } elseif ($proximas) {
+            $consulta->where('status', '!=', 'Cancelada');
         }
 
         $empresaFiltro = self::texto($argumentos, 'empresa');
@@ -242,15 +402,49 @@ final class SofiaTools
             $consulta->where('empresa_id', $empresa->id);
         }
 
+        $responsavel = self::texto($argumentos, 'responsavel');
+        if (self::booleano($argumentos, 'minhas')) {
+            $nome = SofiaContexto::nome();
+            if ($nome === '') {
+                return ['erro' => 'Não sei quem está perguntando para filtrar as suas reuniões.', 'reunioes' => []];
+            }
+            $consulta->where('responsavel', 'like', self::contem($nome));
+        } elseif ($responsavel !== '') {
+            $consulta->where('responsavel', 'like', self::contem($responsavel));
+        }
+
+        if ($ordemDoDia) {
+            $consulta->orderBy('horario')->orderBy('id');
+        } elseif ($proximas || $data !== '') {
+            $consulta->orderBy('data')->orderBy('horario')->orderBy('id');
+        } else {
+            $consulta->orderByDesc('data')->orderByDesc('id');
+        }
+
+        $total = (clone $consulta)->count();
         $reunioes = $consulta->limit(self::LIMITE_LISTA)->get();
 
         return [
-            'total' => $reunioes->count(),
+            'hoje' => now(GoogleAgenda::FUSO)->format('d/m/Y'),
+            'caminho' => Telas::caminho('reunioes'),
+            'total' => $total,
+            'mostradas' => $reunioes->count(),
             'reunioes' => $reunioes->map(fn (Reuniao $reuniao) => [
+                'titulo' => $reuniao->titulo,
                 'tipo' => $reuniao->tipo,
                 'data' => $reuniao->data?->format('d/m/Y'),
+                'horario' => $reuniao->horario,
                 'status' => $reuniao->status,
                 'empresa' => $reuniao->nomeDaEmpresa(),
+                'responsavel' => $reuniao->responsavel,
+                'participantes' => $reuniao->participantes,
+                'resumo' => self::trecho($reuniao->resumo),
+                'decisoes' => self::lista($reuniao->decisoes),
+                'proximos_passos' => self::lista($reuniao->proximos_passos),
+                'link_meet' => $reuniao->link_meet,
+                'caminho' => $reuniao->empresa_id
+                    ? Telas::caminho('cliente', ['id' => $reuniao->empresa_id])
+                    : Telas::caminho('reunioes'),
             ])->all(),
         ];
     }
@@ -261,7 +455,8 @@ final class SofiaTools
      */
     private static function listarProjetos(array $argumentos): array
     {
-        $consulta = Projeto::query()->orderBy('ordem');
+        $consulta = Projeto::query()->with('empresa')->orderBy('ordem');
+        $hoje = today();
 
         $status = self::texto($argumentos, 'status');
         if ($status !== '' && in_array($status, Projeto::STATUS, true)) {
@@ -270,23 +465,38 @@ final class SofiaTools
 
         $termo = self::texto($argumentos, 'termo');
         if ($termo !== '') {
-            $consulta->where(function ($q) use ($termo): void {
+            $consulta->where(function (Builder $q) use ($termo): void {
                 $q->where('nome', 'like', self::contem($termo))
                     ->orWhere('descricao', 'like', self::contem($termo));
             });
         }
 
+        if (self::booleano($argumentos, 'minhas')) {
+            $nome = SofiaContexto::nome();
+            if ($nome === '') {
+                return ['erro' => 'Não sei quem está perguntando para filtrar os seus projetos.', 'projetos' => []];
+            }
+            $consulta->where('responsavel', 'like', self::contem($nome));
+        }
+
+        $total = (clone $consulta)->count();
         $projetos = $consulta->limit(self::LIMITE_LISTA)->get();
 
         return [
-            'total' => $projetos->count(),
+            'caminho' => Telas::caminho('projetos'),
+            'total' => $total,
+            'mostradas' => $projetos->count(),
             'projetos' => $projetos->map(fn (Projeto $projeto) => [
                 'id' => $projeto->id,
                 'nome' => $projeto->nome,
+                'descricao' => self::trecho($projeto->descricao),
                 'status' => $projeto->status,
                 'progresso' => $projeto->progresso,
                 'responsavel' => $projeto->responsavel,
                 'prazo' => $projeto->prazo?->format('d/m/Y'),
+                'dias_restantes' => $projeto->prazo === null ? null : (int) $hoje->diffInDays($projeto->prazo, false),
+                'empresa' => $projeto->empresa?->nome,
+                'caminho' => Telas::caminho('projetos'),
             ])->all(),
         ];
     }
@@ -301,23 +511,109 @@ final class SofiaTools
         $termo = self::texto($argumentos, 'termo');
 
         if ($termo !== '') {
-            $consulta->where(function ($q) use ($termo): void {
+            $consulta->where(function (Builder $q) use ($termo): void {
                 $q->where('nome', 'like', self::contem($termo))
                     ->orWhere('descricao', 'like', self::contem($termo))
                     ->orWhere('area', 'like', self::contem($termo));
             });
         }
 
+        $total = (clone $consulta)->count();
         $processos = $consulta->limit(self::LIMITE_LISTA)->get();
 
         return [
-            'total' => $processos->count(),
+            'caminho' => Telas::caminho('processos'),
+            'total' => $total,
+            'mostradas' => $processos->count(),
             'processos' => $processos->map(fn (Processo $processo) => [
                 'id' => $processo->id,
                 'nome' => $processo->nome,
+                'descricao' => self::trecho($processo->descricao),
                 'area' => $processo->area,
                 'responsavel' => $processo->responsavel,
-                'etapas' => is_array($processo->etapas) ? count($processo->etapas) : 0,
+                'etapas' => is_array($processo->etapas) ? array_values($processo->etapas) : [],
+                'caminho' => Telas::caminho('processos'),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function buscarDocumentos(array $argumentos): array
+    {
+        $consulta = Documento::query()->with(['pasta', 'enviadoPor'])->orderByDesc('updated_at');
+        $termo = self::texto($argumentos, 'termo');
+        $pasta = self::texto($argumentos, 'pasta');
+
+        if ($termo !== '') {
+            $consulta->where('nome', 'like', self::contem($termo));
+        }
+
+        if ($pasta !== '') {
+            $consulta->whereHas('pasta', function (Builder $q) use ($pasta): void {
+                $q->where('nome', 'like', self::contem($pasta));
+            });
+        }
+
+        if ($termo === '' && $pasta === '') {
+            return ['erro' => 'Informe um trecho do nome ou a pasta do documento.'];
+        }
+
+        $total = (clone $consulta)->count();
+        $documentos = $consulta->limit(self::LIMITE_LISTA)->get();
+
+        return [
+            'caminho' => Telas::caminho('documentos'),
+            'total' => $total,
+            'mostradas' => $documentos->count(),
+            'documentos' => $documentos->map(fn (Documento $documento) => self::resumoDocumento($documento))->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function buscarPessoas(array $argumentos): array
+    {
+        $nome = self::texto($argumentos, 'nome');
+        if ($nome === '') {
+            return ['erro' => 'Informe um trecho do nome da pessoa.'];
+        }
+
+        $como = self::contem($nome);
+
+        $socios = Socio::query()
+            ->with('empresa')
+            ->where('nome', 'like', $como)
+            ->orderBy('nome')
+            ->limit(self::LIMITE_BUSCA)
+            ->get();
+
+        $equipe = User::query()
+            ->where('name', 'like', $como)
+            ->orderBy('name')
+            ->limit(self::LIMITE_BUSCA)
+            ->get(['id', 'name', 'perfil', 'area', 'email']);
+
+        return [
+            'socios' => $socios->map(fn (Socio $socio) => [
+                'nome' => $socio->nome,
+                'cargo' => $socio->cargo,
+                'email' => $socio->email,
+                'empresa' => $socio->empresa?->nome,
+                'caminho' => $socio->empresa_id
+                    ? Telas::caminho('cliente', ['id' => $socio->empresa_id])
+                    : Telas::caminho('clientes'),
+            ])->all(),
+            'equipe' => $equipe->map(fn (User $usuario) => [
+                'nome' => $usuario->name,
+                'perfil' => $usuario->perfil,
+                'area' => $usuario->area,
+                'email' => $usuario->email,
+                'caminho' => Telas::caminho('usuarios'),
             ])->all(),
         ];
     }
@@ -337,6 +633,7 @@ final class SofiaTools
 
             return [
                 'empresa' => $empresa->nome,
+                'caminho' => Telas::caminho('treinamentos'),
                 'treinamentos' => $empresa->treinamentos
                     ->take(self::LIMITE_TREINAMENTO)
                     ->map(fn (Treinamento $item) => self::resumoTreinamento($item))
@@ -348,7 +645,7 @@ final class SofiaTools
         $consulta = Treinamento::query()->orderBy('ordem');
 
         if ($termo !== '') {
-            $consulta->where(function ($q) use ($termo): void {
+            $consulta->where(function (Builder $q) use ($termo): void {
                 $q->where('titulo', 'like', self::contem($termo))
                     ->orWhere('descricao', 'like', self::contem($termo))
                     ->orWhere('categoria', 'like', self::contem($termo))
@@ -360,18 +657,34 @@ final class SofiaTools
         $encontrados = $consulta->limit(self::LIMITE_TREINAMENTO)->get();
 
         return [
+            'caminho' => Telas::caminho('treinamentos'),
             'total' => $encontrados->count(),
             'treinamentos' => $encontrados->map(fn (Treinamento $item) => self::resumoTreinamento($item))->all(),
         ];
     }
 
-    /** @return array{titulo: string, tipo: string, categoria: string} */
+    /** @return array{titulo: string, tipo: string, categoria: string, descricao: ?string, nivel: string, caminho: string} */
     private static function resumoTreinamento(Treinamento $item): array
     {
         return [
             'titulo' => $item->titulo,
             'tipo' => $item->tipo,
             'categoria' => $item->categoria,
+            'descricao' => self::trecho($item->descricao),
+            'nivel' => $item->nivel,
+            'caminho' => Telas::caminho('treinamentos'),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function resumoDocumento(Documento $documento): array
+    {
+        return [
+            'nome' => $documento->nomeDoArquivo(),
+            'pasta' => $documento->pasta?->nome,
+            'enviado_por' => $documento->enviadoPor?->name,
+            'caminho' => Telas::caminho('documentos'),
+            'arquivo' => route('documentos.arquivo', $documento, false),
         ];
     }
 
@@ -395,12 +708,201 @@ final class SofiaTools
             ->first();
     }
 
+    /** @return array{erro: string, hoje: string, reunioes: array<empty>} */
+    private static function erroDeData(string $erro): array
+    {
+        return [
+            'erro' => $erro,
+            'hoje' => now(GoogleAgenda::FUSO)->format('d/m/Y'),
+            'reunioes' => [],
+        ];
+    }
+
+    /**
+     * @return array{tipo: 'dia', iso: string}|array{tipo: 'periodo', de: string, ate: string}|array{tipo: 'proximas'}|null
+     */
+    private static function interpretarQuando(string $valor): ?array
+    {
+        $normalizado = self::normalizarData($valor);
+
+        if (in_array($normalizado, ['proximas', 'proxima', 'a seguir', 'que vem'], true)) {
+            return ['tipo' => 'proximas'];
+        }
+
+        if (in_array($normalizado, ['esta semana', 'essa semana'], true)) {
+            $inicio = now(GoogleAgenda::FUSO)->startOfWeek(CarbonInterface::MONDAY);
+
+            return [
+                'tipo' => 'periodo',
+                'de' => $inicio->toDateString(),
+                'ate' => $inicio->copy()->endOfWeek(CarbonInterface::SUNDAY)->toDateString(),
+            ];
+        }
+
+        if (in_array($normalizado, ['semana que vem', 'proxima semana', 'a proxima semana'], true)) {
+            $inicio = now(GoogleAgenda::FUSO)->startOfWeek(CarbonInterface::MONDAY)->addWeek();
+
+            return [
+                'tipo' => 'periodo',
+                'de' => $inicio->toDateString(),
+                'ate' => $inicio->copy()->endOfWeek(CarbonInterface::SUNDAY)->toDateString(),
+            ];
+        }
+
+        if (in_array($normalizado, ['este mes', 'esse mes', 'neste mes'], true)) {
+            $agora = now(GoogleAgenda::FUSO);
+
+            return [
+                'tipo' => 'periodo',
+                'de' => $agora->copy()->startOfMonth()->toDateString(),
+                'ate' => $agora->copy()->endOfMonth()->toDateString(),
+            ];
+        }
+
+        if (in_array($normalizado, ['mes que vem', 'proximo mes'], true)) {
+            $inicio = now(GoogleAgenda::FUSO)->addMonthNoOverflow()->startOfMonth();
+
+            return [
+                'tipo' => 'periodo',
+                'de' => $inicio->toDateString(),
+                'ate' => $inicio->copy()->endOfMonth()->toDateString(),
+            ];
+        }
+
+        $diaDaSemana = self::proximoDiaDaSemana($normalizado);
+        if ($diaDaSemana !== null) {
+            return ['tipo' => 'dia', 'iso' => $diaDaSemana];
+        }
+
+        $iso = self::dataDoArgumento($valor);
+
+        return $iso === null ? null : ['tipo' => 'dia', 'iso' => $iso];
+    }
+
+    private static function proximoDiaDaSemana(string $normalizado): ?string
+    {
+        $dias = [
+            'segunda' => CarbonInterface::MONDAY,
+            'terca' => CarbonInterface::TUESDAY,
+            'quarta' => CarbonInterface::WEDNESDAY,
+            'quinta' => CarbonInterface::THURSDAY,
+            'sexta' => CarbonInterface::FRIDAY,
+            'sabado' => CarbonInterface::SATURDAY,
+            'domingo' => CarbonInterface::SUNDAY,
+        ];
+
+        foreach ($dias as $nome => $indice) {
+            if (preg_match('/^(proxim[oa]s?\s+)?'.$nome.'(-feira)?$/', $normalizado) === 1) {
+                return now(GoogleAgenda::FUSO)->next($indice)->toDateString();
+            }
+        }
+
+        return null;
+    }
+
+    /** Aceita hoje/amanhã/ontem, YYYY-MM-DD ou dd/mm/aaaa no fuso de Brasília. */
+    private static function dataDoArgumento(string $valor): ?string
+    {
+        $normalizado = self::normalizarData($valor);
+
+        if (in_array($normalizado, ['hoje', 'today'], true)) {
+            return now(GoogleAgenda::FUSO)->toDateString();
+        }
+
+        if (in_array($normalizado, ['amanha', 'tomorrow'], true)) {
+            return now(GoogleAgenda::FUSO)->addDay()->toDateString();
+        }
+
+        if (in_array($normalizado, ['ontem', 'yesterday'], true)) {
+            return now(GoogleAgenda::FUSO)->subDay()->toDateString();
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $valor, $partes) === 1) {
+            return checkdate((int) $partes[2], (int) $partes[3], (int) $partes[1])
+                ? $valor
+                : null;
+        }
+
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $valor, $partes) === 1) {
+            $dia = (int) $partes[1];
+            $mes = (int) $partes[2];
+            $ano = (int) $partes[3];
+
+            return checkdate($mes, $dia, $ano)
+                ? sprintf('%04d-%02d-%02d', $ano, $mes, $dia)
+                : null;
+        }
+
+        return null;
+    }
+
+    private static function normalizarData(string $valor): string
+    {
+        $minusculo = mb_strtolower(trim($valor));
+        $semAcento = strtr($minusculo, ['á' => 'a', 'ã' => 'a', 'â' => 'a', 'é' => 'e', 'ê' => 'e', 'í' => 'i', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o', 'ú' => 'u', 'ç' => 'c']);
+
+        return trim(preg_replace('/\s+/', ' ', $semAcento) ?? $semAcento);
+    }
+
     /** @param  array<string, mixed>  $argumentos */
     private static function texto(array $argumentos, string $chave): string
     {
         $valor = $argumentos[$chave] ?? '';
 
         return is_string($valor) ? trim($valor) : '';
+    }
+
+    /** @param  array<string, mixed>  $argumentos */
+    private static function booleano(array $argumentos, string $chave): bool
+    {
+        $valor = $argumentos[$chave] ?? false;
+
+        if (is_bool($valor)) {
+            return $valor;
+        }
+
+        if (is_string($valor)) {
+            return in_array(mb_strtolower(trim($valor)), ['1', 'true', 'sim', 'yes'], true);
+        }
+
+        return (bool) $valor;
+    }
+
+    private static function trecho(?string $texto, int $limite = 360): ?string
+    {
+        if ($texto === null) {
+            return null;
+        }
+
+        $limpo = trim($texto);
+        if ($limpo === '') {
+            return null;
+        }
+
+        if (mb_strlen($limpo) <= $limite) {
+            return $limpo;
+        }
+
+        return mb_substr($limpo, 0, $limite - 1).'…';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function lista(mixed $itens): array
+    {
+        if (! is_array($itens)) {
+            return [];
+        }
+
+        $linhas = [];
+        foreach (array_slice(array_values($itens), 0, 8) as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $linhas[] = trim($item);
+            }
+        }
+
+        return $linhas;
     }
 
     private static function contem(string $valor): string

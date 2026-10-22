@@ -86,8 +86,8 @@
               <p class="sofia-kicker">Assistente oficial do HC Brain</p>
               <h1 id="sofiaSaudacao">O que você quer saber?</h1>
               <p class="sofia-welcome-texto" id="sofiaWelcomeTexto">
-                Pergunte por texto, grave um áudio ou anexe um arquivo. A Sofia consulta empresas,
-                reuniões, documentos, projetos e processos da base.
+                Pergunte por texto, grave um áudio ou anexe um arquivo. Pesquisar busca amplo;
+                Base HC consulta os cadastros — empresas, reuniões, documentos, projetos e processos.
               </p>
             </div>
 
