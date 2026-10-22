@@ -19,19 +19,35 @@ if [ -n "$MYSQL_ATTR_SSL_CA" ] && [ -f "$MYSQL_ATTR_SSL_CA" ]; then
     export MYSQL_ATTR_SSL_CA=/app/storage/mysql-ca.pem
 fi
 
-# O Apache não lê variável de ambiente no VirtualHost: precisa do número
-# literal. Sem isso o contêiner sobe, mas nenhuma porta abre no Render.
+# Porta literal: o Apache não expande variável de ambiente no VirtualHost.
+# Sem a porta aberta cedo, o Render corta o deploy (port scan timeout).
 PORT="${PORT:-10000}"
-sed -i "s/Listen 80/Listen ${PORT}/" /etc/apache2/ports.conf
-sed -i "s/\${PORT}/${PORT}/g" /etc/apache2/sites-available/000-default.conf
+printf 'Listen %s\n' "${PORT}" > /etc/apache2/ports.conf
+cat > /etc/apache2/sites-available/000-default.conf <<EOF
+<VirtualHost *:${PORT}>
+    ServerAdmin webmaster@localhost
+    ServerName localhost
+    DocumentRoot /app/public
 
-# Atualiza o schema sem apagar nada
-php artisan migrate --force
+    <Directory /app/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
 
-# Preparar e as planilhas podem demorar (base vazia / Excel grande). Em
-# primeiro plano o Render corta o deploy por timeout de porta. Falha aqui
-# não derruba o Apache.
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+a2ensite 000-default >/dev/null 2>&1 || true
+apache2ctl configtest
+
+# Abre a porta imediatamente — migrate/preparar podem demorar minutos.
+apache2-foreground &
+APACHE_PID=$!
+
 (
+    php artisan migrate --force || true
     php artisan hc:preparar || true
     runuser -u www-data -- php artisan db:seed --class=ImportEmpresasSeeder --force || true
     if [ -f /app/storage/app/colaboradores.xlsx ]; then
@@ -39,8 +55,6 @@ php artisan migrate --force
     fi
 ) &
 
-# O agendador roda ao lado do Apache
 runuser -u www-data -- php artisan schedule:work &
 
-# Inicia o servidor Apache
-exec apache2-foreground
+wait "${APACHE_PID}"
