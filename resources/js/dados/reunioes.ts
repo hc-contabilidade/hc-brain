@@ -12,7 +12,8 @@ export type TipoReuniao =
     | "Comercial"
     | "Alinhamento"
     | "Financeira"
-    | "Interna";
+    | "Interna"
+    | "Outra";
 
 export type StatusReuniao = "Concluída" | "Agendada" | "Cancelada";
 
@@ -21,6 +22,8 @@ export interface Reuniao {
     /** "Sem empresa" quando veio do Google Agenda sem pista de quem é. */
     empresa: string;
     empresaId: string | null;
+    /** Título do evento no Google Agenda, quando a reunião veio de lá. */
+    titulo: string | null;
     /** Sócio responsável da empresa, mostrado no modal da reunião. */
     socio: string | null;
     tipo: TipoReuniao;
@@ -68,6 +71,7 @@ export const tagDoTipoDeReuniao: Record<TipoReuniao, CorTag> = {
     Financeira: "red",
     // Amarelo como o Banana que marca a reunião interna no Google Agenda.
     Interna: "yellow",
+    Outra: "gray",
 };
 
 export const tagDoStatus: Record<StatusReuniao, CorTag> = {

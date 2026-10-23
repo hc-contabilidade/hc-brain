@@ -15,6 +15,8 @@ class ReuniaoResource extends JsonResource
             'id' => $this->id,
             'empresa' => $this->nomeDaEmpresa(),
             'empresaId' => $this->empresa_id,
+            // Título do evento no Google; a agenda usa ele como nome do card.
+            'titulo' => $this->titulo,
             // O modal da reunião mostra o sócio da empresa, então ele vem junto.
             'socio' => $this->whenLoaded('empresa', fn () => $this->empresa?->relationLoaded('socio')
                 ? "{$this->empresa->socio->nome} ({$this->empresa->socio->cargo})"

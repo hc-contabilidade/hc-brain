@@ -189,6 +189,7 @@ function recorte(): Reuniao[] {
             combina(
                 [
                     reuniao.empresa,
+                    reuniao.titulo ?? "",
                     reuniao.tipo,
                     reuniao.resumo,
                     reuniao.responsavel,
@@ -429,11 +430,32 @@ function etiquetaDeAgenda(reuniao: Reuniao): string {
     return `<span class="tag ${tomDaAgenda(reuniao.agenda.email)}" title="${escapar(reuniao.agenda.email)}">${escapar(rotulo)}</span>`;
 }
 
+/** Nome do card: título do Google quando existe; senão o nome da empresa. */
+function nomeDaReuniao(reuniao: Reuniao): string {
+    const titulo = reuniao.titulo?.trim();
+    if (titulo) {
+        return titulo;
+    }
+
+    return reuniao.empresa;
+}
+
+/** Empresa por baixo do título, só quando o card já mostra o título do Google. */
+function subtituloDaReuniao(reuniao: Reuniao): string {
+    const titulo = reuniao.titulo?.trim();
+    if (!titulo || !reuniao.empresaId || reuniao.empresa === titulo) {
+        return reuniao.resumo;
+    }
+
+    return reuniao.empresa;
+}
+
 function renderLinha(reuniao: Reuniao): string {
+    const nome = nomeDaReuniao(reuniao);
     return `
     <div class="agenda-linha ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
          data-meeting-id="${reuniao.id}" data-date-ord="${reuniao.dataOrd}"
-         aria-label="Abrir reunião de ${escapar(reuniao.tipo)} com ${escapar(reuniao.empresa)}">
+         aria-label="Abrir reunião ${escapar(nome)}">
       <div>
         ${
             reuniao.horario
@@ -442,8 +464,8 @@ function renderLinha(reuniao: Reuniao): string {
         }
       </div>
       <div class="agenda-linha-main">
-        <div class="agenda-linha-titulo">${escapar(reuniao.empresa)}</div>
-        <div class="agenda-linha-motivo">${escapar(reuniao.resumo)}</div>
+        <div class="agenda-linha-titulo">${escapar(nome)}</div>
+        <div class="agenda-linha-motivo">${escapar(subtituloDaReuniao(reuniao))}</div>
       </div>
       <div class="agenda-linha-etiquetas">${etiquetaDeTipo(reuniao)}${etiquetaDeAgenda(reuniao)}</div>
       <div>${etiquetaDeStatus(reuniao)}</div>
@@ -454,15 +476,16 @@ function renderLinha(reuniao: Reuniao): string {
 }
 
 function renderCartao(reuniao: Reuniao): string {
+    const nome = nomeDaReuniao(reuniao);
     return `
     <article class="agenda-card ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
              data-meeting-id="${reuniao.id}"
-             aria-label="Abrir reunião de ${escapar(reuniao.tipo)} com ${escapar(reuniao.empresa)}">
+             aria-label="Abrir reunião ${escapar(nome)}">
       <div class="agenda-card-topo">
         <span class="agenda-card-hora${reuniao.horario ? "" : " vazia"}">${reuniao.horario || "Sem horário"}</span>
         <div class="agenda-card-main">
-          <div class="agenda-card-titulo">${escapar(reuniao.empresa)}</div>
-          <div class="agenda-card-motivo">${escapar(reuniao.resumo)}</div>
+          <div class="agenda-card-titulo">${escapar(nome)}</div>
+          <div class="agenda-card-motivo">${escapar(subtituloDaReuniao(reuniao))}</div>
         </div>
         <span class="agenda-seta">${icone("chevron-right")}</span>
       </div>
@@ -666,7 +689,7 @@ function renderEvento(reuniao: Reuniao, passada = false): string {
     <button type="button" class="${classes}"${estiloDaCor(reuniao)}
             data-meeting-id="${reuniao.id}">
       <span class="agenda-evento-hora">${hora}</span>
-      <strong>${escapar(reuniao.empresa)}</strong>
+      <strong>${escapar(nomeDaReuniao(reuniao))}</strong>
       <span class="agenda-evento-tipo">${escapar(reuniao.tipo)}</span>
       ${(() => {
           const origem = rotuloDaAgenda(reuniao);
@@ -795,7 +818,7 @@ function renderMes(inicio: Date, dias: HTMLElement): void {
                 ]
                     .filter(Boolean)
                     .join(" ");
-                return `<span class="${classes}"${estiloDaCor(reuniao)}>${reuniao.horario || "—"} · ${escapar(reuniao.empresa)}</span>`;
+                return `<span class="${classes}"${estiloDaCor(reuniao)}>${reuniao.horario || "—"} · ${escapar(nomeDaReuniao(reuniao))}</span>`;
             })
             .join("")}
         ${reunioes.length > 3 ? `<span class="calendar-more">+${plural(reunioes.length - 3, "reunião", "reuniões")}</span>` : ""}

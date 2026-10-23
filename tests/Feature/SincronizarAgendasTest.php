@@ -160,7 +160,7 @@ class SincronizarAgendasTest extends TestCase
         $this->assertSame('Abertura', $salvia->tipo);
         $this->assertSame('clinica-vida', $salvia->empresa_id);
 
-        $this->assertSame('Alinhamento', Reuniao::firstWhere('google_evento_id', 'recolorida')->tipo);
+        $this->assertSame('Outra', Reuniao::firstWhere('google_evento_id', 'recolorida')->tipo);
 
         // Pintar o evento de Sálvia no Google depois de importado também muda o tipo.
         $this->travel(5)->minutes();
@@ -193,6 +193,8 @@ class SincronizarAgendasTest extends TestCase
         $semPista = Reuniao::firstWhere('google_evento_id', 'sem-pista');
         $this->assertNull($semPista->empresa_id);
         $this->assertSame('Concluída', $semPista->status);
+        $this->assertSame('Outra', $semPista->tipo);
+        $this->assertSame('Papo com prospect', $semPista->titulo);
 
         // A agenda e o modal leem `empresa` de toda reunião, inclusive das sem empresa.
         $this->actingAs(User::firstOrFail())
@@ -201,9 +203,83 @@ class SincronizarAgendasTest extends TestCase
             ->assertJsonFragment([
                 'empresa' => 'Papo com prospect',
                 'empresaId' => null,
+                'titulo' => 'Papo com prospect',
+                'tipo' => 'Outra',
                 'linkMeet' => 'https://meet.google.com/sem-pista',
                 'agenda' => ['nome' => 'Ana', 'email' => 'ana@hc.com.br'],
             ]);
+    }
+
+    public function test_sinonimo_no_titulo_define_o_tipo_e_alinhamento_antigo_vira_outra(): void
+    {
+        $this->travelTo('2026-10-13 12:00:00');
+        $this->empresa('clinica-vida', 'Clínica Vida', 'helena@vida.com.br');
+        $this->conta();
+        Http::preventStrayRequests();
+        Http::fake([
+            self::TOKEN => Http::response(['access_token' => 'acesso']),
+            self::EVENTOS => Http::sequence()
+                ->push(['items' => [
+                    $this->evento('kick', [
+                        'summary' => 'Kickoff com a Clínica Vida',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                    $this->evento('velha', [
+                        'summary' => 'Papo sem tipo',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                ]])
+                ->push(['items' => [
+                    $this->evento('kick', [
+                        'summary' => 'Kickoff com a Clínica Vida',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                    $this->evento('velha', [
+                        'summary' => 'Papo sem tipo',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                ]]),
+        ]);
+
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        $this->assertSame('Abertura', Reuniao::firstWhere('google_evento_id', 'kick')->tipo);
+        $this->assertSame('Outra', Reuniao::firstWhere('google_evento_id', 'velha')->tipo);
+
+        Reuniao::firstWhere('google_evento_id', 'velha')->update(['tipo' => 'Alinhamento']);
+
+        $this->travel(5)->minutes();
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        $this->assertSame('Outra', Reuniao::firstWhere('google_evento_id', 'velha')->tipo);
+    }
+
+    public function test_cancelada_sem_pista_de_tipo_nao_fica_como_alinhamento(): void
+    {
+        $this->travelTo('2026-10-13 12:00:00');
+        $this->conta();
+        Http::preventStrayRequests();
+        Http::fake([
+            self::TOKEN => Http::response(['access_token' => 'acesso']),
+            self::EVENTOS => Http::sequence()
+                ->push(['items' => [
+                    $this->evento('sumiu', ['summary' => 'Call com fornecedor']),
+                ]])
+                ->push(['items' => [
+                    ['id' => 'sumiu', 'status' => 'cancelled', 'summary' => 'Call com fornecedor'],
+                ]]),
+        ]);
+
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+        Reuniao::sole()->update(['tipo' => 'Alinhamento']);
+
+        $this->travel(5)->minutes();
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        $reuniao = Reuniao::sole();
+        $this->assertSame('Cancelada', $reuniao->status);
+        $this->assertSame('Outra', $reuniao->tipo);
+        $this->assertSame('Call com fornecedor', $reuniao->titulo);
     }
 
     public function test_conta_healthcare_aparece_como_equipe_hc_na_agenda(): void

@@ -84,6 +84,7 @@
             <option value="Alinhamento">Alinhamento</option>
             <option value="Financeira">Financeira</option>
             <option value="Interna">Interna</option>
+            <option value="Outra">Outra</option>
           </select>
         </div>
 

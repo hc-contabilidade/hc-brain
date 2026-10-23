@@ -40,8 +40,6 @@ class SincronizarAgendas extends Command
 
     private const TRAVA_EM_SEGUNDOS = 600;
 
-    private const TIPO_PADRAO = 'Alinhamento';
-
     /**
      * Cores de evento que a equipe usa no Google Agenda para marcar o tipo da
      * reunião: Banana para as internas, Sálvia para as de abertura.
@@ -49,6 +47,24 @@ class SincronizarAgendas extends Command
     private const TIPO_PELA_COR = [
         '5' => Reuniao::INTERNA,
         '2' => 'Abertura',
+    ];
+
+    /**
+     * Palavras no título (já normalizadas) que apontam o tipo sem repetir o
+     * nome oficial — "kickoff" vira Abertura, "demo" vira Comercial, etc.
+     *
+     * @var array<string, string>
+     */
+    private const SINONIMOS_DO_TIPO = [
+        'kickoff' => 'Abertura',
+        'onboarding' => 'Abertura',
+        'demo' => 'Comercial',
+        'demonstracao' => 'Comercial',
+        'proposta' => 'Comercial',
+        '1 1' => 'Alinhamento',
+        'follow up' => 'Alinhamento',
+        'followup' => 'Alinhamento',
+        'financeiro' => 'Financeira',
     ];
 
     /** Terminações que não ajudam a reconhecer a empresa no título do evento. */
@@ -213,11 +229,31 @@ class SincronizarAgendas extends Command
     private function gravar(ContaGoogle $conta, array $evento, ?Reuniao $existente): ?string
     {
         if (($evento['status'] ?? null) === 'cancelled') {
-            if ($existente?->status !== 'Agendada') {
+            if ($existente === null) {
                 return null;
             }
 
-            $existente->update(['status' => 'Cancelada']);
+            $trocas = [];
+
+            if ($existente->status === 'Agendada') {
+                $trocas['status'] = 'Cancelada';
+            }
+
+            // Mesmo cancelado: tira o Alinhamento inventado e guarda o título do Google.
+            if ($existente->tipo === 'Alinhamento' && $this->tipoDo($evento) === Reuniao::OUTRA) {
+                $trocas['tipo'] = Reuniao::OUTRA;
+            }
+
+            $titulo = $this->tituloDo($evento);
+            if ($titulo !== null && $titulo !== $existente->titulo) {
+                $trocas['titulo'] = $titulo;
+            }
+
+            if ($trocas === []) {
+                return null;
+            }
+
+            $existente->update($trocas);
 
             return 'atualizada';
         }
@@ -241,9 +277,10 @@ class SincronizarAgendas extends Command
         ];
 
         $tipoPelaCor = self::TIPO_PELA_COR[(string) ($evento['colorId'] ?? '')] ?? null;
+        $tipoPeloTitulo = $this->tipoDo($evento);
 
         if ($existente === null) {
-            $tipo = $tipoPelaCor ?? $this->tipoDo($evento);
+            $tipo = $tipoPelaCor ?? $tipoPeloTitulo;
 
             Reuniao::create([
                 ...$quando,
@@ -262,9 +299,18 @@ class SincronizarAgendas extends Command
             return 'nova';
         }
 
-        // A cor que a equipe dá ao evento no Google vale como tipo: trocar a cor
-        // lá troca o tipo aqui. Sem uma dessas cores, o tipo é de quem registra.
-        $tipo = $tipoPelaCor ?? $existente->tipo;
+        // Cor do Google manda. Título com pista clara atualiza o tipo. Sem pista,
+        // preserva o que a equipe gravou — exceto o Alinhamento inventado pelo
+        // default antigo do sync, que vira Outra.
+        if ($tipoPelaCor !== null) {
+            $tipo = $tipoPelaCor;
+        } elseif ($tipoPeloTitulo !== Reuniao::OUTRA) {
+            $tipo = $tipoPeloTitulo;
+        } elseif ($existente->tipo === 'Alinhamento') {
+            $tipo = Reuniao::OUTRA;
+        } else {
+            $tipo = $existente->tipo;
+        }
 
         $existente->fill([
             ...$quando,
@@ -371,12 +417,22 @@ class SincronizarAgendas extends Command
         $titulo = ' '.$this->normalizar($evento['summary'] ?? '').' ';
 
         foreach (Reuniao::TIPOS as $tipo) {
+            if ($tipo === Reuniao::OUTRA) {
+                continue;
+            }
+
             if (str_contains($titulo, ' '.$this->normalizar($tipo).' ')) {
                 return $tipo;
             }
         }
 
-        return self::TIPO_PADRAO;
+        foreach (self::SINONIMOS_DO_TIPO as $sinonimo => $tipo) {
+            if (str_contains($titulo, ' '.$sinonimo.' ')) {
+                return $tipo;
+            }
+        }
+
+        return Reuniao::OUTRA;
     }
 
     /**

@@ -121,7 +121,7 @@ function renderReunioes(reunioes: Reuniao[]): void {
             <button type="button" class="mini-meeting" data-meeting-id="${reuniao.id}">
               <span class="tag ${tagDoTipoDeReuniao[reuniao.tipo] ?? ""}">${escapar(reuniao.tipo)}</span>
               <span class="mini-meeting-body">
-                <strong>Reunião de ${escapar(reuniao.tipo)} — ${reuniao.data}</strong>
+                <strong>${escapar(reuniao.titulo?.trim() || `Reunião de ${reuniao.tipo}`)} — ${reuniao.data}</strong>
                 <small>${escapar(reuniao.resumo)}</small>
               </span>
               <span class="tag ${tagDoStatus[reuniao.status] ?? ""}">${escapar(reuniao.status)}</span>

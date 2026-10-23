@@ -141,8 +141,11 @@ export function openMeetingModal(meeting: Reuniao): void {
     meet.hidden = meeting.linkMeet === null;
     meet.href = meeting.linkMeet ?? "";
 
-    porId("meetingModalEmpresa").textContent = `Reunião • ${meeting.empresa}`;
-    porId("meetingModalTitle").textContent = `Reunião de ${meeting.tipo}`;
+    const titulo = meeting.titulo?.trim();
+    porId("meetingModalEmpresa").textContent = titulo
+        ? `${titulo}${meeting.empresaId ? ` • ${meeting.empresa}` : ""}`
+        : `Reunião • ${meeting.empresa}`;
+    porId("meetingModalTitle").textContent = titulo || `Reunião de ${meeting.tipo}`;
 
     const agenda = meeting.agenda
         ? (() => {
