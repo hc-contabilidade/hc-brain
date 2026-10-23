@@ -271,23 +271,76 @@ function limparAnexo(): void {
     atualizarEnvio();
 }
 
+/** Nomes comuns de vozes femininas em pt-BR / pt-PT nos navegadores. */
+const VOZ_FEMININA =
+    /maria|francisca|fernanda|luciana|helena|thalita|vit[oó]ria|camila|julia|ana\b|sofia|natália|natalia|female|feminina/i;
+
+/** Nomes comuns de vozes masculinas — a Sofia evita estas. */
+const VOZ_MASCULINA =
+    /daniel|ricardo|felipe|ant[oô]nio|jo[aã]o|male|masculina|microsoft david|microsoft mark/i;
+
+/**
+ * Pontua a voz: prioriza português do Brasil feminino (Maria, Francisca,
+ * Luciana…). Sem isso o Windows costuma pegar o Daniel e a Sofia fica masculina.
+ */
+function pontuacaoDaVoz(voz: SpeechSynthesisVoice): number {
+    const rotulo = `${voz.name} ${voz.voiceURI}`;
+    let pontos = 0;
+
+    if (/^pt[-_]br$/i.test(voz.lang)) {
+        pontos += 40;
+    } else if (/^pt/i.test(voz.lang)) {
+        pontos += 20;
+    } else {
+        return -100;
+    }
+
+    if (VOZ_FEMININA.test(rotulo)) {
+        pontos += 50;
+    }
+    if (VOZ_MASCULINA.test(rotulo)) {
+        pontos -= 60;
+    }
+    if (/natural|neural|online|premium|enhanced/i.test(rotulo)) {
+        pontos += 10;
+    }
+    if (voz.localService) {
+        pontos += 2;
+    }
+
+    return pontos;
+}
+
 /**
  * `getVoices()` costuma devolver uma lista vazia na primeira chamada, porque o
  * sistema ainda está carregando as vozes — o evento avisa quando elas chegam.
  */
 function escolherVozPortuguesa(): void {
     if (!sinteseDeVoz) return;
-    const vozes = sinteseDeVoz.getVoices();
-    vozDaSofia =
-        vozes.find((voz) => /^pt[-_]br$/i.test(voz.lang)) ??
-        vozes.find((voz) => /^pt/i.test(voz.lang)) ??
-        null;
+
+    const ranqueadas = sinteseDeVoz
+        .getVoices()
+        .map((voz) => ({ voz, pontos: pontuacaoDaVoz(voz) }))
+        .filter(({ pontos }) => pontos > 0)
+        .sort((a, b) => b.pontos - a.pontos);
+
+    vozDaSofia = ranqueadas[0]?.voz ?? null;
+}
+
+/** A voz padrão masculina fica um pouco mais aguda quando não há alternativa. */
+function tomDaSofia(): number {
+    if (!vozDaSofia) return 1.12;
+    return VOZ_MASCULINA.test(`${vozDaSofia.name} ${vozDaSofia.voiceURI}`) ? 1.18 : 1.06;
 }
 
 /** Fala o texto e resolve quando termina — ou quando alguém interrompe. */
 function falar(texto: string): Promise<void> {
     const limpo = textoSemMarkdown(texto);
     if (!sinteseDeVoz || !limpo) return Promise.resolve();
+
+    if (!vozDaSofia) {
+        escolherVozPortuguesa();
+    }
 
     return new Promise((resolver) => {
         const concluir = (): void => {
@@ -299,6 +352,8 @@ function falar(texto: string): Promise<void> {
         const fala = new SpeechSynthesisUtterance(limpo);
         fala.lang = vozDaSofia?.lang ?? "pt-BR";
         if (vozDaSofia) fala.voice = vozDaSofia;
+        fala.pitch = tomDaSofia();
+        fala.rate = 1.02;
         fala.onend = concluir;
         fala.onerror = concluir;
 
