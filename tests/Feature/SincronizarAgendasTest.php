@@ -94,7 +94,7 @@ class SincronizarAgendasTest extends TestCase
         $this->assertSame('Alinhamento', $reuniao->tipo);
         $this->assertSame('2026-10-20', $reuniao->data->toDateString());
         $this->assertSame('14:00', $reuniao->horario);
-        $this->assertSame('Ana HC', $reuniao->responsavel);
+        $this->assertSame('Ana', $reuniao->responsavel);
         $this->assertSame(['Helena Dias'], $reuniao->participantes);
         $this->assertSame('Agendada', $reuniao->status);
         $this->assertSame('https://meet.google.com/abc-defg-hij', $reuniao->link_meet);
@@ -227,6 +227,44 @@ class SincronizarAgendasTest extends TestCase
             ->assertOk()
             ->assertJsonFragment([
                 'agenda' => ['nome' => 'Equipe HC', 'email' => 'comercial@hc.com.br'],
+                'responsavel' => 'Equipe HC',
+            ]);
+
+        $this->assertDatabaseHas('reunioes', [
+            'google_evento_id' => 'comercial-hc',
+            'responsavel' => 'Equipe HC',
+        ]);
+    }
+
+    public function test_responsavel_acompanha_o_rotulo_da_agenda_na_atualizacao(): void
+    {
+        $this->travelTo('2026-10-13 12:00:00');
+        $this->seed(UsuarioSeeder::class);
+        $conta = $this->conta('rafa@hc.com.br', 'Rafael Amorim');
+        Http::preventStrayRequests();
+        Http::fake([
+            self::TOKEN => Http::response(['access_token' => 'acesso']),
+            self::EVENTOS => Http::response(['items' => [
+                $this->evento('rafa-1', ['summary' => 'Alinhamento — Clínica Vida']),
+            ]]),
+        ]);
+
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        Reuniao::sole()->update(['responsavel' => 'Nome antigo diferente']);
+        $conta->update(['nome' => 'Rafael Amorim']);
+
+        $this->travel(5)->minutes();
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        $this->assertSame('Rafael', Reuniao::sole()->responsavel);
+
+        $this->actingAs(User::firstOrFail())
+            ->getJson('/api/reunioes')
+            ->assertOk()
+            ->assertJsonFragment([
+                'agenda' => ['nome' => 'Rafael', 'email' => 'rafa@hc.com.br'],
+                'responsavel' => 'Rafael',
             ]);
     }
 

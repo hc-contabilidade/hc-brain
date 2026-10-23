@@ -31,14 +31,18 @@ class ContaGoogle extends Model
     }
 
     /**
-     * Nome curto na agenda: a conta comercial no Google vem como
-     * "HealthCare", que fica vago ao lado da tag Comercial.
+     * Nome curto na agenda e em "Realiza": a conta comercial no Google
+     * vem como "HealthCare", que fica vago ao lado da tag Comercial.
      */
     public function rotuloNaAgenda(): string
     {
         $nome = trim($this->nome);
+        $email = strtolower(trim($this->email));
 
-        if ($nome !== '' && preg_match('/^healthcare\b/iu', $nome) === 1) {
+        if (
+            ($nome !== '' && preg_match('/^healthcare\b/iu', $nome) === 1)
+            || str_contains($email, 'healthcare')
+        ) {
             return 'Equipe HC';
         }
 

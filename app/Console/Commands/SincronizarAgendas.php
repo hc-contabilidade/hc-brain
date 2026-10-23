@@ -251,7 +251,7 @@ class SincronizarAgendas extends Command
                 'google_evento_id' => $evento['id'],
                 'empresa_id' => $tipo === Reuniao::INTERNA ? null : $this->empresaDo($evento),
                 'tipo' => $tipo,
-                'responsavel' => $conta->nome,
+                'responsavel' => $conta->rotuloNaAgenda(),
                 'participantes' => $this->participantesDo($evento),
                 'resumo' => $this->resumoDo($evento),
                 'decisoes' => [],
@@ -269,6 +269,7 @@ class SincronizarAgendas extends Command
         $existente->fill([
             ...$quando,
             'tipo' => $tipo,
+            'responsavel' => $conta->rotuloNaAgenda(),
             'empresa_id' => $existente->empresa_id ?? ($tipo === Reuniao::INTERNA ? null : $this->empresaDo($evento)),
             // Desmarcada no Google e remarcada depois volta a valer.
             'status' => $existente->status === 'Cancelada'

@@ -30,8 +30,8 @@ class EmpresaController extends Controller
     public function show(Empresa $empresa): JsonResponse
     {
         $empresa->load([
-            'socio', 'fontes', 'ultimaReuniao', 'reunioes.empresa.socio', 'treinamentos',
-            'financeiro', 'receitasMensais', 'transacoes',
+            'socio', 'fontes', 'ultimaReuniao', 'reunioes.empresa.socio', 'reunioes.contaGoogle',
+            'treinamentos', 'financeiro', 'receitasMensais', 'transacoes',
         ]);
 
         $financeiro = $empresa->financeiro;

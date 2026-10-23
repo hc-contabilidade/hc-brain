@@ -24,7 +24,10 @@ class ReuniaoResource extends JsonResource
             // A agenda ordena e agrupa por esta chave, então ela vem pronta.
             'dataOrd' => $this->data->format('Y-m-d'),
             'horario' => $this->horario,
-            'responsavel' => $this->responsavel,
+            // Mesmo rótulo da tag da agenda (Equipe HC, Rafael…), não o nome cru do Google.
+            'responsavel' => $this->contaGoogle !== null
+                ? $this->contaGoogle->rotuloNaAgenda()
+                : $this->responsavel,
             'participantes' => $this->participantes,
             'resumo' => $this->resumo,
             'decisoes' => $this->decisoes,
