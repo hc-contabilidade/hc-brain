@@ -138,10 +138,6 @@ const esfera = porId("sofiaEsfera");
 const dicaVoz = porId("sofiaDicaVoz");
 const aviso = porId("sofiaAviso");
 
-/* A bolinha fica acima do campo; sobe para o `body` só para o z-index
-   cobrir a coluna da Sofia sem tapar o chat. */
-document.body.append(vozTela);
-
 /* Os dois caminhos do áudio, decididos antes do primeiro clique: ditar no
    próprio navegador, ou mandar o arquivo para o servidor transcrever. */
 const transcricaoNoServidor = dado(tela, "transcricaoServidor") === "1";
@@ -1574,7 +1570,6 @@ vozInterromper.addEventListener("click", () => {
 });
 
 vozFechar.addEventListener("click", sairDaConversaPorVoz);
-porId("sofiaVozSair").addEventListener("click", sairDaConversaPorVoz);
 
 porId("sofiaGravacaoCancelar").addEventListener("click", () => {
     cancelarGravacao();

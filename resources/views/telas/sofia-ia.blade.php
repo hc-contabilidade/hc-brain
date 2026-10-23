@@ -92,6 +92,49 @@
             </div>
 
             <div class="sofia-compose-wrap" id="sofiaCompose">
+              {{-- Bolinha acima do campo, alinhada à coluna — sem cobrir o chat. --}}
+              <div
+                class="sofia-voz-tela"
+                id="sofiaVozTela"
+                hidden
+                role="dialog"
+                aria-modal="false"
+                aria-labelledby="sofiaVozTitulo"
+              >
+                <h2 class="sr-only" id="sofiaVozTitulo">Conversa por voz com a Sofia</h2>
+
+                <button
+                  type="button"
+                  class="sofia-voz-fechar"
+                  id="sofiaVozFechar"
+                  title="Sair da conversa por voz"
+                  aria-label="Sair da conversa por voz"
+                >
+                  <i data-lucide="x"></i>
+                </button>
+
+                <div class="sofia-esfera" id="sofiaEsfera" data-estado="ouvindo" aria-hidden="true">
+                  <span class="sofia-esfera-brilho"></span>
+                  <span class="sofia-esfera-anel"></span>
+                  <span class="sofia-esfera-nucleo">
+                    <i></i>
+                    <i></i>
+                    <i></i>
+                  </span>
+                </div>
+
+                <p class="sofia-voz-estado" id="sofiaVozEstado" role="status" aria-live="polite">
+                  Ouvindo você…
+                </p>
+
+                <p class="sofia-voz-legenda" id="sofiaVozParcial">Fale sua pergunta.</p>
+
+                <button type="button" class="sofia-voz-interromper" id="sofiaVozInterromper" hidden>
+                  <i data-lucide="square"></i>
+                  <span>Interromper</span>
+                </button>
+              </div>
+
               <form class="chat-form" id="chatForm">
                 <div class="sofia-attachment" id="sofiaAttachment">
                   <i data-lucide="paperclip"></i>
@@ -226,54 +269,4 @@
       </div>
     </div>
   </section>
-
-  {{--
-    Bolinha compacta acima do campo (estilo ChatGPT). O chat continua
-    visível; o script só move o bloco para o fim do `body` por causa do z-index.
-  --}}
-  <div
-    class="sofia-voz-tela"
-    id="sofiaVozTela"
-    hidden
-    role="dialog"
-    aria-modal="false"
-    aria-labelledby="sofiaVozTitulo"
-  >
-    <h2 class="sr-only" id="sofiaVozTitulo">Conversa por voz com a Sofia</h2>
-
-    <button
-      type="button"
-      class="sofia-voz-fechar"
-      id="sofiaVozFechar"
-      title="Sair da conversa por voz"
-      aria-label="Sair da conversa por voz"
-    >
-      <i data-lucide="x"></i>
-    </button>
-
-    <div class="sofia-esfera" id="sofiaEsfera" data-estado="ouvindo" aria-hidden="true">
-      <span class="sofia-esfera-brilho"></span>
-      <span class="sofia-esfera-anel"></span>
-      <span class="sofia-esfera-nucleo">
-        <i></i>
-        <i></i>
-        <i></i>
-      </span>
-    </div>
-
-    <p class="sofia-voz-estado" id="sofiaVozEstado" role="status" aria-live="polite">
-      Ouvindo você…
-    </p>
-
-    <p class="sofia-voz-legenda" id="sofiaVozParcial">Fale sua pergunta.</p>
-
-    <div class="sofia-voz-acoes">
-      <button type="button" class="sofia-voz-interromper" id="sofiaVozInterromper" hidden>
-        <i data-lucide="square"></i>
-        <span>Interromper</span>
-      </button>
-
-      <button type="button" class="sofia-voz-sair" id="sofiaVozSair">Sair da conversa</button>
-    </div>
-  </div>
 @endsection

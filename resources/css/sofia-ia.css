@@ -606,7 +606,10 @@
    COMPOSITOR
    -------------------------------------------------------------------------- */
 .sofia-compose-wrap {
+    display: flex;
     flex-shrink: 0;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 .chat-form {
@@ -913,59 +916,44 @@
 
 /* --------------------------------------------------------------------------
    CONVERSA POR VOZ
-   Estilo ChatGPT: bolinha compacta acima do campo, chat continua visível
-   por baixo. O painel não cobre a tela.
+   Estilo ChatGPT: bolinha solta acima do campo, sem caixinha e sem
+   cobrir o chat. Fica no fluxo do compositor (não é fixed no viewport).
    -------------------------------------------------------------------------- */
 .sofia-voz-tela {
-    position: fixed;
-    z-index: 150;
-    left: 50%;
-    bottom: clamp(7.5rem, 14vh, 10rem);
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
     gap: var(--esp-2);
-    width: min(100% - 2rem, 22rem);
-    padding: var(--esp-3) var(--esp-4) var(--esp-2);
-    border: 1px solid color-mix(in srgb, var(--border-forte) 70%, transparent);
-    border-radius: 1.75rem;
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    box-shadow: 0 12px 40px color-mix(in srgb, #000 28%, transparent);
-    backdrop-filter: blur(14px);
-    transform: translateX(-50%);
-    pointer-events: none;
-}
-
-.sofia-voz-tela > * {
-    pointer-events: auto;
-}
-
-/* Bolinha pequena, só um pouco acima do campo — não toma a conversa. */
-.sofia-voz-tela .sofia-esfera {
-    width: 5.5rem;
-    margin-bottom: var(--esp-1);
+    width: 100%;
+    margin: 0 auto var(--esp-4);
+    padding: var(--esp-2) 0 0;
+    background: transparent;
 }
 
 .sofia-voz-tela[hidden] {
     display: none;
 }
 
-/* Espaço extra no fim do chat para a última resposta não ficar atrás da bolinha. */
-.sofia-ai-screen.em-voz .chat {
-    padding-bottom: 14rem;
+.sofia-voz-tela .sofia-esfera {
+    width: 4.75rem;
+}
+
+.sofia-ai-screen.em-voz .sofia-disclaimer {
+    display: none;
 }
 
 .sofia-voz-fechar {
     position: absolute;
-    top: var(--esp-2);
-    right: var(--esp-2);
+    top: 0;
+    right: 0;
     display: grid;
     width: 32px;
     height: 32px;
     border: 1px solid var(--border-forte);
     border-radius: 50%;
-    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    background: var(--surface-alto);
     color: var(--texto-suave);
     place-items: center;
     transition: var(--transicao);
@@ -989,28 +977,20 @@
 }
 
 .sofia-voz-legenda {
-    max-width: 36ch;
-    min-height: 1.25em;
+    max-width: 32ch;
+    min-height: 1.2em;
     color: var(--texto-suave);
     font-size: var(--texto-xs);
     line-height: var(--altura-solta);
     text-align: center;
 }
 
-.sofia-voz-acoes {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--esp-2);
-    margin-top: var(--esp-1);
-}
-
-.sofia-voz-interromper,
-.sofia-voz-sair {
+.sofia-voz-interromper {
     display: flex;
     align-items: center;
     gap: var(--esp-2);
     height: 34px;
+    margin-top: var(--esp-1);
     padding: 0 var(--esp-3);
     border: 1px solid var(--border-forte);
     border-radius: var(--raio-pill);
@@ -1030,8 +1010,7 @@
     height: 14px;
 }
 
-.sofia-voz-interromper:hover,
-.sofia-voz-sair:hover {
+.sofia-voz-interromper:hover {
     border-color: var(--roxo);
     background: var(--surface-hover);
     color: var(--texto-forte);
