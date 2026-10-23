@@ -40,7 +40,6 @@ import {
     campo,
     dado,
     porId,
-    porSeletor,
     talvez,
     todos,
 } from "../comum/dom.ts";
@@ -138,11 +137,9 @@ const vozInterromper = porId<HTMLButtonElement>("sofiaVozInterromper");
 const esfera = porId("sofiaEsfera");
 const dicaVoz = porId("sofiaDicaVoz");
 const aviso = porId("sofiaAviso");
-const principal = porSeletor(".main");
-const barraLateral = talvez("[data-sidebar]");
 
-/* A conversa por voz cobre a tela inteira e deixa o `main` inerte. Para não
-   ficar inerte junto com ele, o bloco sobe para o fim do `body`. */
+/* A bolinha fica acima do campo; sobe para o `body` só para o z-index
+   cobrir a coluna da Sofia sem tapar o chat. */
 document.body.append(vozTela);
 
 /* Os dois caminhos do áudio, decididos antes do primeiro clique: ditar no
@@ -1220,17 +1217,13 @@ function sairDaConversaPorVoz(): void {
 
     vozTela.hidden = true;
     vozInterromper.hidden = true;
-    principal.inert = false;
-    if (barraLateral) barraLateral.inert = false;
-    document.documentElement.classList.remove("no-scroll");
+    tela.classList.remove("em-voz");
     vozBtn.classList.remove("ativa");
     vozBtn.setAttribute("aria-pressed", "false");
     vozBtn.setAttribute("aria-label", "Iniciar conversa por voz");
     vozBtn.title = "Iniciar conversa por voz";
     atualizarEnvio();
 
-    /* O foco volta para o botão que abriu a conversa, como na gaveta: só se
-       ele ainda estava na tela que acabou de sumir. */
     const foco = document.activeElement;
     if (foco === document.body || (foco instanceof Node && vozTela.contains(foco))) {
         vozBtn.focus();
@@ -1349,14 +1342,11 @@ function entrarNaConversaPorVoz(): void {
     silenciosSeguidos = 0;
 
     vozTela.hidden = false;
-    document.documentElement.classList.add("no-scroll");
-    principal.inert = true;
-    if (barraLateral) barraLateral.inert = true;
+    tela.classList.add("em-voz");
     vozBtn.classList.add("ativa");
     vozBtn.setAttribute("aria-pressed", "true");
     vozBtn.setAttribute("aria-label", "Sair da conversa por voz");
     vozBtn.title = "Sair da conversa por voz";
-    vozFechar.focus();
     atualizarEnvio();
 
     /* Com movimento reduzido a esfera fica parada, então não há por que abrir
@@ -1585,28 +1575,6 @@ vozInterromper.addEventListener("click", () => {
 
 vozFechar.addEventListener("click", sairDaConversaPorVoz);
 porId("sofiaVozSair").addEventListener("click", sairDaConversaPorVoz);
-
-/* O resto da página está inerte, mas o Tab ainda sairia para a barra do
-   navegador e voltaria por fora; aqui ele dá a volta dentro da conversa. */
-vozTela.addEventListener("keydown", (evento) => {
-    if (evento.key !== "Tab") return;
-
-    const focaveis = todos<HTMLButtonElement>("button:not([hidden])", vozTela);
-    const primeiro = focaveis.at(0);
-    const ultimo = focaveis.at(-1);
-    if (!primeiro || !ultimo) return;
-
-    if (evento.shiftKey && document.activeElement === primeiro) {
-        evento.preventDefault();
-        ultimo.focus();
-        return;
-    }
-
-    if (!evento.shiftKey && document.activeElement === ultimo) {
-        evento.preventDefault();
-        primeiro.focus();
-    }
-});
 
 porId("sofiaGravacaoCancelar").addEventListener("click", () => {
     cancelarGravacao();

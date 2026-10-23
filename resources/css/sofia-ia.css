@@ -913,42 +913,59 @@
 
 /* --------------------------------------------------------------------------
    CONVERSA POR VOZ
-   A tela inteira sai de cena e fica só a esfera: falar com a Sofia não é
-   ler uma conversa, é olhar para uma coisa só.
+   Estilo ChatGPT: bolinha compacta acima do campo, chat continua visível
+   por baixo. O painel não cobre a tela.
    -------------------------------------------------------------------------- */
 .sofia-voz-tela {
     position: fixed;
     z-index: 150;
-    inset: 0;
+    left: 50%;
+    bottom: clamp(7.5rem, 14vh, 10rem);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: var(--esp-4);
-    padding: var(--esp-8) var(--esp-6);
-    background: radial-gradient(120% 80% at 50% 42%, var(--voz-fundo) 0%, var(--bg) 72%);
+    justify-content: flex-end;
+    gap: var(--esp-2);
+    width: min(100% - 2rem, 22rem);
+    padding: var(--esp-3) var(--esp-4) var(--esp-2);
+    border: 1px solid color-mix(in srgb, var(--border-forte) 70%, transparent);
+    border-radius: 1.75rem;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    box-shadow: 0 12px 40px color-mix(in srgb, #000 28%, transparent);
+    backdrop-filter: blur(14px);
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
-/* O halo da esfera passa da caixa dela; sem esta folga o texto cai dentro
-   do brilho e fica ilegível. */
+.sofia-voz-tela > * {
+    pointer-events: auto;
+}
+
+/* Bolinha pequena, só um pouco acima do campo — não toma a conversa. */
 .sofia-voz-tela .sofia-esfera {
-    margin-bottom: var(--esp-12);
+    width: 5.5rem;
+    margin-bottom: var(--esp-1);
 }
 
 .sofia-voz-tela[hidden] {
     display: none;
 }
 
+/* Espaço extra no fim do chat para a última resposta não ficar atrás da bolinha. */
+.sofia-ai-screen.em-voz .chat {
+    padding-bottom: 14rem;
+}
+
 .sofia-voz-fechar {
     position: absolute;
-    top: var(--esp-5);
-    right: var(--esp-5);
+    top: var(--esp-2);
+    right: var(--esp-2);
     display: grid;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border: 1px solid var(--border-forte);
     border-radius: 50%;
-    background: transparent;
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
     color: var(--texto-suave);
     place-items: center;
     transition: var(--transicao);
@@ -966,23 +983,26 @@
 
 .sofia-voz-estado {
     color: var(--texto-forte);
-    font-size: var(--texto-lg);
+    font-size: var(--texto-sm);
     font-weight: var(--peso-medio);
     letter-spacing: -0.01em;
 }
 
 .sofia-voz-legenda {
-    max-width: 52ch;
-    min-height: 1.5em;
+    max-width: 36ch;
+    min-height: 1.25em;
     color: var(--texto-suave);
-    font-size: var(--texto-md);
+    font-size: var(--texto-xs);
     line-height: var(--altura-solta);
     text-align: center;
 }
 
 .sofia-voz-acoes {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--esp-2);
+    margin-top: var(--esp-1);
 }
 
 .sofia-voz-interromper,
@@ -990,13 +1010,13 @@
     display: flex;
     align-items: center;
     gap: var(--esp-2);
-    height: 38px;
-    padding: 0 var(--esp-4);
+    height: 34px;
+    padding: 0 var(--esp-3);
     border: 1px solid var(--border-forte);
     border-radius: var(--raio-pill);
     background: transparent;
     color: var(--texto);
-    font-size: var(--texto-sm);
+    font-size: var(--texto-xs);
     font-weight: var(--peso-medio);
     transition: var(--transicao);
 }

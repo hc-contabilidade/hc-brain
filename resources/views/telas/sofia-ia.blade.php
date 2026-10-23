@@ -228,16 +228,15 @@
   </section>
 
   {{--
-    A conversa por voz toma a tela inteira: só a esfera, o estado e a saída.
-    O script move este bloco para o fim do `body`, porque enquanto ele está
-    aberto o `main` inteiro fica inerte — e ele não pode ficar junto.
+    Bolinha compacta acima do campo (estilo ChatGPT). O chat continua
+    visível; o script só move o bloco para o fim do `body` por causa do z-index.
   --}}
   <div
     class="sofia-voz-tela"
     id="sofiaVozTela"
     hidden
     role="dialog"
-    aria-modal="true"
+    aria-modal="false"
     aria-labelledby="sofiaVozTitulo"
   >
     <h2 class="sr-only" id="sofiaVozTitulo">Conversa por voz com a Sofia</h2>
