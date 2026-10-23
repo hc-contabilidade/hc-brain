@@ -33,3 +33,24 @@ export function textoSemMarkdown(texto: string): string {
         .replace(/\s+/g, " ")
         .trim();
 }
+
+/**
+ * Texto preparado para a síntese: tira markdown, marcações de lista e
+ * transforma quebras em pausas curtas (ponto), sem soar atropelado.
+ */
+export function textoParaFala(texto: string): string {
+    return texto
+        .replace(/\[([^\]]+)\]\(((?:\/[^)\s]+)|(?:https?:\/\/[^)\s]+))\)/g, "$1")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/(^|[^*])\*([^*\n]+)\*([^*]|$)/g, "$1$2$3")
+        .replace(/(^|[^_])_([^_\n]+)_([^_]|$)/g, "$1$2$3")
+        .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+        .replace(/^\s*[-*•]\s+/gm, "")
+        .replace(/\n{2,}/g, ". ")
+        .replace(/\n/g, ". ")
+        .replace(/\s+/g, " ")
+        .replace(/\.\s*\./g, ".")
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .trim();
+}

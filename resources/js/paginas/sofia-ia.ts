@@ -51,7 +51,7 @@ import {
 } from "../comum/estado.ts";
 import { escapar } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
-import { htmlDeMarkdown, textoSemMarkdown } from "../comum/markdown.ts";
+import { htmlDeMarkdown, textoParaFala } from "../comum/markdown.ts";
 import { showModal } from "../comum/modal.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
@@ -279,9 +279,16 @@ const VOZ_FEMININA =
 const VOZ_MASCULINA =
     /daniel|ricardo|felipe|ant[oô]nio|jo[aã]o|male|masculina|microsoft david|microsoft mark/i;
 
+/** Vozes neurais / online soam bem mais naturais que as locais do Windows. */
+const VOZ_NATURAL =
+    /natural|neural|online|premium|enhanced|google|microsoft .+ online/i;
+
+/** Vozes compactas / desktop antigas ficam metálicas. */
+const VOZ_ROBOTICA = /desktop|compact|espeak|sapi|mobile/i;
+
 /**
- * Pontua a voz: prioriza português do Brasil feminino (Maria, Francisca,
- * Luciana…). Sem isso o Windows costuma pegar o Daniel e a Sofia fica masculina.
+ * Pontua a voz: português do Brasil feminino e, acima de tudo, neurais
+ * (Maria Online Natural, Google…). Evita o Daniel e as vozes desktop.
  */
 function pontuacaoDaVoz(voz: SpeechSynthesisVoice): number {
     const rotulo = `${voz.name} ${voz.voiceURI}`;
@@ -290,22 +297,26 @@ function pontuacaoDaVoz(voz: SpeechSynthesisVoice): number {
     if (/^pt[-_]br$/i.test(voz.lang)) {
         pontos += 40;
     } else if (/^pt/i.test(voz.lang)) {
-        pontos += 20;
+        pontos += 18;
     } else {
         return -100;
     }
 
     if (VOZ_FEMININA.test(rotulo)) {
-        pontos += 50;
+        pontos += 45;
     }
     if (VOZ_MASCULINA.test(rotulo)) {
-        pontos -= 60;
+        pontos -= 80;
     }
-    if (/natural|neural|online|premium|enhanced/i.test(rotulo)) {
-        pontos += 10;
+    if (VOZ_NATURAL.test(rotulo)) {
+        pontos += 55;
     }
-    if (voz.localService) {
-        pontos += 2;
+    if (VOZ_ROBOTICA.test(rotulo)) {
+        pontos -= 30;
+    }
+    // Locais antigas perdem para as online; as neurais locais ainda valem.
+    if (voz.localService && !VOZ_NATURAL.test(rotulo)) {
+        pontos -= 20;
     }
 
     return pontos;
@@ -327,38 +338,95 @@ function escolherVozPortuguesa(): void {
     vozDaSofia = ranqueadas[0]?.voz ?? null;
 }
 
-/** A voz padrão masculina fica um pouco mais aguda quando não há alternativa. */
-function tomDaSofia(): number {
-    if (!vozDaSofia) return 1.12;
-    return VOZ_MASCULINA.test(`${vozDaSofia.name} ${vozDaSofia.voiceURI}`) ? 1.18 : 1.06;
+/**
+ * Ritmo um pouco abaixo de 1 deixa a fala menos atropelada. Sem alterar o
+ * pitch: subir o tom deixa a voz artificial (“esquilo”).
+ */
+function ritmoDaSofia(): number {
+    if (!vozDaSofia) {
+        return 0.95;
+    }
+
+    const rotulo = `${vozDaSofia.name} ${vozDaSofia.voiceURI}`;
+    if (VOZ_NATURAL.test(rotulo)) {
+        return 0.96;
+    }
+
+    return 0.92;
+}
+
+/** Partes curtas por frase — pausa natural e evita o Chrome cortar falas longas. */
+function fatiarParaFala(texto: string): string[] {
+    const frases =
+        texto.match(/[^.!?…]+(?:[.!?…]+|$)/g)?.map((parte) => parte.trim()) ?? [];
+    const partes = frases.filter(Boolean);
+
+    return partes.length > 0 ? partes : [texto];
 }
 
 /** Fala o texto e resolve quando termina — ou quando alguém interrompe. */
 function falar(texto: string): Promise<void> {
-    const limpo = textoSemMarkdown(texto);
+    const limpo = textoParaFala(texto);
     if (!sinteseDeVoz || !limpo) return Promise.resolve();
 
     if (!vozDaSofia) {
         escolherVozPortuguesa();
     }
 
+    const partes = fatiarParaFala(limpo);
+    const sintese = sinteseDeVoz;
+
     return new Promise((resolver) => {
+        let indice = 0;
+        let cancelado = false;
+        // Chrome às vezes “trava” falas longas; pause/resume desbloqueia.
+        const despertar = window.setInterval(() => {
+            if (!sintese.speaking) {
+                return;
+            }
+            sintese.pause();
+            sintese.resume();
+        }, 10_000);
+
         const concluir = (): void => {
-            if (encerrarFalaAtual === concluir) encerrarFalaAtual = null;
+            cancelado = true;
+            window.clearInterval(despertar);
+            if (encerrarFalaAtual === concluir) {
+                encerrarFalaAtual = null;
+            }
+            sintese.cancel();
             resolver();
         };
         encerrarFalaAtual = concluir;
 
-        const fala = new SpeechSynthesisUtterance(limpo);
-        fala.lang = vozDaSofia?.lang ?? "pt-BR";
-        if (vozDaSofia) fala.voice = vozDaSofia;
-        fala.pitch = tomDaSofia();
-        fala.rate = 1.02;
-        fala.onend = concluir;
-        fala.onerror = concluir;
+        const falarProxima = (): void => {
+            if (cancelado) {
+                return;
+            }
+            if (indice >= partes.length) {
+                window.clearInterval(despertar);
+                if (encerrarFalaAtual === concluir) {
+                    encerrarFalaAtual = null;
+                }
+                resolver();
+                return;
+            }
 
-        sinteseDeVoz.cancel();
-        sinteseDeVoz.speak(fala);
+            const fala = new SpeechSynthesisUtterance(partes[indice]);
+            indice += 1;
+            fala.lang = vozDaSofia?.lang ?? "pt-BR";
+            if (vozDaSofia) {
+                fala.voice = vozDaSofia;
+            }
+            fala.pitch = 1;
+            fala.rate = ritmoDaSofia();
+            fala.onend = falarProxima;
+            fala.onerror = concluir;
+            sintese.speak(fala);
+        };
+
+        sintese.cancel();
+        falarProxima();
     });
 }
 
