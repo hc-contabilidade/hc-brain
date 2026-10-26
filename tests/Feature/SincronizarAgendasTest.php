@@ -160,7 +160,7 @@ class SincronizarAgendasTest extends TestCase
         $this->assertSame('Abertura', $salvia->tipo);
         $this->assertSame('clinica-vida', $salvia->empresa_id);
 
-        $this->assertSame('Alinhamento', Reuniao::firstWhere('google_evento_id', 'recolorida')->tipo);
+        $this->assertSame('Outra', Reuniao::firstWhere('google_evento_id', 'recolorida')->tipo);
 
         // Pintar o evento de Sálvia no Google depois de importado também muda o tipo.
         $this->travel(5)->minutes();
@@ -193,7 +193,7 @@ class SincronizarAgendasTest extends TestCase
         $semPista = Reuniao::firstWhere('google_evento_id', 'sem-pista');
         $this->assertNull($semPista->empresa_id);
         $this->assertSame('Concluída', $semPista->status);
-        $this->assertSame('Alinhamento', $semPista->tipo);
+        $this->assertSame('Outra', $semPista->tipo);
         $this->assertSame('Papo com prospect', $semPista->titulo);
 
         // A agenda e o modal leem `empresa` de toda reunião, inclusive das sem empresa.
@@ -204,13 +204,13 @@ class SincronizarAgendasTest extends TestCase
                 'empresa' => 'Papo com prospect',
                 'empresaId' => null,
                 'titulo' => 'Papo com prospect',
-                'tipo' => 'Alinhamento',
+                'tipo' => 'Outra',
                 'linkMeet' => 'https://meet.google.com/sem-pista',
                 'agenda' => ['nome' => 'Ana', 'email' => 'ana@hc.com.br'],
             ]);
     }
 
-    public function test_sinonimo_no_titulo_define_o_tipo_e_outra_em_massa_volta_a_alinhamento(): void
+    public function test_cor_e_titulo_do_google_definem_o_tipo_a_cada_sync(): void
     {
         $this->travelTo('2026-10-13 12:00:00');
         $this->empresa('clinica-vida', 'Clínica Vida', 'helena@vida.com.br');
@@ -224,8 +224,13 @@ class SincronizarAgendasTest extends TestCase
                         'summary' => 'Kickoff com a Clínica Vida',
                         'attendees' => [['email' => 'helena@vida.com.br']],
                     ]),
-                    $this->evento('velha', [
+                    $this->evento('uva', [
+                        'colorId' => '3',
                         'summary' => 'Papo sem tipo',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                    $this->evento('pavao', [
+                        'colorId' => '7',
                         'attendees' => [['email' => 'helena@vida.com.br']],
                     ]),
                 ]])
@@ -234,8 +239,13 @@ class SincronizarAgendasTest extends TestCase
                         'summary' => 'Kickoff com a Clínica Vida',
                         'attendees' => [['email' => 'helena@vida.com.br']],
                     ]),
-                    $this->evento('velha', [
+                    $this->evento('uva', [
+                        'colorId' => '3',
                         'summary' => 'Papo sem tipo',
+                        'attendees' => [['email' => 'helena@vida.com.br']],
+                    ]),
+                    $this->evento('pavao', [
+                        'colorId' => '11',
                         'attendees' => [['email' => 'helena@vida.com.br']],
                     ]),
                 ]]),
@@ -244,14 +254,13 @@ class SincronizarAgendasTest extends TestCase
         $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
 
         $this->assertSame('Abertura', Reuniao::firstWhere('google_evento_id', 'kick')->tipo);
-        $this->assertSame('Alinhamento', Reuniao::firstWhere('google_evento_id', 'velha')->tipo);
-
-        Reuniao::firstWhere('google_evento_id', 'velha')->update(['tipo' => 'Outra']);
+        $this->assertSame('Comercial', Reuniao::firstWhere('google_evento_id', 'uva')->tipo);
+        $this->assertSame('Alinhamento', Reuniao::firstWhere('google_evento_id', 'pavao')->tipo);
 
         $this->travel(5)->minutes();
         $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
 
-        $this->assertSame('Alinhamento', Reuniao::firstWhere('google_evento_id', 'velha')->tipo);
+        $this->assertSame('Financeira', Reuniao::firstWhere('google_evento_id', 'pavao')->tipo);
     }
 
     public function test_conta_healthcare_aparece_como_equipe_hc_na_agenda(): void

@@ -40,21 +40,28 @@ class SincronizarAgendas extends Command
 
     private const TRAVA_EM_SEGUNDOS = 600;
 
-    /** Sem cor nem palavra de tipo no título, a reunião de cliente é alinhamento. */
-    private const TIPO_PADRAO = 'Alinhamento';
-
     /**
-     * Cores de evento que a equipe usa no Google Agenda para marcar o tipo da
-     * reunião: Banana para as internas, Sálvia para as de abertura.
+     * A cor do evento no Google Agenda é a tag da reunião. Sem cor própria
+     * (nem palavra de tipo no título), fica Outra — não inventamos Alinhamento.
+     *
+     * @var array<string, string>
      */
     private const TIPO_PELA_COR = [
-        '5' => Reuniao::INTERNA,
-        '2' => 'Abertura',
+        '1' => 'Transferência', // Lavanda
+        '2' => 'Abertura', // Sálvia
+        '3' => 'Comercial', // Uva
+        '4' => 'Dúvidas', // Flamingo
+        '5' => Reuniao::INTERNA, // Banana
+        '6' => 'Financeira', // Tangerina
+        '7' => 'Alinhamento', // Pavão
+        '8' => 'Alinhamento', // Grafite
+        '9' => 'Transferência', // Mirtilo
+        '10' => 'Abertura', // Manjericão
+        '11' => 'Financeira', // Tomate
     ];
 
     /**
-     * Palavras no título (já normalizadas) que apontam o tipo sem repetir o
-     * nome oficial — "kickoff" vira Abertura, "demo" vira Comercial, etc.
+     * Palavras no título (já normalizadas) quando o evento não tem cor própria.
      *
      * @var array<string, string>
      */
@@ -274,12 +281,10 @@ class SincronizarAgendas extends Command
             'titulo' => $this->tituloDo($evento),
         ];
 
-        $tipoPelaCor = self::TIPO_PELA_COR[(string) ($evento['colorId'] ?? '')] ?? null;
-        $tipoPeloTitulo = $this->tipoDo($evento);
+        // A tag acompanha o Google a cada leitura: cor do evento, senão o título.
+        $tipo = self::TIPO_PELA_COR[(string) ($evento['colorId'] ?? '')] ?? $this->tipoDo($evento);
 
         if ($existente === null) {
-            $tipo = $tipoPelaCor ?? $tipoPeloTitulo;
-
             Reuniao::create([
                 ...$quando,
                 'conta_google_id' => $conta->id,
@@ -295,19 +300,6 @@ class SincronizarAgendas extends Command
             ]);
 
             return 'nova';
-        }
-
-        // Cor do Google manda. Título com pista clara (Comercial, kickoff…)
-        // atualiza o tipo. Sem pista, preserva o que a equipe gravou — e desfaz
-        // o Outra em massa do sync anterior, voltando ao Alinhamento padrão.
-        if ($tipoPelaCor !== null) {
-            $tipo = $tipoPelaCor;
-        } elseif ($tipoPeloTitulo !== self::TIPO_PADRAO) {
-            $tipo = $tipoPeloTitulo;
-        } elseif ($existente->tipo === Reuniao::OUTRA) {
-            $tipo = self::TIPO_PADRAO;
-        } else {
-            $tipo = $existente->tipo;
         }
 
         $existente->fill([
@@ -430,7 +422,7 @@ class SincronizarAgendas extends Command
             }
         }
 
-        return self::TIPO_PADRAO;
+        return Reuniao::OUTRA;
     }
 
     /**

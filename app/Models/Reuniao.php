@@ -20,7 +20,7 @@ class Reuniao extends Model
     /** Reunião só da equipe da HC: não é de cliente, então pode ficar sem empresa. */
     public const INTERNA = 'Interna';
 
-    /** Tipo manual quando a reunião não se encaixa nas demais. */
+    /** Sem cor nem palavra de tipo no Google — a tag não é inventada. */
     public const OUTRA = 'Outra';
 
     public const STATUS = ['Concluída', 'Agendada', 'Cancelada'];
