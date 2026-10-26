@@ -322,6 +322,33 @@ class SincronizarAgendasTest extends TestCase
             && str_contains(urldecode($pedido->url()), 'updatedMin=2026-10-13T11:55:00'));
     }
 
+    public function test_evento_concluido_cancelado_no_google_vira_cancelada(): void
+    {
+        $this->travelTo('2026-10-13 12:00:00');
+        $this->conta();
+        Http::preventStrayRequests();
+        Http::fake([
+            self::TOKEN => Http::response(['access_token' => 'acesso']),
+            self::EVENTOS => Http::sequence()
+                ->push(['items' => [
+                    $this->evento('passada', ['start' => ['dateTime' => '2026-10-01T15:00:00Z']]),
+                ]])
+                ->push(['items' => [
+                    ['id' => 'passada', 'status' => 'cancelled', 'summary' => 'Call cancelada'],
+                ]]),
+        ]);
+
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+        $this->assertSame('Concluída', Reuniao::sole()->status);
+
+        $this->travel(5)->minutes();
+        $this->artisan('hc:sincronizar-agendas')->assertSuccessful();
+
+        $reuniao = Reuniao::sole();
+        $this->assertSame('Cancelada', $reuniao->status);
+        $this->assertSame('Call cancelada', $reuniao->titulo);
+    }
+
     public function test_conta_com_acesso_revogado_fica_marcada_sem_parar_as_outras(): void
     {
         $this->travelTo('2026-10-13 12:00:00');

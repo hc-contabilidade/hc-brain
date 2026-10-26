@@ -620,9 +620,9 @@ function deslocarJanela(escala: EscalaCalendario, passos: number): void {
     guardarAncora(proxima);
 }
 
-/** As reuniões de toda a base indexadas por dia, para o calendário consultar. */
+/** As reuniões do filtro atual, indexadas por dia — o calendário respeita os filtros. */
 function reunioesPorDia(): Record<string, Reuniao[]> {
-    const mapa = meetingsData.reduce<Record<string, Reuniao[]>>((acc, reuniao) => {
+    const mapa = reunioesFiltradas().reduce<Record<string, Reuniao[]>>((acc, reuniao) => {
         (acc[reuniao.dataOrd] ||= []).push(reuniao);
         return acc;
     }, {});
@@ -1033,13 +1033,26 @@ porId("agendaPeriodo").addEventListener("click", (evento) => {
 });
 
 // Um cartão já acionado volta a "Todos": é o mesmo gesto para aplicar e tirar.
+// Vai para a lista para o filtro aparecer (o calendário antes ignorava o status).
 stats.addEventListener("click", (evento) => {
     const cartao = alvoMaisProximo(evento, "[data-stat-status]");
     if (!cartao) return;
 
     const escolhido = dado(cartao, "statStatus");
     const atual = obterSecao("reunioes").status;
-    atualizarSecao("reunioes", { status: atual === escolhido ? "Todos" : escolhido });
+    const ligando = escolhido !== "Todos" && atual !== escolhido;
+
+    // Canceladas costumam estar no passado: limpa o período (ex.: próximos
+    // 7 dias) para a pesquisa achar as que já saíram da janela.
+    atualizarSecao("reunioes", {
+        status: ligando ? escolhido : "Todos",
+        ...(ligando
+            ? {
+                  visualizacao: "list" as const,
+                  ...(escolhido === "Cancelada" ? { de: "", ate: "" } : {}),
+              }
+            : {}),
+    });
 });
 
 grafico.addEventListener("click", (evento) => {
@@ -1094,8 +1107,8 @@ calendario.addEventListener("click", (evento) => {
         return;
     }
 
-    // O calendário mostra todas as reuniões, sem filtro; o dia aberto nele
-    // precisa listar as mesmas, não só as que passam num filtro esquecido.
+    // Abrir o dia na lista limpa os outros filtros: o calendário já respeita
+    // o recorte atual, e o clique no dia é para ver aquele dia inteiro.
     const dia = alvoMaisProximo(evento, "[data-recortar-dia]");
     if (dia) {
         const iso = dado(dia, "recortarDia");

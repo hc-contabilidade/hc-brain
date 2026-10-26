@@ -245,7 +245,9 @@ class SincronizarAgendas extends Command
 
             $trocas = [];
 
-            if ($existente->status === 'Agendada') {
+            // Qualquer status vira Cancelada: o Google cancelou, inclusive as
+            // que já tinham passado e estavam como Concluída.
+            if ($existente->status !== 'Cancelada') {
                 $trocas['status'] = 'Cancelada';
             }
 
