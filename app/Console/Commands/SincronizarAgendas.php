@@ -40,6 +40,9 @@ class SincronizarAgendas extends Command
 
     private const TRAVA_EM_SEGUNDOS = 600;
 
+    /** Sem cor nem palavra de tipo no título, a reunião de cliente é alinhamento. */
+    private const TIPO_PADRAO = 'Alinhamento';
+
     /**
      * Cores de evento que a equipe usa no Google Agenda para marcar o tipo da
      * reunião: Banana para as internas, Sálvia para as de abertura.
@@ -239,11 +242,6 @@ class SincronizarAgendas extends Command
                 $trocas['status'] = 'Cancelada';
             }
 
-            // Mesmo cancelado: tira o Alinhamento inventado e guarda o título do Google.
-            if ($existente->tipo === 'Alinhamento' && $this->tipoDo($evento) === Reuniao::OUTRA) {
-                $trocas['tipo'] = Reuniao::OUTRA;
-            }
-
             $titulo = $this->tituloDo($evento);
             if ($titulo !== null && $titulo !== $existente->titulo) {
                 $trocas['titulo'] = $titulo;
@@ -299,15 +297,15 @@ class SincronizarAgendas extends Command
             return 'nova';
         }
 
-        // Cor do Google manda. Título com pista clara atualiza o tipo. Sem pista,
-        // preserva o que a equipe gravou — exceto o Alinhamento inventado pelo
-        // default antigo do sync, que vira Outra.
+        // Cor do Google manda. Título com pista clara (Comercial, kickoff…)
+        // atualiza o tipo. Sem pista, preserva o que a equipe gravou — e desfaz
+        // o Outra em massa do sync anterior, voltando ao Alinhamento padrão.
         if ($tipoPelaCor !== null) {
             $tipo = $tipoPelaCor;
-        } elseif ($tipoPeloTitulo !== Reuniao::OUTRA) {
+        } elseif ($tipoPeloTitulo !== self::TIPO_PADRAO) {
             $tipo = $tipoPeloTitulo;
-        } elseif ($existente->tipo === 'Alinhamento') {
-            $tipo = Reuniao::OUTRA;
+        } elseif ($existente->tipo === Reuniao::OUTRA) {
+            $tipo = self::TIPO_PADRAO;
         } else {
             $tipo = $existente->tipo;
         }
@@ -432,7 +430,7 @@ class SincronizarAgendas extends Command
             }
         }
 
-        return Reuniao::OUTRA;
+        return self::TIPO_PADRAO;
     }
 
     /**
