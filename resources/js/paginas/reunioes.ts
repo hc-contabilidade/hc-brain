@@ -475,6 +475,11 @@ function renderLinha(reuniao: Reuniao): string {
     </div>`;
 }
 
+/** Data curta no cartão (Hoje / Amanhã / 23 abr), já que a grade não agrupa por dia. */
+function dataDoCartao(dataOrd: string): string {
+    return rotuloRelativo(dataOrd) ?? dataCurta(dataOrd).replace(/\./g, "");
+}
+
 function renderCartao(reuniao: Reuniao): string {
     const nome = nomeDaReuniao(reuniao);
     const motivo = subtituloDaReuniao(reuniao);
@@ -483,7 +488,10 @@ function renderCartao(reuniao: Reuniao): string {
              data-meeting-id="${reuniao.id}"
              aria-label="Abrir reunião ${escapar(nome)}">
       <header class="agenda-card-cab">
-        <span class="agenda-card-hora${reuniao.horario ? "" : " vazia"}">${reuniao.horario || "Sem horário"}</span>
+        <div class="agenda-card-quando">
+          <span class="agenda-card-data">${escapar(dataDoCartao(reuniao.dataOrd))}</span>
+          <span class="agenda-card-hora${reuniao.horario ? "" : " vazia"}">${reuniao.horario || "Sem horário"}</span>
+        </div>
         <div class="agenda-card-etiquetas">
           ${etiquetaDeTipo(reuniao)}
           ${etiquetaDeStatus(reuniao)}
@@ -916,14 +924,9 @@ function renderReunioes(): void {
               .join("")
         : vazio;
 
+    // Uma grade só: card ao lado do outro. A data vai no próprio cartão.
     grid.innerHTML = filtradas.length
-        ? grupos
-              .map(
-                  ([dataOrd, reunioes]) =>
-                      renderCabecalhoDoDia(dataOrd, reunioes.length) +
-                      `<div class="agenda-cards-grade">${reunioes.map(renderCartao).join("")}</div>`,
-              )
-              .join("")
+        ? `<div class="agenda-cards-grade">${filtradas.map(renderCartao).join("")}</div>`
         : vazio;
 
     porId("meetingCount").textContent = String(filtradas.length);
