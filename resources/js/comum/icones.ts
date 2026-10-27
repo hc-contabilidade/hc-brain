@@ -61,6 +61,7 @@ import {
     Upload,
     UserPlus,
     Users,
+    Video,
     Workflow,
     X,
     createIcons,
@@ -119,6 +120,7 @@ const REGISTRO = {
     upload: Upload,
     "user-plus": UserPlus,
     users: Users,
+    video: Video,
     workflow: Workflow,
     x: X,
 } as const;

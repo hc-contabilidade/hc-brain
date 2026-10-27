@@ -475,14 +475,41 @@ function renderLinha(reuniao: Reuniao): string {
     </div>`;
 }
 
-/** Data curta no cartão (Hoje / Amanhã / 23 abr), já que a grade não agrupa por dia. */
+/** Data no cartão (Hoje · 23 de abr.), já que a grade não agrupa por dia. */
 function dataDoCartao(dataOrd: string): string {
-    return rotuloRelativo(dataOrd) ?? dataCurta(dataOrd).replace(/\./g, "");
+    const relativo = rotuloRelativo(dataOrd);
+    const curta = dataCurta(dataOrd).replace(/\./g, "");
+    return relativo ? `${relativo} · ${curta}` : curta;
+}
+
+/** Nomes dos convidados, limitados para caber no cartão. */
+function participantesDoCartao(reuniao: Reuniao): string {
+    const nomes = reuniao.participantes.filter(Boolean);
+    if (nomes.length === 0) {
+        return "Sem participantes";
+    }
+
+    const visiveis = nomes.slice(0, 3);
+    const resto = nomes.length - visiveis.length;
+    return resto > 0
+        ? `${visiveis.join(", ")} +${resto}`
+        : visiveis.join(", ");
 }
 
 function renderCartao(reuniao: Reuniao): string {
     const nome = nomeDaReuniao(reuniao);
-    const motivo = subtituloDaReuniao(reuniao);
+    const tituloGoogle = reuniao.titulo?.trim() || "";
+    // Empresa só aparece se for diferente do título do card.
+    const empresa =
+        reuniao.empresaId && reuniao.empresa !== nome ? reuniao.empresa : null;
+    // Resumo: tira a primeira linha se for só o título repetido.
+    const resumo = reuniao.resumo
+        .split(/\n+/)
+        .map((linha) => linha.trim())
+        .filter((linha) => linha && linha !== tituloGoogle && linha !== nome)
+        .join(" ")
+        .trim();
+
     return `
     <article class="agenda-card ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
              data-meeting-id="${reuniao.id}"
@@ -492,15 +519,25 @@ function renderCartao(reuniao: Reuniao): string {
           <span class="agenda-card-data">${escapar(dataDoCartao(reuniao.dataOrd))}</span>
           <span class="agenda-card-hora${reuniao.horario ? "" : " vazia"}">${reuniao.horario || "Sem horário"}</span>
         </div>
+        ${
+            reuniao.linkMeet
+                ? `<span class="agenda-card-meet">${icone("video")} Meet</span>`
+                : ""
+        }
+      </header>
+      <div class="agenda-card-corpo">
+        <h3 class="agenda-card-titulo">${escapar(nome)}</h3>
+        ${empresa ? `<p class="agenda-card-empresa">${escapar(empresa)}</p>` : ""}
         <div class="agenda-card-etiquetas">
           ${etiquetaDeTipo(reuniao)}
           ${etiquetaDeStatus(reuniao)}
           ${etiquetaDeAgenda(reuniao)}
         </div>
-      </header>
-      <div class="agenda-card-corpo">
-        <h3 class="agenda-card-titulo">${escapar(nome)}</h3>
-        ${motivo ? `<p class="agenda-card-motivo">${escapar(motivo)}</p>` : ""}
+        ${resumo ? `<p class="agenda-card-motivo">${escapar(resumo)}</p>` : ""}
+        <div class="agenda-card-convidados">
+          <span class="agenda-card-rotulo">Participantes</span>
+          <span class="agenda-card-convidados-lista">${escapar(participantesDoCartao(reuniao))}</span>
+        </div>
       </div>
       <footer class="agenda-card-rodape">
         <span class="agenda-card-realiza">
