@@ -180,16 +180,6 @@
     display: block;
 }
 
-.login-demo {
-    padding-top: var(--esp-4);
-    margin-top: var(--esp-6);
-    border-top: 1px solid var(--border);
-    color: var(--texto-fraco);
-    font-size: var(--texto-sm);
-    line-height: var(--altura-solta);
-    text-align: center;
-}
-
 @media (max-width: 500px) {
     .login-card {
         padding: var(--esp-6);

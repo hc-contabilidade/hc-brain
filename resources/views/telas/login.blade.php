@@ -66,11 +66,6 @@
           @error('email'){{ $message }}@else E-mail ou senha incorretos. Verifique os dados e tente novamente. @enderror
         </div>
       </form>
-
-      <div class="login-demo">
-        Protótipo demonstrativo • testes: beatriz@healthcare.com.br / 123456 ·
-        matheus@healthcare.com.br / 123456
-      </div>
     </div>
   </div>
 @endsection
