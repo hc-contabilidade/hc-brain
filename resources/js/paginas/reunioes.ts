@@ -477,24 +477,30 @@ function renderLinha(reuniao: Reuniao): string {
 
 function renderCartao(reuniao: Reuniao): string {
     const nome = nomeDaReuniao(reuniao);
+    const motivo = subtituloDaReuniao(reuniao);
     return `
     <article class="agenda-card ${classeDoStatus(reuniao)}"${estiloDaCor(reuniao)} role="button" tabindex="0"
              data-meeting-id="${reuniao.id}"
              aria-label="Abrir reunião ${escapar(nome)}">
-      <div class="agenda-card-topo">
+      <header class="agenda-card-cab">
         <span class="agenda-card-hora${reuniao.horario ? "" : " vazia"}">${reuniao.horario || "Sem horário"}</span>
-        <div class="agenda-card-main">
-          <div class="agenda-card-titulo">${escapar(nome)}</div>
-          <div class="agenda-card-motivo">${escapar(subtituloDaReuniao(reuniao))}</div>
+        <div class="agenda-card-etiquetas">
+          ${etiquetaDeTipo(reuniao)}
+          ${etiquetaDeStatus(reuniao)}
+          ${etiquetaDeAgenda(reuniao)}
         </div>
-        <span class="agenda-seta">${icone("chevron-right")}</span>
+      </header>
+      <div class="agenda-card-corpo">
+        <h3 class="agenda-card-titulo">${escapar(nome)}</h3>
+        ${motivo ? `<p class="agenda-card-motivo">${escapar(motivo)}</p>` : ""}
       </div>
-      <div class="agenda-card-meta">
-        ${etiquetaDeTipo(reuniao)}
-        ${etiquetaDeStatus(reuniao)}
-        ${etiquetaDeAgenda(reuniao)}
-        <span class="agenda-pessoa">Realiza: ${escapar(reuniao.responsavel)}</span>
-      </div>
+      <footer class="agenda-card-rodape">
+        <span class="agenda-card-realiza">
+          <span class="agenda-card-rotulo">Realiza</span>
+          ${escapar(reuniao.responsavel)}
+        </span>
+        <span class="agenda-card-pessoas">${plural(reuniao.participantes.length, "pessoa", "pessoas")}</span>
+      </footer>
     </article>`;
 }
 

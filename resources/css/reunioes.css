@@ -665,46 +665,75 @@
 
 /* --------------------------------------------------------------------------
    HISTÓRICO EM CARTÕES
+   Grade de cartões compactos por dia — não uma lista com borda à esquerda.
    -------------------------------------------------------------------------- */
+.agenda-cards {
+    gap: var(--esp-5);
+}
+
 .agenda-cards-grade {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--esp-3);
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--esp-4);
+    align-items: stretch;
 }
 
 .agenda-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--esp-3);
+    min-height: 11.5rem;
     padding: var(--esp-4);
+    overflow: hidden;
     border: 1px solid var(--border);
-    border-left: 3px solid var(--cor-linha, var(--border-forte));
-    border-radius: var(--raio-md);
-    background: var(--surface-alto);
+    border-radius: var(--raio-lg);
+    background: var(--surface);
+    box-shadow: var(--sombra-sm);
     cursor: pointer;
     transition: var(--transicao);
 }
 
-.agenda-card:hover {
-    border-color: var(--border-forte);
-    border-left-color: var(--cor-linha, var(--border-forte));
-    background: var(--surface-hover);
+/* Faixa de status no topo, como cartão — não a barra lateral da lista. */
+.agenda-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: var(--cor-linha, var(--border-forte));
 }
 
-.agenda-card-topo {
+.agenda-card:hover {
+    border-color: var(--border-forte);
+    background: var(--surface-alto);
+    box-shadow: var(--sombra-md);
+    transform: translateY(-2px);
+}
+
+.agenda-card:focus-visible {
+    outline: 2px solid var(--roxo);
+    outline-offset: 2px;
+}
+
+.agenda-card-cab {
     display: flex;
-    align-items: flex-start;
-    gap: var(--esp-3);
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--esp-2);
+    padding-top: var(--esp-1);
 }
 
 .agenda-card-hora {
     flex: none;
-    padding: var(--esp-1) var(--esp-2);
+    padding: 0.2rem 0.55rem;
     border-radius: var(--raio-sm);
     background: var(--roxo-fundo);
     color: var(--roxo-claro);
     font-size: var(--texto-sm);
     font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
 }
 
 /* Sem horário a pastilha perde a cor: ela deixa de ser o dado principal do
@@ -715,37 +744,81 @@
     font-weight: var(--peso-medio);
 }
 
-.agenda-card-main {
-    min-width: 0;
-    flex: 1;
-}
-
-.agenda-card-titulo {
-    overflow: hidden;
-    color: var(--texto-forte);
-    font-size: var(--texto-md);
-    font-weight: var(--peso-medio);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.agenda-card-motivo {
-    overflow: hidden;
-    color: var(--texto-fraco);
-    font-size: var(--texto-sm);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.agenda-card-meta {
+.agenda-card-etiquetas {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--esp-3);
+    justify-content: flex-end;
+    gap: var(--esp-2);
+    min-width: 0;
 }
 
-.agenda-card-meta .agenda-pessoa {
-    margin-left: auto;
+.agenda-card-corpo {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--esp-2);
+    min-width: 0;
+}
+
+.agenda-card-titulo {
+    margin: 0;
+    color: var(--texto-forte);
+    font-size: var(--texto-md);
+    font-weight: var(--peso-forte);
+    line-height: 1.35;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.agenda-card-motivo {
+    margin: 0;
+    color: var(--texto-fraco);
+    font-size: var(--texto-sm);
+    line-height: 1.4;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.agenda-card-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--esp-2);
+    margin-top: auto;
+    padding-top: var(--esp-3);
+    border-top: 1px solid var(--border);
+    color: var(--texto-suave);
+    font-size: var(--texto-sm);
+}
+
+.agenda-card-realiza {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agenda-card-rotulo {
+    color: var(--texto-fraco);
+    font-size: var(--texto-xs);
+    font-weight: var(--peso-forte);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.agenda-card-pessoas {
+    flex: none;
+    color: var(--texto-fraco);
 }
 
 /* --------------------------------------------------------------------------
