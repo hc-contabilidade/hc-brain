@@ -66,6 +66,35 @@ class AutenticacaoTest extends TestCase
         $this->assertTrue($beatriz->refresh()->ultimo_acesso->isSameMinute(now()));
     }
 
+    public function test_navegar_logado_atualiza_o_ultimo_acesso(): void
+    {
+        $beatriz = $this->beatriz();
+        $beatriz->forceFill(['ultimo_acesso' => now()->subHours(2)])->save();
+
+        $this->actingAs($beatriz)->get('/')->assertOk();
+
+        $this->assertTrue($beatriz->refresh()->ultimo_acesso->isSameMinute(now()));
+    }
+
+    public function test_ultimo_acesso_nao_grava_a_cada_request_no_mesmo_minuto(): void
+    {
+        $this->travelTo('2026-10-27 12:00:00');
+        $beatriz = $this->beatriz();
+        $marcado = now();
+        $beatriz->forceFill(['ultimo_acesso' => $marcado])->save();
+
+        $this->travel(20)->seconds();
+        $this->actingAs($beatriz)->get('/')->assertOk();
+        $this->actingAs($beatriz)->get('/reunioes')->assertOk();
+
+        $this->assertTrue($beatriz->refresh()->ultimo_acesso->equalTo($marcado));
+
+        $this->travel(2)->minutes();
+        $this->actingAs($beatriz)->get('/')->assertOk();
+
+        $this->assertTrue($beatriz->refresh()->ultimo_acesso->equalTo(now()));
+    }
+
     /** Sem limite, a tela de login vira um alvo aberto para força bruta. */
     public function test_tentativas_seguidas_de_senha_sao_barradas(): void
     {

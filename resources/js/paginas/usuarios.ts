@@ -225,6 +225,54 @@ observarEstado(["usuarios"], renderUsuarios);
 renderUsuarios();
 
 /* ---------------------------------------------------------
+   ÚLTIMO ACESSO EM TEMPO REAL
+   A lista consulta de novo a API enquanto a aba está aberta,
+   para o "Hoje, 14:15" aparecer sem precisar dar F5.
+   --------------------------------------------------------- */
+const INTERVALO_DOS_ACESSOS_MS = 5_000;
+
+async function atualizarAcessosEmTempoReal(): Promise<void> {
+    try {
+        const atualizados = await carregarUsuarios();
+        const mudou =
+            atualizados.length !== usuarios.length ||
+            atualizados.some((usuario) => {
+                const atual = usuarios.find((registro) => registro.id === usuario.id);
+                return (
+                    atual === undefined ||
+                    atual.ultimoAcesso !== usuario.ultimoAcesso ||
+                    atual.status !== usuario.status ||
+                    atual.perfil !== usuario.perfil ||
+                    atual.nome !== usuario.nome
+                );
+            });
+
+        if (!mudou) {
+            return;
+        }
+
+        usuarios = atualizados;
+        renderUsuarios();
+    } catch {
+        // Sem rede ou sessão: a próxima rodada tenta de novo.
+    }
+}
+
+window.setInterval(() => {
+    if (document.hidden) {
+        return;
+    }
+
+    void atualizarAcessosEmTempoReal();
+}, INTERVALO_DOS_ACESSOS_MS);
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        void atualizarAcessosEmTempoReal();
+    }
+});
+
+/* ---------------------------------------------------------
    AGENDAS DO GOOGLE
    Só quem administra conecta e desconecta; o servidor também
    recusa os demais, isto aqui só evita mostrar o que não funciona.
