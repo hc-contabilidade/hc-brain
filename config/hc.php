@@ -53,9 +53,10 @@ return [
     ],
 
     /*
-    | A Sofia conversa por Chat Completions (OpenAI ou Gemini no formato
-    | compatível) e transcreve áudio com a chave OpenAI. Sem nenhuma chave
-    | de chat, a tela e a API avisam. O navegador que reconhece voz
+    | A Sofia conversa por Chat Completions no formato OpenAI-compatível
+    | (ChatGPT, Gemini, Claude via OpenRouter, DeepSeek, Grok, Mistral,
+    | Llama/Groq…) e transcreve áudio com a chave OpenAI. Sem nenhuma
+    | chave de chat, a tela e a API avisam. O navegador que reconhece voz
     | transcreve sozinho; arquivo anexado passa pela transcrição daqui.
     */
     'sofia' => [
@@ -78,15 +79,42 @@ return [
 
         'provedores' => [
             'openai' => [
+                'nome' => 'OpenAI',
                 'chave' => env('OPENAI_API_KEY'),
                 'url' => env('OPENAI_CHAT_URL', 'https://api.openai.com/v1/chat/completions'),
             ],
             'gemini' => [
+                'nome' => 'Google',
                 'chave' => env('GEMINI_API_KEY'),
                 'url' => env(
                     'GEMINI_CHAT_URL',
                     'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
                 ),
+            ],
+            'openrouter' => [
+                'nome' => 'OpenRouter',
+                'chave' => env('OPENROUTER_API_KEY'),
+                'url' => env('OPENROUTER_CHAT_URL', 'https://openrouter.ai/api/v1/chat/completions'),
+            ],
+            'deepseek' => [
+                'nome' => 'DeepSeek',
+                'chave' => env('DEEPSEEK_API_KEY'),
+                'url' => env('DEEPSEEK_CHAT_URL', 'https://api.deepseek.com/chat/completions'),
+            ],
+            'xai' => [
+                'nome' => 'xAI',
+                'chave' => env('XAI_API_KEY'),
+                'url' => env('XAI_CHAT_URL', 'https://api.x.ai/v1/chat/completions'),
+            ],
+            'mistral' => [
+                'nome' => 'Mistral',
+                'chave' => env('MISTRAL_API_KEY'),
+                'url' => env('MISTRAL_CHAT_URL', 'https://api.mistral.ai/v1/chat/completions'),
+            ],
+            'groq' => [
+                'nome' => 'Groq',
+                'chave' => env('GROQ_API_KEY'),
+                'url' => env('GROQ_CHAT_URL', 'https://api.groq.com/openai/v1/chat/completions'),
             ],
         ],
 
@@ -118,6 +146,66 @@ return [
                 'subtitulo' => 'Avançado',
                 'provedor' => 'gemini',
                 'api' => 'gemini-2.5-pro',
+            ],
+            'claude-sonnet' => [
+                'rotulo' => 'Claude',
+                'subtitulo' => 'Sonnet',
+                'provedor' => 'openrouter',
+                'api' => 'anthropic/claude-sonnet-4',
+            ],
+            'claude-haiku' => [
+                'rotulo' => 'Claude',
+                'subtitulo' => 'Haiku',
+                'provedor' => 'openrouter',
+                'api' => 'anthropic/claude-3.5-haiku',
+            ],
+            'deepseek-chat' => [
+                'rotulo' => 'DeepSeek',
+                'subtitulo' => 'Chat',
+                'provedor' => 'deepseek',
+                'api' => 'deepseek-chat',
+            ],
+            'deepseek-reasoner' => [
+                'rotulo' => 'DeepSeek',
+                'subtitulo' => 'Reasoner',
+                'provedor' => 'deepseek',
+                'api' => 'deepseek-reasoner',
+            ],
+            'grok-3-mini' => [
+                'rotulo' => 'Grok',
+                'subtitulo' => 'Rápido',
+                'provedor' => 'xai',
+                'api' => 'grok-3-mini',
+            ],
+            'grok-3' => [
+                'rotulo' => 'Grok',
+                'subtitulo' => 'Avançado',
+                'provedor' => 'xai',
+                'api' => 'grok-3',
+            ],
+            'mistral-small' => [
+                'rotulo' => 'Mistral',
+                'subtitulo' => 'Small',
+                'provedor' => 'mistral',
+                'api' => 'mistral-small-latest',
+            ],
+            'mistral-large' => [
+                'rotulo' => 'Mistral',
+                'subtitulo' => 'Large',
+                'provedor' => 'mistral',
+                'api' => 'mistral-large-latest',
+            ],
+            'llama-70b' => [
+                'rotulo' => 'Llama',
+                'subtitulo' => '70B',
+                'provedor' => 'groq',
+                'api' => 'llama-3.3-70b-versatile',
+            ],
+            'llama-8b' => [
+                'rotulo' => 'Llama',
+                'subtitulo' => '8B',
+                'provedor' => 'groq',
+                'api' => 'llama-3.1-8b-instant',
             ],
         ],
     ],

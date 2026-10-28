@@ -176,6 +176,36 @@ class SofiaChatTest extends TestCase
         });
     }
 
+    public function test_sofia_usa_deepseek_quando_pedido(): void
+    {
+        config()->set('hc.sofia.provedores.deepseek.chave', 'chave-deepseek');
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.deepseek.com/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => 'Resposta pelo DeepSeek.',
+                    ],
+                ]],
+            ]),
+        ]);
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', [
+                'pergunta' => 'Oi',
+                'modelo' => 'deepseek-chat',
+            ])
+            ->assertOk()
+            ->assertJsonPath('resposta', 'Resposta pelo DeepSeek.');
+
+        Http::assertSent(function (Request $request): bool {
+            return $request->url() === 'https://api.deepseek.com/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer chave-deepseek')
+                && ($request->data()['model'] ?? null) === 'deepseek-chat';
+        });
+    }
+
     public function test_sofia_recusa_modelo_sem_chave_no_ambiente(): void
     {
         config()->set('hc.sofia.chave', 'chave-de-teste');

@@ -6,7 +6,7 @@ use InvalidArgumentException;
 
 /**
  * Catálogo dos modelos que a Sofia pode usar. Cada id da tela aponta para
- * um provedor (ChatGPT/OpenAI ou Gemini) e o nome que a API espera.
+ * um provedor (ChatGPT, Gemini, Claude, DeepSeek…) e o nome que a API espera.
  */
 final class SofiaModelos
 {
@@ -61,18 +61,20 @@ final class SofiaModelos
     /**
      * Lista pronta para a tela: só o que o ambiente consegue chamar.
      *
-     * @return list<array{id: string, rotulo: string, subtitulo: string, provedor: string}>
+     * @return list<array{id: string, rotulo: string, subtitulo: string, provedor: string, provedorNome: string}>
      */
     public static function paraTela(): array
     {
         $lista = [];
 
         foreach (self::disponiveis() as $id => $modelo) {
+            $provedor = self::provedor((string) $modelo['provedor']);
             $lista[] = [
                 'id' => $id,
                 'rotulo' => $modelo['rotulo'],
                 'subtitulo' => $modelo['subtitulo'],
                 'provedor' => $modelo['provedor'],
+                'provedorNome' => $provedor['nome'],
             ];
         }
 
@@ -117,7 +119,7 @@ final class SofiaModelos
     }
 
     /**
-     * @return array{chave: string, url: string}
+     * @return array{nome: string, chave: string, url: string}
      */
     public static function provedor(string $id): array
     {
@@ -134,6 +136,7 @@ final class SofiaModelos
         }
 
         return [
+            'nome' => (string) ($provedor['nome'] ?? $id),
             'chave' => $chave,
             'url' => (string) ($provedor['url'] ?? ''),
         ];

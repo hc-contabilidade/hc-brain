@@ -20,7 +20,7 @@ use Throwable;
 
 class SofiaController extends Controller
 {
-    public const AVISO_SEM_CHAVE = 'A Sofia não está configurada. Defina OPENAI_API_KEY ou GEMINI_API_KEY no ambiente para conversar com ela.';
+    public const AVISO_SEM_CHAVE = 'A Sofia não está configurada. Defina no ambiente a chave de pelo menos um provedor (OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, XAI_API_KEY, MISTRAL_API_KEY ou GROQ_API_KEY).';
 
     public const AVISO_INDISPONIVEL = 'Não consegui consultar a base agora. Tente novamente em instantes.';
 

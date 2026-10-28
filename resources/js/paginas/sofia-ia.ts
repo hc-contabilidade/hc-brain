@@ -59,6 +59,7 @@ interface ModeloSofia {
     rotulo: string;
     subtitulo: string;
     provedor: string;
+    provedorNome?: string;
 }
 
 /** O reconhecimento de voz não é padrão em todos os navegadores. */
@@ -188,14 +189,17 @@ function lerModelos(bruto: string): ModeloSofia[] {
             return [];
         }
 
-        return lido.filter(
-            (item): item is ModeloSofia =>
-                !!item &&
-                typeof item === "object" &&
-                typeof (item as ModeloSofia).id === "string" &&
-                typeof (item as ModeloSofia).rotulo === "string" &&
-                typeof (item as ModeloSofia).subtitulo === "string",
-        );
+                return lido.filter((item): item is ModeloSofia => {
+            if (!item || typeof item !== "object") {
+                return false;
+            }
+            const modelo = item as ModeloSofia;
+            return (
+                typeof modelo.id === "string" &&
+                typeof modelo.rotulo === "string" &&
+                typeof modelo.subtitulo === "string"
+            );
+        });
     } catch {
         return [];
     }
@@ -238,7 +242,7 @@ function renderMenuModelo(): void {
 
     if (modelosSofia.length === 0) {
         modeloLista.innerHTML =
-            `<p class="sofia-modelo-vazio">Nenhum modelo configurado. Defina OPENAI_API_KEY ou GEMINI_API_KEY no ambiente.</p>`;
+            `<p class="sofia-modelo-vazio">Nenhum modelo configurado. Defina no ambiente a chave de um provedor (OpenAI, Gemini, OpenRouter, DeepSeek, xAI, Mistral ou Groq).</p>`;
         return;
     }
 
@@ -264,7 +268,7 @@ function renderMenuModelo(): void {
                   aria-selected="${modelo.id === escolhido?.id ? "true" : "false"}"
                 >
                   <strong>${escapar(modelo.rotulo)} · ${escapar(modelo.subtitulo)}</strong>
-                  <small>${modelo.provedor === "gemini" ? "Google Gemini" : "OpenAI ChatGPT"}</small>
+                  <small>${escapar(modelo.provedorNome || modelo.provedor)}</small>
                 </button>`,
                   )
                   .join("")}
