@@ -59,6 +59,15 @@
           <option value="Inativo">Inativos</option>
         </select>
       </div>
+      <div class="campo">
+        <label for="usuarioPorPagina">Mostrar</label>
+        <select id="usuarioPorPagina">
+          <option value="10">10 por página</option>
+          <option value="25">25 por página</option>
+          <option value="50">50 por página</option>
+          <option value="0">Todos</option>
+        </select>
+      </div>
     </div>
 
     <div class="panel">
@@ -86,6 +95,11 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="usuarios-paginacao" id="usuariosPaginacao" hidden>
+        <button type="button" class="secondary" id="usuariosPaginaAnterior">Anterior</button>
+        <span class="usuarios-paginacao-info" id="usuariosPaginacaoInfo"></span>
+        <button type="button" class="secondary" id="usuariosPaginaProxima">Próxima</button>
       </div>
     </div>
 

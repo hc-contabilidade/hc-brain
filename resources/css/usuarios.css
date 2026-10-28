@@ -75,3 +75,21 @@
     text-align: right;
     white-space: nowrap;
 }
+
+/* --------------------------------------------------------------------------
+   PAGINAÇÃO
+   -------------------------------------------------------------------------- */
+.usuarios-paginacao {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--esp-3);
+    padding: var(--esp-3) var(--esp-4);
+    border-top: 1px solid var(--border);
+}
+
+.usuarios-paginacao-info {
+    color: var(--texto-suave);
+    font-size: var(--texto-sm);
+    text-align: center;
+}

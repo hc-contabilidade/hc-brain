@@ -75,6 +75,10 @@ export interface EstadoUsuarios {
     busca: string;
     perfil: string;
     status: string;
+    /** Quantos usuários cabem na tabela por vez. 0 = todos os filtrados. */
+    porPagina: number;
+    /** Página atual da tabela (1-based), respeitando os filtros. */
+    pagina: number;
 }
 
 export interface EstadoTreinamentos {
@@ -153,7 +157,13 @@ const ESTADO_PADRAO: Estado = {
         ancoraCalendario: null,
     },
     empresas: { busca: "", visualizacao: "list" },
-    usuarios: { busca: "", perfil: "Todos", status: "Todos" },
+    usuarios: {
+        busca: "",
+        perfil: "Todos",
+        status: "Todos",
+        porPagina: 10,
+        pagina: 1,
+    },
     treinamentos: { busca: "", tipo: "Todos", nivel: "Todos" },
     financeiro: { busca: "", regime: "Todos" },
     // Em branco, a tela de Comercial abre no mês mais recente que a base tem.
