@@ -158,6 +158,8 @@ const modeloBtn = porId<HTMLButtonElement>("sofiaModelBtn");
 const modeloNome = porId("sofiaModeloNome");
 const modeloDetalhe = porId("sofiaModeloDetalhe");
 const modeloLista = porId("sofiaModeloLista");
+const modeloOpcoes = porId("sofiaModeloOpcoes");
+const modeloBusca = porId<HTMLInputElement>("sofiaModeloBusca");
 const modeloWrap = porId("sofiaModeloWrap");
 
 /* A síntese de fala é independente do reconhecimento: o Firefox não ouve,
@@ -189,7 +191,7 @@ function lerModelos(bruto: string): ModeloSofia[] {
             return [];
         }
 
-                return lido.filter((item): item is ModeloSofia => {
+        return lido.filter((item): item is ModeloSofia => {
             if (!item || typeof item !== "object") {
                 return false;
             }
@@ -230,30 +232,55 @@ function garantirModeloEscolhido(): void {
 function fecharMenuModelo(): void {
     modeloLista.hidden = true;
     modeloBtn.setAttribute("aria-expanded", "false");
+    modeloBusca.value = "";
 }
 
 function abrirMenuModelo(): void {
+    renderMenuModelo();
     modeloLista.hidden = false;
     modeloBtn.setAttribute("aria-expanded", "true");
+    desenharIcones(modeloLista);
+    modeloBusca.focus();
+}
+
+function modelosFiltrados(): ModeloSofia[] {
+    const palavras = termoDeBusca(modeloBusca.value);
+    if (palavras.length === 0) {
+        return modelosSofia;
+    }
+
+    return modelosSofia.filter((modelo) =>
+        combina(
+            `${modelo.rotulo} ${modelo.subtitulo} ${modelo.provedorNome ?? ""} ${modelo.provedor}`,
+            palavras,
+        ),
+    );
 }
 
 function renderMenuModelo(): void {
     const escolhido = modeloAtual();
+    const filtrados = modelosFiltrados();
 
     if (modelosSofia.length === 0) {
-        modeloLista.innerHTML =
+        modeloOpcoes.innerHTML =
             `<p class="sofia-modelo-vazio">Nenhum modelo configurado. Defina no ambiente a chave de um provedor (OpenAI, Gemini, OpenRouter, DeepSeek, xAI, Mistral ou Groq).</p>`;
         return;
     }
 
+    if (filtrados.length === 0) {
+        modeloOpcoes.innerHTML =
+            `<p class="sofia-modelo-vazio">Nenhum modelo encontrado para “${escapar(modeloBusca.value.trim())}”.</p>`;
+        return;
+    }
+
     const grupos = new Map<string, ModeloSofia[]>();
-    for (const modelo of modelosSofia) {
+    for (const modelo of filtrados) {
         const lista = grupos.get(modelo.rotulo) ?? [];
         lista.push(modelo);
         grupos.set(modelo.rotulo, lista);
     }
 
-    modeloLista.innerHTML = [...grupos.entries()]
+    modeloOpcoes.innerHTML = [...grupos.entries()]
         .map(
             ([rotulo, opcoes]) => `
               <p class="sofia-modelo-grupo">${escapar(rotulo)}</p>
@@ -267,8 +294,11 @@ function renderMenuModelo(): void {
                   data-modelo="${escapar(modelo.id)}"
                   aria-selected="${modelo.id === escolhido?.id ? "true" : "false"}"
                 >
-                  <strong>${escapar(modelo.rotulo)} · ${escapar(modelo.subtitulo)}</strong>
-                  <small>${escapar(modelo.provedorNome || modelo.provedor)}</small>
+                  <span class="sofia-modelo-opcao-texto">
+                    <strong>${escapar(modelo.rotulo)}</strong>
+                    <small>${escapar(modelo.subtitulo)}</small>
+                  </span>
+                  <i data-lucide="check" class="sofia-modelo-check" aria-hidden="true"></i>
                 </button>`,
                   )
                   .join("")}
@@ -276,18 +306,20 @@ function renderMenuModelo(): void {
         )
         .join("");
 
-    todos("[data-modelo]", modeloLista).forEach((botao) => {
+    todos("[data-modelo]", modeloOpcoes).forEach((botao) => {
         botao.addEventListener("click", () => {
             atualizarSecao("sofia", { modelo: dado(botao, "modelo") });
             fecharMenuModelo();
         });
     });
+
+    desenharIcones(modeloOpcoes);
 }
 
 function renderModelo(): void {
     garantirModeloEscolhido();
     const escolhido = modeloAtual();
-    modeloNome.textContent = escolhido?.rotulo ?? "Modelo";
+    modeloNome.textContent = escolhido?.rotulo ?? "—";
     modeloDetalhe.textContent = escolhido?.subtitulo ?? "";
     modeloDetalhe.hidden = !escolhido?.subtitulo;
     modeloBtn.disabled = modelosSofia.length === 0;
@@ -1772,10 +1804,21 @@ modoBase.addEventListener("click", () => atualizarSecao("sofia", { modo: "base" 
 
 modeloBtn.addEventListener("click", () => {
     if (modeloLista.hidden) {
-        renderMenuModelo();
         abrirMenuModelo();
     } else {
         fecharMenuModelo();
+    }
+});
+
+modeloBusca.addEventListener("input", () => {
+    renderMenuModelo();
+});
+
+modeloBusca.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") {
+        evento.stopPropagation();
+        fecharMenuModelo();
+        modeloBtn.focus();
     }
 });
 

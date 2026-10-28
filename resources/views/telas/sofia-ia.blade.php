@@ -81,17 +81,36 @@
                 aria-controls="sofiaModeloLista"
                 title="Escolher modelo de IA"
               >
-                <span class="sofia-modelo-nome" id="sofiaModeloNome">ChatGPT</span>
-                <span class="sofia-modelo-detalhe" id="sofiaModeloDetalhe">Rápido</span>
-                <i data-lucide="chevron-down" aria-hidden="true"></i>
+                <span class="sofia-modelo-rotulo">Modelo</span>
+                <span class="sofia-modelo-valor">
+                  <span class="sofia-modelo-nome" id="sofiaModeloNome">—</span>
+                  <span class="sofia-modelo-detalhe" id="sofiaModeloDetalhe"></span>
+                  <i data-lucide="chevron-right" aria-hidden="true"></i>
+                </span>
               </button>
+
               <div
                 class="sofia-modelo-menu"
                 id="sofiaModeloLista"
                 role="listbox"
                 aria-label="Modelo de IA"
                 hidden
-              ></div>
+              >
+                <label class="sofia-modelo-busca" for="sofiaModeloBusca">
+                  <i data-lucide="search" aria-hidden="true"></i>
+                  <span class="sr-only">Buscar modelos</span>
+                  <input
+                    id="sofiaModeloBusca"
+                    type="search"
+                    placeholder="Buscar modelos…"
+                    autocomplete="off"
+                  />
+                </label>
+                <div class="sofia-modelo-opcoes" id="sofiaModeloOpcoes"></div>
+                <p class="sofia-modelo-rodape">
+                  Só aparecem modelos com chave no ambiente.
+                </p>
+              </div>
             </div>
           </div>
         </header>
