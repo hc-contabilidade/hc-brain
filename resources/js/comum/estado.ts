@@ -75,7 +75,7 @@ export interface EstadoUsuarios {
     busca: string;
     perfil: string;
     status: string;
-    /** Quantos usuários cabem na tabela por vez. 0 = todos os filtrados. */
+    /** Quantos usuários cabem na tabela por vez (10, 20 ou 50). */
     porPagina: number;
     /** Página atual da tabela (1-based), respeitando os filtros. */
     pagina: number;

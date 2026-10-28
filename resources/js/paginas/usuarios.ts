@@ -42,7 +42,7 @@ const AREAS = [
 ];
 const SITUACOES = ["Ativo", "Inativo"];
 
-const QUANTIDADES = [10, 25, 50, 0] as const;
+const QUANTIDADES = [10, 20, 50] as const;
 
 const busca = campo("usuarioSearch");
 const perfil = selecao("usuarioRoleFilter");
@@ -62,7 +62,7 @@ function quantidadeValida(valor: number): number {
 function renderUsuarios(): void {
     const estado = obterSecao("usuarios");
     const palavras = termoDeBusca(estado.busca);
-    const tamanho = quantidadeValida(Number(estado.porPagina) || 0);
+    const tamanho = quantidadeValida(Number(estado.porPagina));
 
     const filtrados = usuarios.filter((usuario) => {
         const texto = `${usuario.nome} ${usuario.email} ${usuario.area} ${usuario.perfil}`;
@@ -73,8 +73,7 @@ function renderUsuarios(): void {
         );
     });
 
-    const totalPaginas =
-        tamanho === 0 ? 1 : Math.max(1, Math.ceil(filtrados.length / tamanho));
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / tamanho));
     const pagina = Math.min(Math.max(1, Number(estado.pagina) || 1), totalPaginas);
 
     if (pagina !== estado.pagina || tamanho !== estado.porPagina) {
@@ -82,8 +81,8 @@ function renderUsuarios(): void {
         return;
     }
 
-    const inicio = tamanho === 0 ? 0 : (pagina - 1) * tamanho;
-    const visiveis = tamanho === 0 ? filtrados : filtrados.slice(inicio, inicio + tamanho);
+    const inicio = (pagina - 1) * tamanho;
+    const visiveis = filtrados.slice(inicio, inicio + tamanho);
     const fim = filtrados.length === 0 ? 0 : inicio + visiveis.length;
 
     porId("usuariosTotal").textContent = String(filtrados.length);
@@ -95,7 +94,7 @@ function renderUsuarios(): void {
     );
     porId("usuariosUltimo").textContent = filtrados[0]?.ultimoAcesso || "—";
     porId("usuariosCount").textContent =
-        tamanho === 0 || filtrados.length <= tamanho
+        filtrados.length <= tamanho
             ? plural(filtrados.length, "usuário", "usuários")
             : `${inicio + (filtrados.length ? 1 : 0)}–${fim} de ${plural(filtrados.length, "usuário", "usuários")}`;
 
@@ -138,7 +137,7 @@ function renderUsuarios(): void {
 
     desenharIcones(corpo);
 
-    const precisaPaginar = tamanho > 0 && filtrados.length > tamanho;
+    const precisaPaginar = filtrados.length > tamanho;
     paginacao.hidden = !precisaPaginar;
     if (precisaPaginar) {
         porId("usuariosPaginacaoInfo").textContent = `Página ${pagina} de ${totalPaginas}`;
@@ -258,7 +257,7 @@ status.addEventListener("change", () =>
 );
 porPagina.addEventListener("change", () =>
     atualizarSecao("usuarios", {
-        porPagina: quantidadeValida(Number(porPagina.value) || 0),
+        porPagina: quantidadeValida(Number(porPagina.value)),
         pagina: 1,
     }),
 );

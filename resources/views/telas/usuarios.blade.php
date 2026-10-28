@@ -62,10 +62,9 @@
       <div class="campo">
         <label for="usuarioPorPagina">Mostrar</label>
         <select id="usuarioPorPagina">
-          <option value="10">10 por página</option>
-          <option value="25">25 por página</option>
-          <option value="50">50 por página</option>
-          <option value="0">Todos</option>
+          <option value="10">10 usuários</option>
+          <option value="20">20 usuários</option>
+          <option value="50">50 usuários</option>
         </select>
       </div>
     </div>
