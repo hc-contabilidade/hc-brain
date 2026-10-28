@@ -59,14 +59,6 @@
           <option value="Inativo">Inativos</option>
         </select>
       </div>
-      <div class="campo">
-        <label for="usuarioPorPagina">Mostrar</label>
-        <select id="usuarioPorPagina">
-          <option value="10">10 usuários</option>
-          <option value="20">20 usuários</option>
-          <option value="50">50 usuários</option>
-        </select>
-      </div>
     </div>
 
     <div class="panel">
@@ -96,9 +88,16 @@
         </table>
       </div>
       <div class="usuarios-paginacao" id="usuariosPaginacao" hidden>
-        <button type="button" class="secondary" id="usuariosPaginaAnterior">Anterior</button>
-        <span class="usuarios-paginacao-info" id="usuariosPaginacaoInfo"></span>
-        <button type="button" class="secondary" id="usuariosPaginaProxima">Próxima</button>
+        <div class="usuarios-paginacao-meta">
+          <label class="sr-only" for="usuarioPorPagina">Resultados por página</label>
+          <select id="usuarioPorPagina" class="usuarios-por-pagina">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+          <span id="usuariosPaginacaoInfo"></span>
+        </div>
+        <nav class="usuarios-paginacao-nav" id="usuariosPaginacaoNav" aria-label="Páginas de usuários"></nav>
       </div>
     </div>
 

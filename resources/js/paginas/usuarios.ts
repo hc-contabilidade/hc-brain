@@ -50,13 +50,41 @@ const status = selecao("usuarioStatusFilter");
 const porPagina = selecao("usuarioPorPagina");
 const corpo = porId("usuariosTableBody");
 const paginacao = porId("usuariosPaginacao");
-const paginaAnterior = porId<HTMLButtonElement>("usuariosPaginaAnterior");
-const paginaProxima = porId<HTMLButtonElement>("usuariosPaginaProxima");
+const paginacaoNav = porId("usuariosPaginacaoNav");
 
 let usuarios: Usuario[] = await carregarUsuarios();
 
 function quantidadeValida(valor: number): number {
     return QUANTIDADES.includes(valor as (typeof QUANTIDADES)[number]) ? valor : 10;
+}
+
+function montarNavegacao(pagina: number, totalPaginas: number): void {
+    const botoes: string[] = [
+        `<button type="button" class="usuarios-pagina" data-pagina="${pagina - 1}" ${pagina <= 1 ? "disabled" : ""}>« Anterior</button>`,
+    ];
+
+    for (let numero = 1; numero <= totalPaginas; numero += 1) {
+        botoes.push(
+            `<button type="button" class="usuarios-pagina${numero === pagina ? " is-ativa" : ""}" data-pagina="${numero}" ${numero === pagina ? 'aria-current="page"' : ""}>${numero}</button>`,
+        );
+    }
+
+    botoes.push(
+        `<button type="button" class="usuarios-pagina" data-pagina="${pagina + 1}" ${pagina >= totalPaginas ? "disabled" : ""}>Próximo »</button>`,
+    );
+
+    paginacaoNav.innerHTML = botoes.join("");
+
+    todos("[data-pagina]", paginacaoNav).forEach((botao) => {
+        botao.addEventListener("click", () => {
+            const destino = Number(dado(botao, "pagina"));
+            if (!Number.isFinite(destino) || destino < 1) {
+                return;
+            }
+
+            atualizarSecao("usuarios", { pagina: destino });
+        });
+    });
 }
 
 function renderUsuarios(): void {
@@ -73,7 +101,7 @@ function renderUsuarios(): void {
         );
     });
 
-    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / tamanho));
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / tamanho) || 1);
     const pagina = Math.min(Math.max(1, Number(estado.pagina) || 1), totalPaginas);
 
     if (pagina !== estado.pagina || tamanho !== estado.porPagina) {
@@ -83,6 +111,7 @@ function renderUsuarios(): void {
 
     const inicio = (pagina - 1) * tamanho;
     const visiveis = filtrados.slice(inicio, inicio + tamanho);
+    const primeiro = filtrados.length === 0 ? 0 : inicio + 1;
     const fim = filtrados.length === 0 ? 0 : inicio + visiveis.length;
 
     porId("usuariosTotal").textContent = String(filtrados.length);
@@ -93,10 +122,7 @@ function renderUsuarios(): void {
         filtrados.filter((usuario) => usuario.perfil === "Administrador").length,
     );
     porId("usuariosUltimo").textContent = filtrados[0]?.ultimoAcesso || "—";
-    porId("usuariosCount").textContent =
-        filtrados.length <= tamanho
-            ? plural(filtrados.length, "usuário", "usuários")
-            : `${inicio + (filtrados.length ? 1 : 0)}–${fim} de ${plural(filtrados.length, "usuário", "usuários")}`;
+    porId("usuariosCount").textContent = plural(filtrados.length, "usuário", "usuários");
 
     corpo.innerHTML = visiveis.length
         ? visiveis
@@ -137,12 +163,11 @@ function renderUsuarios(): void {
 
     desenharIcones(corpo);
 
-    const precisaPaginar = filtrados.length > tamanho;
-    paginacao.hidden = !precisaPaginar;
-    if (precisaPaginar) {
-        porId("usuariosPaginacaoInfo").textContent = `Página ${pagina} de ${totalPaginas}`;
-        paginaAnterior.disabled = pagina <= 1;
-        paginaProxima.disabled = pagina >= totalPaginas;
+    paginacao.hidden = filtrados.length === 0;
+    if (filtrados.length > 0) {
+        porId("usuariosPaginacaoInfo").textContent =
+            `${primeiro} a ${fim} de ${filtrados.length} resultados`;
+        montarNavegacao(pagina, totalPaginas);
     }
 
     if (busca.value !== estado.busca) busca.value = estado.busca;
@@ -260,12 +285,6 @@ porPagina.addEventListener("change", () =>
         porPagina: quantidadeValida(Number(porPagina.value)),
         pagina: 1,
     }),
-);
-paginaAnterior.addEventListener("click", () =>
-    atualizarSecao("usuarios", (atual) => ({ pagina: Math.max(1, atual.pagina - 1) })),
-);
-paginaProxima.addEventListener("click", () =>
-    atualizarSecao("usuarios", (atual) => ({ pagina: atual.pagina + 1 })),
 );
 
 porId("novoUsuarioBtn").addEventListener("click", () => abrirFormularioDe());
