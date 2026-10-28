@@ -85,6 +85,8 @@ export function historicoDaConversa(mensagens: MensagemSofia[]): TurnoSofia[] {
 export interface PedidoSofia {
     modo: ModoSofia;
     conversaId: string | null;
+    /** Id do catálogo (ex.: gpt-4o-mini, gemini-2.0-flash). */
+    modelo?: string;
     aoToken?: (token: string) => void;
 }
 
@@ -103,6 +105,7 @@ export async function perguntarSofia(
         historico,
         modo: pedido.modo,
         conversa_id: pedido.conversaId,
+        modelo: pedido.modelo || undefined,
     };
 
     try {
@@ -128,6 +131,7 @@ async function perguntarEmFluxo(
         historico: TurnoSofia[];
         modo: ModoSofia;
         conversa_id: string | null;
+        modelo?: string;
     },
     pedido: PedidoSofia,
 ): Promise<RespostaSofia> {
@@ -173,7 +177,7 @@ export function enviarAudioSofia(
     arquivo: Blob,
     nome: string,
     historico: TurnoSofia[] = [],
-    pedido: { modo: ModoSofia; conversaId: string | null },
+    pedido: { modo: ModoSofia; conversaId: string | null; modelo?: string },
 ): Promise<{ transcricao: string; resposta: string; conversa: ConversaSofia }> {
     const dados = new FormData();
     const envio =
@@ -183,6 +187,7 @@ export function enviarAudioSofia(
     dados.append("audio", envio, nome);
     dados.append("modo", pedido.modo);
     if (pedido.conversaId) dados.append("conversa_id", pedido.conversaId);
+    if (pedido.modelo) dados.append("modelo", pedido.modelo);
     historico.forEach((turno, indice) => {
         dados.append(`historico[${indice}][papel]`, turno.papel);
         dados.append(`historico[${indice}][texto]`, turno.texto);

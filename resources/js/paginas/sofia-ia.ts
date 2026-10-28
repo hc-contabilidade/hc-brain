@@ -52,8 +52,14 @@ import {
 import { escapar } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { htmlDeMarkdown, textoParaFala } from "../comum/markdown.ts";
-import { showModal } from "../comum/modal.ts";
 import { iniciarPagina } from "../comum/shell.ts";
+
+interface ModeloSofia {
+    id: string;
+    rotulo: string;
+    subtitulo: string;
+    provedor: string;
+}
 
 /** O reconhecimento de voz não é padrão em todos os navegadores. */
 interface AlternativaDeVoz {
@@ -144,6 +150,15 @@ const transcricaoNoServidor = dado(tela, "transcricaoServidor") === "1";
 const ditadoNoNavegador = reconhecimentoDisponivel() !== null;
 const audioDisponivel = ditadoNoNavegador || transcricaoNoServidor;
 
+const modelosSofia: ModeloSofia[] = lerModelos(dado(tela, "modelos"));
+const modeloPadraoServidor = dado(tela, "modeloPadrao");
+
+const modeloBtn = porId<HTMLButtonElement>("sofiaModelBtn");
+const modeloNome = porId("sofiaModeloNome");
+const modeloDetalhe = porId("sofiaModeloDetalhe");
+const modeloLista = porId("sofiaModeloLista");
+const modeloWrap = porId("sofiaModeloWrap");
+
 /* A síntese de fala é independente do reconhecimento: o Firefox não ouve,
    mas fala — então "Ouvir" continua lá mesmo sem ditado. */
 const sinteseDeVoz: SpeechSynthesis | null =
@@ -164,6 +179,117 @@ porId("sofiaUsuarioPerfil").textContent = usuario.perfil;
 const primeiroNome = usuario.nome.trim().split(/\s+/)[0];
 if (primeiroNome) {
     porId("sofiaSaudacao").textContent = `Olá, ${primeiroNome}. O que você quer saber?`;
+}
+
+function lerModelos(bruto: string): ModeloSofia[] {
+    try {
+        const lido = JSON.parse(bruto || "[]") as unknown;
+        if (!Array.isArray(lido)) {
+            return [];
+        }
+
+        return lido.filter(
+            (item): item is ModeloSofia =>
+                !!item &&
+                typeof item === "object" &&
+                typeof (item as ModeloSofia).id === "string" &&
+                typeof (item as ModeloSofia).rotulo === "string" &&
+                typeof (item as ModeloSofia).subtitulo === "string",
+        );
+    } catch {
+        return [];
+    }
+}
+
+function modeloAtual(): ModeloSofia | null {
+    const id = obterSecao("sofia").modelo;
+    return modelosSofia.find((modelo) => modelo.id === id) ?? modelosSofia[0] ?? null;
+}
+
+function garantirModeloEscolhido(): void {
+    if (modelosSofia.length === 0) {
+        return;
+    }
+
+    const atual = obterSecao("sofia").modelo;
+    const valido = modelosSofia.some((modelo) => modelo.id === atual);
+    if (valido) {
+        return;
+    }
+
+    const preferido =
+        modelosSofia.find((modelo) => modelo.id === modeloPadraoServidor)?.id ??
+        modelosSofia[0].id;
+    atualizarSecao("sofia", { modelo: preferido });
+}
+
+function fecharMenuModelo(): void {
+    modeloLista.hidden = true;
+    modeloBtn.setAttribute("aria-expanded", "false");
+}
+
+function abrirMenuModelo(): void {
+    modeloLista.hidden = false;
+    modeloBtn.setAttribute("aria-expanded", "true");
+}
+
+function renderMenuModelo(): void {
+    const escolhido = modeloAtual();
+
+    if (modelosSofia.length === 0) {
+        modeloLista.innerHTML =
+            `<p class="sofia-modelo-vazio">Nenhum modelo configurado. Defina OPENAI_API_KEY ou GEMINI_API_KEY no ambiente.</p>`;
+        return;
+    }
+
+    const grupos = new Map<string, ModeloSofia[]>();
+    for (const modelo of modelosSofia) {
+        const lista = grupos.get(modelo.rotulo) ?? [];
+        lista.push(modelo);
+        grupos.set(modelo.rotulo, lista);
+    }
+
+    modeloLista.innerHTML = [...grupos.entries()]
+        .map(
+            ([rotulo, opcoes]) => `
+              <p class="sofia-modelo-grupo">${escapar(rotulo)}</p>
+              ${opcoes
+                  .map(
+                      (modelo) => `
+                <button
+                  type="button"
+                  class="sofia-modelo-opcao"
+                  role="option"
+                  data-modelo="${escapar(modelo.id)}"
+                  aria-selected="${modelo.id === escolhido?.id ? "true" : "false"}"
+                >
+                  <strong>${escapar(modelo.rotulo)} · ${escapar(modelo.subtitulo)}</strong>
+                  <small>${modelo.provedor === "gemini" ? "Google Gemini" : "OpenAI ChatGPT"}</small>
+                </button>`,
+                  )
+                  .join("")}
+            `,
+        )
+        .join("");
+
+    todos("[data-modelo]", modeloLista).forEach((botao) => {
+        botao.addEventListener("click", () => {
+            atualizarSecao("sofia", { modelo: dado(botao, "modelo") });
+            fecharMenuModelo();
+        });
+    });
+}
+
+function renderModelo(): void {
+    garantirModeloEscolhido();
+    const escolhido = modeloAtual();
+    modeloNome.textContent = escolhido?.rotulo ?? "Modelo";
+    modeloDetalhe.textContent = escolhido?.subtitulo ?? "";
+    modeloDetalhe.hidden = !escolhido?.subtitulo;
+    modeloBtn.disabled = modelosSofia.length === 0;
+    if (!modeloLista.hidden) {
+        renderMenuModelo();
+    }
 }
 
 /** Chats que ainda estão esperando a resposta da Sofia. */
@@ -684,11 +810,12 @@ async function enviarPergunta(pergunta: string, voz: boolean): Promise<string | 
 
     let resposta = "";
     let comecou = false;
-    const { modo } = obterSecao("sofia");
+    const { modo, modelo } = obterSecao("sofia");
 
     try {
         const resultado = await perguntarSofia(texto, historico, {
             modo,
+            modelo,
             conversaId: id,
             aoToken(token) {
                 if (!conversaAindaExiste(id)) return;
@@ -764,8 +891,10 @@ async function enviarBlob(arquivo: Blob, nome: string): Promise<void> {
         const historico = historicoDaConversa(
             obterSecao("sofia").conversas.find((item) => item.id === id)?.mensagens ?? [],
         );
+        const estadoSofia = obterSecao("sofia");
         const resultado = await enviarAudioSofia(arquivo, nome, historico, {
-            modo: obterSecao("sofia").modo,
+            modo: estadoSofia.modo,
+            modelo: estadoSofia.modelo,
             conversaId: id,
         });
         transcrevendoId = null;
@@ -1536,17 +1665,6 @@ function prepararEntradaDeVoz(): void {
     entrada.placeholder = "Pergunte à Sofia";
 }
 
-/** O que a janela "Modelo da Sofia" conta sobre o áudio neste ambiente. */
-function explicacaoDoAudio(): string {
-    if (!audioDisponivel) {
-        return "Neste navegador a pergunta vai por texto: ele não reconhece voz e o ambiente não tem transcrição configurada.";
-    }
-    if (!transcricaoNoServidor) {
-        return "O microfone envia a pergunta falada.";
-    }
-    return "O microfone envia a pergunta falada. Um arquivo de áudio é transcrito no servidor.";
-}
-
 function arquivoEhAudio(arquivo: File): boolean {
     if (arquivo.type.startsWith("audio/") || arquivo.type === "video/webm") return true;
     return /\.(webm|mp3|mpeg|mpga|m4a|mp4|wav|ogg|oga)$/i.test(arquivo.name);
@@ -1648,11 +1766,25 @@ porId("removeSofiaAttachment").addEventListener("click", () => {
 modoPesquisa.addEventListener("click", () => atualizarSecao("sofia", { modo: "search" }));
 modoBase.addEventListener("click", () => atualizarSecao("sofia", { modo: "base" }));
 
-porId("sofiaModelBtn").addEventListener("click", () => {
-    showModal(
-        "Modelo da Sofia",
-        `A Sofia responde a partir da base da HC: empresas, sócios, reuniões, documentos, financeiro, treinamentos, projetos e processos. Pesquisar faz a busca ampla; Base HC consulta os cadastros. ${explicacaoDoAudio()} Ela não consulta nada fora daqui.`,
-    );
+modeloBtn.addEventListener("click", () => {
+    if (modeloLista.hidden) {
+        renderMenuModelo();
+        abrirMenuModelo();
+    } else {
+        fecharMenuModelo();
+    }
+});
+
+document.addEventListener("click", (evento) => {
+    if (!modeloLista.hidden && !modeloWrap.contains(evento.target as Node)) {
+        fecharMenuModelo();
+    }
+});
+
+document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !modeloLista.hidden) {
+        fecharMenuModelo();
+    }
 });
 
 /* No ditado o microfone vira pausa: a fala para e o texto fica no campo. */
@@ -1743,6 +1875,7 @@ window.addEventListener("pagehide", () => {
 
 observarEstado(["sofia"], () => {
     aplicarModo(obterSecao("sofia").modo);
+    renderModelo();
     renderHistorico();
     renderConversa();
 });
@@ -1754,6 +1887,8 @@ if (sinteseDeVoz) {
 
 prepararEntradaDeVoz();
 aplicarModo(obterSecao("sofia").modo);
+renderModelo();
+desenharIcones(modeloBtn);
 await hidratarConversas();
 renderHistorico();
 renderConversa();

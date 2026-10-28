@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\UsuarioResource;
 use App\Models\Empresa;
+use App\Support\SofiaModelos;
 use App\Support\Transcricao;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -39,6 +40,8 @@ class TelaController extends Controller
     {
         return view('telas.sofia-ia', [
             'transcricaoConfigurada' => Transcricao::configurada(),
+            'modelosSofia' => SofiaModelos::paraTela(),
+            'modeloSofiaPadrao' => SofiaModelos::padrao(),
         ]);
     }
 

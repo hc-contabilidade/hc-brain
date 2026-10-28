@@ -139,10 +139,56 @@ class SofiaChatTest extends TestCase
         Http::assertSent(function (Request $request): bool {
             return $request->url() === 'https://api.openai.com/v1/chat/completions'
                 && $request->hasHeader('Authorization', 'Bearer chave-de-teste')
+                && ($request->data()['model'] ?? null) === 'gpt-4o-mini'
                 && collect($request->data()['tools'] ?? [])->contains(
                     fn ($tool) => data_get($tool, 'function.name') === 'buscar_empresas',
                 );
         });
+    }
+
+    public function test_sofia_usa_o_modelo_gemini_quando_pedido(): void
+    {
+        config()->set('hc.sofia.provedores.gemini.chave', 'chave-gemini');
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => 'Resposta pelo Gemini.',
+                    ],
+                ]],
+            ]),
+        ]);
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', [
+                'pergunta' => 'Oi',
+                'modelo' => 'gemini-2.0-flash',
+            ])
+            ->assertOk()
+            ->assertJsonPath('resposta', 'Resposta pelo Gemini.');
+
+        Http::assertSent(function (Request $request): bool {
+            return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer chave-gemini')
+                && ($request->data()['model'] ?? null) === 'gemini-2.0-flash';
+        });
+    }
+
+    public function test_sofia_recusa_modelo_sem_chave_no_ambiente(): void
+    {
+        config()->set('hc.sofia.chave', 'chave-de-teste');
+        config()->set('hc.sofia.provedores.openai.chave', 'chave-de-teste');
+        config()->set('hc.sofia.provedores.gemini.chave', null);
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', [
+                'pergunta' => 'Oi',
+                'modelo' => 'gemini-2.0-flash',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('modelo');
     }
 
     public function test_sofia_informa_a_data_de_hoje_no_prompt(): void

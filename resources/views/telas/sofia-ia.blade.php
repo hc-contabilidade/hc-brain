@@ -11,6 +11,8 @@
       class="sofia-ai-screen"
       id="sofiaTela"
       data-transcricao-servidor="{{ $transcricaoConfigurada ? '1' : '0' }}"
+      data-modelos='@json($modelosSofia)'
+      data-modelo-padrao="{{ $modeloSofiaPadrao ?? '' }}"
     >
       <button
         type="button"
@@ -69,9 +71,28 @@
           </div>
 
           <div class="sofia-topo-dir">
-            <button type="button" class="sofia-modelo" id="sofiaModelBtn" title="Modelo da Sofia">
-              Sofia
-            </button>
+            <div class="sofia-modelo-wrap" id="sofiaModeloWrap">
+              <button
+                type="button"
+                class="sofia-modelo"
+                id="sofiaModelBtn"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="sofiaModeloLista"
+                title="Escolher modelo de IA"
+              >
+                <span class="sofia-modelo-nome" id="sofiaModeloNome">ChatGPT</span>
+                <span class="sofia-modelo-detalhe" id="sofiaModeloDetalhe">Rápido</span>
+                <i data-lucide="chevron-down" aria-hidden="true"></i>
+              </button>
+              <div
+                class="sofia-modelo-menu"
+                id="sofiaModeloLista"
+                role="listbox"
+                aria-label="Modelo de IA"
+                hidden
+              ></div>
+            </div>
           </div>
         </header>
 
@@ -83,11 +104,11 @@
           <div class="sofia-centro">
             <div class="sofia-welcome" id="sofiaWelcome">
               <div class="sofia-marca" aria-hidden="true"><span>S</span></div>
-              <p class="sofia-kicker">Assistente oficial do HC Brain</p>
+              <p class="sofia-kicker">Sofia · assistente de IA do HC Brain</p>
               <h1 id="sofiaSaudacao">O que você quer saber?</h1>
               <p class="sofia-welcome-texto" id="sofiaWelcomeTexto">
-                Pergunte por texto, grave um áudio ou anexe um arquivo. Pesquisar busca amplo;
-                Base HC consulta os cadastros — empresas, reuniões, documentos, projetos e processos.
+                Escolha o modelo no topo, pergunte por texto, grave um áudio ou anexe um arquivo.
+                Pesquisar busca amplo; Base HC consulta os cadastros da empresa.
               </p>
             </div>
 

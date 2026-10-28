@@ -53,10 +53,10 @@ return [
     ],
 
     /*
-    | A Sofia responde por Chat Completions e transcreve áudio com a mesma
-    | chave. Sem ela, a tela e a API avisam: não há casamento de palavras
-    | escondido atrás. O navegador que reconhece voz transcreve sozinho e
-    | manda o texto; arquivo anexado passa pela transcrição daqui.
+    | A Sofia conversa por Chat Completions (OpenAI ou Gemini no formato
+    | compatível) e transcreve áudio com a chave OpenAI. Sem nenhuma chave
+    | de chat, a tela e a API avisam. O navegador que reconhece voz
+    | transcreve sozinho; arquivo anexado passa pela transcrição daqui.
     */
     'sofia' => [
         'chave' => env('OPENAI_API_KEY'),
@@ -72,8 +72,53 @@ return [
         ],
 
         'chat' => [
-            'url' => env('OPENAI_CHAT_URL', 'https://api.openai.com/v1/chat/completions'),
-            'modelo' => env('OPENAI_CHAT_MODEL', 'gpt-4o-mini'),
+            /* Id do catálogo abaixo. Continua aceitando OPENAI_CHAT_MODEL. */
+            'modelo' => env('SOFIA_CHAT_MODEL', env('OPENAI_CHAT_MODEL', 'gpt-4o-mini')),
+        ],
+
+        'provedores' => [
+            'openai' => [
+                'chave' => env('OPENAI_API_KEY'),
+                'url' => env('OPENAI_CHAT_URL', 'https://api.openai.com/v1/chat/completions'),
+            ],
+            'gemini' => [
+                'chave' => env('GEMINI_API_KEY'),
+                'url' => env(
+                    'GEMINI_CHAT_URL',
+                    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+                ),
+            ],
+        ],
+
+        /*
+        | Opções do seletor na tela. `api` é o nome que o provedor espera;
+        | só entram na lista se a chave do provedor estiver no ambiente.
+        */
+        'modelos' => [
+            'gpt-4o-mini' => [
+                'rotulo' => 'ChatGPT',
+                'subtitulo' => 'Rápido',
+                'provedor' => 'openai',
+                'api' => 'gpt-4o-mini',
+            ],
+            'gpt-4o' => [
+                'rotulo' => 'ChatGPT',
+                'subtitulo' => 'Avançado',
+                'provedor' => 'openai',
+                'api' => 'gpt-4o',
+            ],
+            'gemini-2.0-flash' => [
+                'rotulo' => 'Gemini',
+                'subtitulo' => 'Rápido',
+                'provedor' => 'gemini',
+                'api' => 'gemini-2.0-flash',
+            ],
+            'gemini-2.5-pro' => [
+                'rotulo' => 'Gemini',
+                'subtitulo' => 'Avançado',
+                'provedor' => 'gemini',
+                'api' => 'gemini-2.5-pro',
+            ],
         ],
     ],
 

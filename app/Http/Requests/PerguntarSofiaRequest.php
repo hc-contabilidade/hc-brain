@@ -3,7 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Support\SofiaAssistant;
+use App\Support\SofiaModelos;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
 
 class PerguntarSofiaRequest extends FormRequest
 {
@@ -13,6 +16,7 @@ class PerguntarSofiaRequest extends FormRequest
             'pergunta' => ['required', 'string', 'max:1000'],
             ...self::regrasDoModo(),
             ...self::regrasDoHistorico(),
+            ...self::regrasDoModelo(),
         ];
     }
 
@@ -24,6 +28,23 @@ class PerguntarSofiaRequest extends FormRequest
         return [
             'modo' => ['sometimes', 'in:search,base'],
             'conversa_id' => ['sometimes', 'nullable', 'uuid'],
+        ];
+    }
+
+    /**
+     * @return array<string, list<In|string>>
+     */
+    public static function regrasDoModelo(): array
+    {
+        $ids = SofiaModelos::idsDisponiveis();
+
+        return [
+            'modelo' => [
+                'sometimes',
+                'nullable',
+                'string',
+                Rule::in($ids !== [] ? $ids : ['__nenhum__']),
+            ],
         ];
     }
 
@@ -56,6 +77,13 @@ class PerguntarSofiaRequest extends FormRequest
         $id = $this->validated('conversa_id') ?? null;
 
         return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    public function modelo(): ?string
+    {
+        $modelo = $this->validated('modelo') ?? null;
+
+        return is_string($modelo) && $modelo !== '' ? $modelo : SofiaModelos::padrao();
     }
 
     /**

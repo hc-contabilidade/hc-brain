@@ -23,9 +23,18 @@ final class Sofia
      * @param  list<array{papel?: string, texto?: string}>  $historico
      * @param  (callable(string): void)|null  $onToken
      */
-    public static function responder(string $pergunta, array $historico = [], ?callable $onToken = null): string
-    {
-        return SofiaAssistant::responder($pergunta, self::historicoParaModelo($historico), $onToken);
+    public static function responder(
+        string $pergunta,
+        array $historico = [],
+        ?callable $onToken = null,
+        ?string $modelo = null,
+    ): string {
+        return SofiaAssistant::responder(
+            $pergunta,
+            self::historicoParaModelo($historico),
+            $onToken,
+            $modelo,
+        );
     }
 
     /**
@@ -41,6 +50,7 @@ final class Sofia
         array $historico = [],
         bool $voz = false,
         ?callable $onToken = null,
+        ?string $modelo = null,
     ): array {
         $conversa = self::resolverConversa($usuario, $modo, $conversaId, $pergunta);
         $anterior = $conversa->mensagens()
@@ -56,7 +66,7 @@ final class Sofia
             ? self::historicoParaModelo($anterior)
             : self::historicoParaModelo($historico);
 
-        $resposta = SofiaAssistant::responder($pergunta, $historicoModelo, $onToken);
+        $resposta = SofiaAssistant::responder($pergunta, $historicoModelo, $onToken, $modelo);
 
         $conversa->mensagens()->create([
             'autor' => 'user',

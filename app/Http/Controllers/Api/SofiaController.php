@@ -20,7 +20,7 @@ use Throwable;
 
 class SofiaController extends Controller
 {
-    public const AVISO_SEM_CHAVE = 'A Sofia não está configurada. Defina OPENAI_API_KEY no ambiente para conversar com ela.';
+    public const AVISO_SEM_CHAVE = 'A Sofia não está configurada. Defina OPENAI_API_KEY ou GEMINI_API_KEY no ambiente para conversar com ela.';
 
     public const AVISO_INDISPONIVEL = 'Não consegui consultar a base agora. Tente novamente em instantes.';
 
@@ -119,6 +119,9 @@ class SofiaController extends Controller
                 $request->modo(),
                 $request->conversaId(),
                 $request->historico(),
+                false,
+                null,
+                $request->modelo(),
             );
         } catch (HttpExceptionInterface $excecao) {
             throw $excecao;
@@ -180,6 +183,8 @@ class SofiaController extends Controller
                 $request->conversaId(),
                 $request->historico(),
                 true,
+                null,
+                $request->modelo(),
             );
         } catch (HttpExceptionInterface $excecao) {
             throw $excecao;
@@ -223,6 +228,7 @@ class SofiaController extends Controller
                     function (string $token) use ($enviar): void {
                         $enviar(['token' => $token]);
                     },
+                    $request->modelo(),
                 );
 
                 $enviar([

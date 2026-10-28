@@ -98,6 +98,8 @@ export interface EstadoComercial {
 
 export interface EstadoSofia {
     modo: ModoSofia;
+    /** Id do modelo de IA escolhido (ChatGPT, Gemini…). */
+    modelo: string;
     /** null é um chat novo, ainda sem mensagem — não entra na lista. */
     conversaAtiva: string | null;
     conversas: ConversaSofia[];
@@ -168,7 +170,7 @@ const ESTADO_PADRAO: Estado = {
     financeiro: { busca: "", regime: "Todos" },
     // Em branco, a tela de Comercial abre no mês mais recente que a base tem.
     comercial: { periodo: "" },
-    sofia: { modo: "search", conversaAtiva: null, conversas: [] },
+    sofia: { modo: "search", modelo: "", conversaAtiva: null, conversas: [] },
 };
 
 function conversaUtil(valor: unknown): valor is ConversaSofia {
@@ -190,6 +192,7 @@ function normalizarSofia(
     bruto: (EstadoSofia & { mensagens?: MensagemSofia[] }) | undefined,
 ): EstadoSofia {
     const modo: ModoSofia = bruto?.modo === "base" ? "base" : "search";
+    const modelo = typeof bruto?.modelo === "string" ? bruto.modelo : "";
     const conversas = Array.isArray(bruto?.conversas)
         ? bruto.conversas.filter(conversaUtil)
         : [];
@@ -198,6 +201,7 @@ function normalizarSofia(
         const id = crypto.randomUUID();
         return {
             modo,
+            modelo,
             conversaAtiva: id,
             conversas: [
                 {
@@ -216,7 +220,7 @@ function normalizarSofia(
         ? (bruto?.conversaAtiva ?? null)
         : null;
 
-    return { modo, conversaAtiva, conversas };
+    return { modo, modelo, conversaAtiva, conversas };
 }
 
 function clonar<T>(valor: T): T {

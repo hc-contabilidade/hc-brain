@@ -10,6 +10,7 @@ use RuntimeException;
 /**
  * Loop de Chat Completions da Sofia: persona + histórico + ferramentas.
  * Sem SDK — a mesma fachada Http do Whisper. Sem chave, o chamador responde 503.
+ * O modelo escolhido na tela decide provedor (ChatGPT/OpenAI ou Gemini).
  */
 final class SofiaAssistant
 {
@@ -21,18 +22,24 @@ final class SofiaAssistant
 
     public static function configurada(): bool
     {
-        return filled(config('hc.sofia.chave'));
+        return SofiaModelos::algumDisponivel();
     }
 
     /**
      * @param  list<array{role: 'user'|'assistant', content: string}>  $historico
      * @param  (callable(string): void)|null  $onToken
      */
-    public static function responder(string $pergunta, array $historico = [], ?callable $onToken = null): string
-    {
+    public static function responder(
+        string $pergunta,
+        array $historico = [],
+        ?callable $onToken = null,
+        ?string $modeloId = null,
+    ): string {
         if (! self::configurada()) {
             throw new RuntimeException('A Sofia não está configurada.');
         }
+
+        $modelo = SofiaModelos::resolver($modeloId);
 
         $messages = [
             ['role' => 'system', 'content' => SofiaPersona::system()],
@@ -41,7 +48,7 @@ final class SofiaAssistant
         ];
 
         for ($round = 0; $round < self::MAX_ROUNDS; $round++) {
-            $choice = self::completar($messages, $onToken);
+            $choice = self::completar($messages, $onToken, $modelo);
             $calls = $choice['tool_calls'];
 
             if ($calls === []) {
@@ -79,12 +86,13 @@ final class SofiaAssistant
     /**
      * @param  list<array<string, mixed>>  $messages
      * @param  (callable(string): void)|null  $onToken
+     * @param  array{api: string, chave: string, url: string}  $modelo
      * @return array{content: string, tool_calls: list<array<string, mixed>>}
      */
-    private static function completar(array $messages, ?callable $onToken): array
+    private static function completar(array $messages, ?callable $onToken, array $modelo): array
     {
         $corpo = [
-            'model' => config('hc.sofia.chat.modelo'),
+            'model' => $modelo['api'],
             'temperature' => 0.3,
             'max_tokens' => 1200,
             'messages' => $messages,
@@ -92,10 +100,10 @@ final class SofiaAssistant
         ];
 
         if ($onToken !== null) {
-            return self::completarStream($corpo, $onToken);
+            return self::completarStream($corpo, $onToken, $modelo);
         }
 
-        $resposta = self::cliente()->post((string) config('hc.sofia.chat.url'), $corpo);
+        $resposta = self::cliente($modelo)->post($modelo['url'], $corpo);
 
         if ($resposta->failed()) {
             throw new RequestException($resposta);
@@ -118,13 +126,14 @@ final class SofiaAssistant
     /**
      * @param  array<string, mixed>  $corpo
      * @param  callable(string): void  $onToken
+     * @param  array{chave: string, url: string}  $modelo
      * @return array{content: string, tool_calls: list<array<string, mixed>>}
      */
-    private static function completarStream(array $corpo, callable $onToken): array
+    private static function completarStream(array $corpo, callable $onToken, array $modelo): array
     {
-        $resposta = self::cliente()
+        $resposta = self::cliente($modelo)
             ->withOptions(['stream' => true])
-            ->post((string) config('hc.sofia.chat.url'), [...$corpo, 'stream' => true]);
+            ->post($modelo['url'], [...$corpo, 'stream' => true]);
 
         if ($resposta->failed()) {
             throw new RequestException($resposta);
@@ -206,9 +215,12 @@ final class SofiaAssistant
         ];
     }
 
-    private static function cliente(): PendingRequest
+    /**
+     * @param  array{chave: string}  $modelo
+     */
+    private static function cliente(array $modelo): PendingRequest
     {
-        return Http::withToken((string) config('hc.sofia.chave'))
+        return Http::withToken($modelo['chave'])
             ->acceptJson()
             ->connectTimeout(5)
             ->timeout(60);

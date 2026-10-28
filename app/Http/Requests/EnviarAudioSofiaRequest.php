@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\SofiaModelos;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
@@ -35,6 +36,7 @@ class EnviarAudioSofiaRequest extends FormRequest
             ],
             ...PerguntarSofiaRequest::regrasDoModo(),
             ...PerguntarSofiaRequest::regrasDoHistorico(),
+            ...PerguntarSofiaRequest::regrasDoModelo(),
         ];
     }
 
@@ -50,6 +52,15 @@ class EnviarAudioSofiaRequest extends FormRequest
         $id = $this->validated('conversa_id') ?? null;
 
         return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    public function modelo(): ?string
+    {
+        $modelo = $this->validated('modelo') ?? null;
+
+        return is_string($modelo) && $modelo !== ''
+            ? $modelo
+            : SofiaModelos::padrao();
     }
 
     /**
