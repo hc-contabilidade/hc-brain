@@ -13,6 +13,7 @@ import { desenharIcones, icone, iconeSeguro } from "./icones.ts";
 import { ligarInfos, montarModais } from "./modal.ts";
 import { PAGINAS, caminhoDaPagina, paginaPorId } from "./paginas.ts";
 import { sair } from "./sessao.ts";
+import { montarSofiaAgente } from "./sofia-agente.ts";
 import { botaoDeTema, ligarTema } from "./tema.ts";
 
 const MARCA = "HC Brain";
@@ -205,6 +206,7 @@ export function iniciarPagina(paginaId: string): SessaoUsuario {
     });
 
     ligarInfos();
+    montarSofiaAgente(paginaId);
 
     return usuario;
 }

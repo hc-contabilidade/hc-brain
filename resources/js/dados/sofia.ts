@@ -87,6 +87,8 @@ export interface PedidoSofia {
     conversaId: string | null;
     /** Id do catálogo (ex.: gpt-4o-mini, gemini-2.0-flash). */
     modelo?: string;
+    /** Tela atual do HC Brain — a Sofia usa como contexto. */
+    tela?: string;
     aoToken?: (token: string) => void;
 }
 
@@ -106,6 +108,7 @@ export async function perguntarSofia(
         modo: pedido.modo,
         conversa_id: pedido.conversaId,
         modelo: pedido.modelo || undefined,
+        tela: pedido.tela || undefined,
     };
 
     try {
@@ -132,6 +135,7 @@ async function perguntarEmFluxo(
         modo: ModoSofia;
         conversa_id: string | null;
         modelo?: string;
+        tela?: string;
     },
     pedido: PedidoSofia,
 ): Promise<RespostaSofia> {

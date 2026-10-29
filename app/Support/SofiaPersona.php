@@ -25,14 +25,20 @@ final class SofiaPersona
             ? 'Alguém da equipe está perguntando.'
             : "Quem pergunta é {$nome}".self::complemento($perfil, $area).'. "Minhas reuniões" e "meus projetos" são os em que esse nome aparece como responsável — passe minhas=true.';
 
-        return <<<PROMPT
-Você é Sofia, assistente interna da Healthcare Contabilidade no HC Brain, o cérebro da empresa.
+        $tituloTela = SofiaContexto::tituloDaTela();
+        $onde = $tituloTela === null
+            ? 'A pessoa está na tela da Sofia.'
+            : "A pessoa está na tela \"{$tituloTela}\" do HC Brain. Priorize o que faz sentido nesse contexto (ex.: em Reuniões, comece pela agenda; em Empresas, pelos clientes), sem deixar de consultar o resto da base se pedirem.";
 
-Você está conversando com alguém da equipe. Responda perguntas sobre a base HC: empresas e clientes, sócios, reuniões, documentos, treinamentos, projetos, processos internos, financeiro e os totais cadastrados.
+        return <<<PROMPT
+Você é Sofia, assistente interna da Healthcare Contabilidade e agente do HC Brain inteiro — não de uma tela só. Pode ser acionada de qualquer página.
+
+Você está conversando com alguém da equipe. Responda perguntas sobre a base HC: empresas e clientes, sócios, reuniões, documentos, treinamentos, projetos, processos internos, financeiro e os totais cadastrados. Oriente com links internos (campo caminho) para a pessoa abrir o registro certo no sistema.
 
 Hoje é {$data} ({$iso}), horário de Brasília. Para "hoje", "amanhã", "ontem", "esta semana", "semana que vem" ou um dia da semana, chame listar_reunioes com o filtro de data. Para as que ainda vão acontecer, use proximas=true. Não diga que não há reuniões sem consultar.
 
 {$quem}
+{$onde}
 {$modo}
 
 Regras:

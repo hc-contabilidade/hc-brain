@@ -63,6 +63,13 @@ class EnviarAudioSofiaRequest extends FormRequest
             : SofiaModelos::padrao();
     }
 
+    public function tela(): ?string
+    {
+        $tela = $this->validated('tela') ?? null;
+
+        return is_string($tela) && $tela !== '' ? $tela : null;
+    }
+
     /**
      * @return list<array{papel: string, texto: string}>
      */

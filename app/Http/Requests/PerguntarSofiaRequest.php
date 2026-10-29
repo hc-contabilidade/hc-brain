@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Support\SofiaAssistant;
 use App\Support\SofiaModelos;
+use App\Support\Telas;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
@@ -25,9 +26,15 @@ class PerguntarSofiaRequest extends FormRequest
      */
     public static function regrasDoModo(): array
     {
+        $telas = array_values(array_map(
+            fn (array $tela): string => $tela['id'],
+            [...Telas::MENU, ...Telas::AUXILIARES],
+        ));
+
         return [
             'modo' => ['sometimes', 'in:search,base'],
             'conversa_id' => ['sometimes', 'nullable', 'uuid'],
+            'tela' => ['sometimes', 'nullable', 'string', Rule::in($telas)],
         ];
     }
 
@@ -84,6 +91,13 @@ class PerguntarSofiaRequest extends FormRequest
         $modelo = $this->validated('modelo') ?? null;
 
         return is_string($modelo) && $modelo !== '' ? $modelo : SofiaModelos::padrao();
+    }
+
+    public function tela(): ?string
+    {
+        $tela = $this->validated('tela') ?? null;
+
+        return is_string($tela) && $tela !== '' ? $tela : null;
     }
 
     /**

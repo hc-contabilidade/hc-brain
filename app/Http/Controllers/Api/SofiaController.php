@@ -102,7 +102,7 @@ class SofiaController extends Controller
 
     public function perguntar(PerguntarSofiaRequest $request): JsonResponse|StreamedResponse
     {
-        SofiaContexto::definir($request->user(), $request->modo());
+        SofiaContexto::definir($request->user(), $request->modo(), $request->tela());
 
         if (! Sofia::configurada()) {
             return response()->json(['message' => self::AVISO_SEM_CHAVE], 503);
@@ -139,7 +139,7 @@ class SofiaController extends Controller
 
     public function audio(EnviarAudioSofiaRequest $request): JsonResponse
     {
-        SofiaContexto::definir($request->user(), $request->modo());
+        SofiaContexto::definir($request->user(), $request->modo(), $request->tela());
 
         if (! Transcricao::configurada()) {
             return response()->json([

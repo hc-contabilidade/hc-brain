@@ -44,7 +44,7 @@ final class Telas
     ];
 
     /** Folhas compartilhadas por toda tela que tem o shell (menu, topo e modais). */
-    public const CSS_COMUM = ['base', 'layout', 'sidebar', 'componentes', 'modal'];
+    public const CSS_COMUM = ['base', 'layout', 'sidebar', 'componentes', 'modal', 'sofia-agente'];
 
     /**
      * Folhas e script que o Vite precisa entregar para uma tela, na ordem em

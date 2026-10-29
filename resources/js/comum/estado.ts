@@ -100,6 +100,8 @@ export interface EstadoSofia {
     modo: ModoSofia;
     /** Id do modelo de IA escolhido (ChatGPT, Gemini…). */
     modelo: string;
+    /** Dock lateral da Sofia aberto em qualquer tela do HC Brain. */
+    agenteAberto: boolean;
     /** null é um chat novo, ainda sem mensagem — não entra na lista. */
     conversaAtiva: string | null;
     conversas: ConversaSofia[];
@@ -170,7 +172,13 @@ const ESTADO_PADRAO: Estado = {
     financeiro: { busca: "", regime: "Todos" },
     // Em branco, a tela de Comercial abre no mês mais recente que a base tem.
     comercial: { periodo: "" },
-    sofia: { modo: "search", modelo: "", conversaAtiva: null, conversas: [] },
+    sofia: {
+        modo: "search",
+        modelo: "",
+        agenteAberto: false,
+        conversaAtiva: null,
+        conversas: [],
+    },
 };
 
 function conversaUtil(valor: unknown): valor is ConversaSofia {
@@ -193,6 +201,7 @@ function normalizarSofia(
 ): EstadoSofia {
     const modo: ModoSofia = bruto?.modo === "base" ? "base" : "search";
     const modelo = typeof bruto?.modelo === "string" ? bruto.modelo : "";
+    const agenteAberto = bruto?.agenteAberto === true;
     const conversas = Array.isArray(bruto?.conversas)
         ? bruto.conversas.filter(conversaUtil)
         : [];
@@ -202,6 +211,7 @@ function normalizarSofia(
         return {
             modo,
             modelo,
+            agenteAberto,
             conversaAtiva: id,
             conversas: [
                 {
@@ -220,7 +230,7 @@ function normalizarSofia(
         ? (bruto?.conversaAtiva ?? null)
         : null;
 
-    return { modo, modelo, conversaAtiva, conversas };
+    return { modo, modelo, agenteAberto, conversaAtiva, conversas };
 }
 
 function clonar<T>(valor: T): T {

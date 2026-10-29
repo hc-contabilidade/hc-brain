@@ -238,6 +238,25 @@ class SofiaChatTest extends TestCase
         });
     }
 
+    public function test_sofia_recebe_a_tela_atual_como_contexto(): void
+    {
+        $this->simularChat('Na agenda de Reuniões há três compromissos.');
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', [
+                'pergunta' => 'O que tem aqui?',
+                'tela' => 'reunioes',
+            ])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $system = collect($request->data()['messages'] ?? [])->firstWhere('role', 'system');
+
+            return is_array($system)
+                && str_contains((string) ($system['content'] ?? ''), 'Reuniões');
+        });
+    }
+
     public function test_sofia_lista_so_as_reunioes_do_dia(): void
     {
         $this->travelTo('2026-10-22 15:00:00');

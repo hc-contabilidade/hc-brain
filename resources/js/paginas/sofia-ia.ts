@@ -853,6 +853,7 @@ async function enviarPergunta(pergunta: string, voz: boolean): Promise<string | 
             modo,
             modelo,
             conversaId: id,
+            tela: "sofia-ia",
             aoToken(token) {
                 if (!conversaAindaExiste(id)) return;
                 resposta += token;
