@@ -26,6 +26,11 @@ body.sofia-dock-aberta.modal-aberto > .app {
     backdrop-filter: blur(4px);
 }
 
+/* Com o dock da Sofia aberto, o modal não cobre o painel dela. */
+body.sofia-dock-aberta .modal {
+    right: min(420px, 40vw);
+}
+
 .modal.show {
     display: flex;
     animation: modal-fundo 160ms ease;

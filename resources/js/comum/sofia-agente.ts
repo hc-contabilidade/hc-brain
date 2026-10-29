@@ -1,12 +1,12 @@
 /* =========================================================
    AGENTE SOFIA — DOCK LATERAL
-   Painel fixo à direita em todas as telas (menos Sofia IA),
-   no estilo da barra lateral do ChatGPT. O estado aberto e o
-   histórico ficam no localStorage e acompanham a navegação.
+   A tela da Sofia em miniatura: histórico, chat e envio, fixa
+   à direita em qualquer página. Fica acima de modais e overlays.
    ========================================================= */
 
 import { ErroDeApi } from "./api.ts";
 import {
+    apagarConversaSofia,
     carregarConversasSofia,
     historicoDaConversa,
     perguntarSofia,
@@ -14,7 +14,7 @@ import {
     type ConversaSofia,
     type MensagemSofia,
 } from "../dados/sofia.ts";
-import { porSeletor, talvez } from "./dom.ts";
+import { dado, porSeletor, talvez } from "./dom.ts";
 import { atualizarSecao, observarEstado, obterSecao } from "./estado.ts";
 import { escapar } from "./formato.ts";
 import { desenharIcones, icone } from "./icones.ts";
@@ -54,15 +54,15 @@ export function montarSofiaAgente(paginaId: string): void {
             <span class="sofia-agente-avatar" aria-hidden="true">S</span>
             <div>
               <strong>Sofia</strong>
-              <small>Agente do HC Brain</small>
+              <small>Em qualquer tela</small>
             </div>
           </div>
           <div class="sofia-agente-topo-acoes">
             <button type="button" class="icon-button" data-sofia-nova title="Novo chat" aria-label="Novo chat">
               ${icone("plus")}
             </button>
-            <a class="icon-button" href="${caminhoDaPagina("sofia-ia")}" title="Tela cheia da Sofia" aria-label="Tela cheia da Sofia">
-              ${icone("sparkles")}
+            <a class="icon-button" href="${caminhoDaPagina("sofia-ia")}" title="Abrir em tela cheia" aria-label="Abrir em tela cheia">
+              ${icone("maximize-2")}
             </a>
             <button type="button" class="icon-button" data-sofia-fechar aria-label="Fechar Sofia">
               ${icone("x")}
@@ -73,6 +73,11 @@ export function montarSofiaAgente(paginaId: string): void {
         <div class="sofia-agente-modos" role="group" aria-label="Modo da Sofia">
           <button type="button" data-sofia-modo="search">Pesquisar</button>
           <button type="button" data-sofia-modo="base">Base HC</button>
+        </div>
+
+        <div class="sofia-agente-historico">
+          <p class="sofia-agente-historico-rotulo">Chats</p>
+          <div class="sofia-agente-conversas" data-sofia-conversas></div>
         </div>
 
         <div class="sofia-agente-chat" data-sofia-chat aria-live="polite"></div>
@@ -152,6 +157,27 @@ function ligar(raiz: HTMLElement): void {
         evento.preventDefault();
         void enviarPergunta(raiz);
     });
+
+    // Histórico: abrir / apagar — o HTML é refeito no render.
+    porSeletor("[data-sofia-conversas]", raiz).addEventListener("click", (evento) => {
+        const alvo = evento.target;
+        if (!(alvo instanceof Element)) {
+            return;
+        }
+
+        const apagar = alvo.closest<HTMLElement>("[data-apagar]");
+        if (apagar) {
+            evento.preventDefault();
+            apagarConversa(dado(apagar, "apagar"));
+            return;
+        }
+
+        const abrir = alvo.closest<HTMLElement>("[data-conversa]");
+        if (abrir) {
+            atualizarSecao("sofia", { conversaAtiva: dado(abrir, "conversa") });
+            entrada.focus();
+        }
+    });
 }
 
 function aplicarDock(aberto: boolean): void {
@@ -201,16 +227,56 @@ function conversaAberta(): ConversaSofia | null {
     return conversas.find((conversa) => conversa.id === conversaAtiva) ?? null;
 }
 
+function previaDa(conversa: ConversaSofia): string {
+    const ultima = [...conversa.mensagens].reverse().find((mensagem) => mensagem.texto.trim());
+    if (!ultima) {
+        return "Chat vazio";
+    }
+
+    const texto = ultima.texto.replace(/\s+/g, " ").trim();
+    const prefixo = ultima.autor === "bot" ? "Sofia: " : "";
+    const linha = `${prefixo}${texto}`;
+    return linha.length > 40 ? `${linha.slice(0, 37).trimEnd()}…` : linha;
+}
+
 function render(): void {
     const raiz = talvez(`#${PAINEL_ID}`);
     if (!raiz) {
         return;
     }
 
-    const { modo } = obterSecao("sofia");
+    const { modo, conversaAtiva, conversas } = obterSecao("sofia");
     raiz.querySelectorAll<HTMLButtonElement>("[data-sofia-modo]").forEach((botao) => {
         botao.classList.toggle("active", botao.dataset.sofiaModo === modo);
     });
+
+    const lista = porSeletor("[data-sofia-conversas]", raiz);
+    const ordem = [...conversas].sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+
+    lista.innerHTML = ordem.length
+        ? ordem
+              .map((conversa) => {
+                  const ativa = conversa.id === conversaAtiva ? " ativa" : "";
+                  return `
+              <div class="sofia-agente-conversa${ativa}">
+                <button type="button" class="sofia-agente-conversa-abrir" data-conversa="${escapar(conversa.id)}">
+                  <span class="sofia-agente-conversa-titulo">${escapar(conversa.titulo)}</span>
+                  <span class="sofia-agente-conversa-previa">${escapar(previaDa(conversa))}</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-button sofia-agente-conversa-apagar"
+                  data-apagar="${escapar(conversa.id)}"
+                  aria-label="Apagar chat ${escapar(conversa.titulo)}"
+                >
+                  ${icone("trash-2")}
+                </button>
+              </div>`;
+              })
+              .join("")
+        : `<p class="sofia-agente-historico-vazio">Nenhum chat ainda.</p>`;
+
+    desenharIcones(lista);
 
     const chat = porSeletor("[data-sofia-chat]", raiz);
     const mensagens = conversaAberta()?.mensagens ?? [];
@@ -265,6 +331,17 @@ function tituloDaTela(id: string): string {
 function ajustarCampo(entrada: HTMLTextAreaElement): void {
     entrada.style.height = "auto";
     entrada.style.height = `${Math.min(entrada.scrollHeight, 140)}px`;
+}
+
+function apagarConversa(id: string): void {
+    atualizarSecao("sofia", (atual) => {
+        const conversas = atual.conversas.filter((conversa) => conversa.id !== id);
+        return {
+            conversas,
+            conversaAtiva: atual.conversaAtiva === id ? null : atual.conversaAtiva,
+        };
+    });
+    void apagarConversaSofia(id).catch(() => undefined);
 }
 
 async function enviarPergunta(raiz: HTMLElement): Promise<void> {
