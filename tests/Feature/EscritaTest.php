@@ -63,15 +63,48 @@ class EscritaTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_empresa_nao_pode_ser_editada_pela_api(): void
+    public function test_empresa_pode_ser_editada_pela_api(): void
     {
         $this->autenticado()
             ->putJson('/api/empresas/empresaX', $this->empresaValida([
                 'nome' => 'Empresa X',
                 'status' => 'Em renovação',
                 'statusTag' => 'yellow',
+                'socio' => [
+                    'nome' => 'Flávia Silva',
+                    'cargo' => 'Sócia administradora',
+                    'email' => 'flavia@empresax.com.br',
+                    'telefone' => '(11) 90000-0000',
+                    'participacao' => '60%',
+                    'desde' => 'Janeiro de 2024',
+                ],
             ]))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonPath('data.id', 'empresaX')
+            ->assertJsonPath('data.status', 'Em renovação')
+            ->assertJsonPath('data.statusTag', 'yellow')
+            ->assertJsonPath('data.socio.nome', 'Flávia Silva');
+
+        $this->assertDatabaseHas('empresas', [
+            'id' => 'empresaX',
+            'status' => 'Em renovação',
+            'status_tag' => 'yellow',
+        ]);
+        $this->assertDatabaseHas('socios', [
+            'empresa_id' => 'empresaX',
+            'nome' => 'Flávia Silva',
+            'email' => 'flavia@empresax.com.br',
+        ]);
+    }
+
+    public function test_editar_empresa_exige_nome_unico(): void
+    {
+        $this->autenticado()
+            ->putJson('/api/empresas/empresaX', $this->empresaValida([
+                'nome' => 'Empresa Y',
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nome');
     }
 
     public function test_empresa_nao_pode_ser_excluida_pela_api(): void

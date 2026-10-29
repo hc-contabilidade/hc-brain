@@ -43,6 +43,22 @@
     margin-bottom: var(--esp-2);
 }
 
+.empresa-card-acoes {
+    display: flex;
+    align-items: center;
+    gap: var(--esp-1);
+}
+
+.empresa-card-link {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--esp-2);
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
 .empresa-card h3 {
     margin: 0;
     font-size: var(--texto-lg);
@@ -98,11 +114,9 @@
    -------------------------------------------------------------------------- */
 .empresa-list-item {
     display: grid;
-    grid-template-columns:
-        36px minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(140px, 0.8fr)
-        auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: var(--esp-4);
+    gap: var(--esp-2);
     min-height: 72px;
     padding: var(--esp-3) var(--esp-5);
     border-bottom: 1px solid var(--border);
@@ -115,6 +129,21 @@
 
 .empresa-list-item:hover {
     background: var(--surface-hover);
+}
+
+.empresa-list-link {
+    display: grid;
+    grid-template-columns:
+        36px minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(140px, 0.8fr);
+    align-items: center;
+    gap: var(--esp-4);
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.empresa-list-editar {
+    flex-shrink: 0;
 }
 
 .empresa-list-avatar {
@@ -205,9 +234,14 @@
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
     .empresa-list-item {
-        grid-template-columns: 36px minmax(0, 1fr) auto;
-        gap: var(--esp-3);
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: var(--esp-2);
         padding: var(--esp-3);
+    }
+
+    .empresa-list-link {
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: var(--esp-3);
     }
 
     .empresa-list-info {

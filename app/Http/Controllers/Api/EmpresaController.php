@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SalvarEmpresaRequest;
 use App\Http\Resources\EmpresaResource;
 use App\Http\Resources\ReuniaoResource;
 use App\Http\Resources\TreinamentoResource;
@@ -13,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 class EmpresaController extends Controller
 {
@@ -67,21 +69,38 @@ class EmpresaController extends Controller
     }
 
     /**
-     * A carteira é só leitura no Brain: empresas entram pela sincronização
-     * com a automação, não pelo cadastro manual.
+     * Novas empresas ainda vêm da sincronização com a automação. A edição
+     * manual (nome, status, sócio) é feita pela tela de Empresas & clientes.
      */
     public function store(Request $request): JsonResponse
     {
-        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
+        abort(403, 'O cadastro de empresas novas vem da automação.');
     }
 
-    public function update(Request $request, Empresa $empresa): JsonResponse
+    public function update(SalvarEmpresaRequest $request, Empresa $empresa): EmpresaResource
     {
-        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
+        DB::transaction(function () use ($request, $empresa): void {
+            $empresa->update([
+                'nome' => $request->string('nome')->toString(),
+                'setor' => $request->string('setor')->toString(),
+                'status' => $request->string('status')->toString(),
+                'status_tag' => $request->string('statusTag')->toString(),
+            ]);
+
+            $empresa->socio()->updateOrCreate(
+                ['empresa_id' => $empresa->id],
+                $request->dadosDoSocio(),
+            );
+        });
+
+        $empresa->load(['socio', 'ultimaReuniao'])
+            ->loadCount(['reunioes', 'fontes']);
+
+        return new EmpresaResource($empresa);
     }
 
     public function destroy(Empresa $empresa): Response
     {
-        abort(403, 'Empresas são só para consulta. O cadastro vem da automação.');
+        abort(403, 'A exclusão de empresas não é feita por esta tela.');
     }
 }
