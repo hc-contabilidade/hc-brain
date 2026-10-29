@@ -1244,8 +1244,8 @@ function atualizarTela(): void {
 observarEstado(["reunioes"], atualizarTela);
 
 /**
- * Link da Sofia: /reunioes?reuniao=123 abre a reunião no modal.
- * Limpa filtros que esconderiam o card e tira o parâmetro da URL.
+ * Link da Sofia: /reunioes?reuniao=123 leva ao card dessa reunião,
+ * destaca ele na grade e abre o detalhe.
  */
 function abrirReuniaoDaUrl(): void {
     const id = Number(new URLSearchParams(window.location.search).get("reuniao"));
@@ -1266,17 +1266,29 @@ function abrirReuniaoDaUrl(): void {
         ...SEM_FILTROS,
         de: reuniao.dataOrd,
         ate: reuniao.dataOrd,
-        visualizacao: obterSecao("reunioes").visualizacao === "calendar"
-            ? "list"
-            : obterSecao("reunioes").visualizacao,
+        // Cards: o link da Sofia aponta para o cartão da reunião.
+        visualizacao: "cards",
     });
+    // Garante o redesenho mesmo se o estado já estava igual.
+    atualizarTela();
 
     window.requestAnimationFrame(() => {
-        const alvo = document.querySelector<HTMLElement>(`[data-meeting-id="${id}"]`);
-        // Sem smooth: o modal trava a rolagem em seguida; animar o fundo fica estranho.
-        alvo?.scrollIntoView({ block: "center", behavior: "instant" });
-        openMeetingModal(reuniao);
+        window.requestAnimationFrame(() => destacarEAbrirReuniao(id, reuniao));
     });
+}
+
+function destacarEAbrirReuniao(id: number, reuniao: Reuniao): void {
+    const alvo = document.querySelector<HTMLElement>(`[data-meeting-id="${id}"]`);
+    if (alvo) {
+        todos(".is-destaque").forEach((elemento) => {
+            elemento.classList.remove("is-destaque");
+        });
+        alvo.classList.add("is-destaque");
+        alvo.scrollIntoView({ block: "center", behavior: "instant" });
+        window.setTimeout(() => alvo.classList.remove("is-destaque"), 5000);
+    }
+
+    openMeetingModal(reuniao);
 }
 
 atualizarTela();

@@ -715,6 +715,26 @@
     outline-offset: 2px;
 }
 
+/* Card aberto pelo link da Sofia (/reunioes?reuniao=id). */
+.agenda-card.is-destaque,
+.agenda-linha.is-destaque {
+    border-color: var(--roxo);
+    box-shadow: 0 0 0 3px var(--roxo-fundo), var(--sombra-md);
+    animation: agenda-destaque 1.2s ease;
+}
+
+@keyframes agenda-destaque {
+    0% {
+        box-shadow: 0 0 0 0 var(--roxo-fundo);
+    }
+    40% {
+        box-shadow: 0 0 0 6px var(--roxo-fundo);
+    }
+    100% {
+        box-shadow: 0 0 0 3px var(--roxo-fundo), var(--sombra-md);
+    }
+}
+
 .agenda-card-cab {
     display: flex;
     flex-wrap: wrap;

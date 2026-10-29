@@ -43,5 +43,6 @@ class SofiaCaminhoReuniaoTest extends TestCase
         $this->assertIsArray($item);
         $this->assertSame('https://meet.google.com/abc-defg-hij', $item['link_meet']);
         $this->assertSame('/reunioes?reuniao='.$reuniao->id, $item['caminho']);
+        $this->assertSame('Abrir card no HC Brain', $item['caminho_rotulo']);
     }
 }

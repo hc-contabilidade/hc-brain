@@ -442,9 +442,10 @@ final class SofiaTools
                 'resumo' => self::trecho($reuniao->resumo),
                 'decisoes' => self::lista($reuniao->decisoes),
                 'proximos_passos' => self::lista($reuniao->proximos_passos),
-                // Meet abre a videochamada; caminho abre essa reunião no HC Brain.
+                // Meet abre a videochamada; caminho leva ao card dessa reunião.
                 'link_meet' => $reuniao->link_meet,
                 'caminho' => Telas::caminho('reunioes').'?reuniao='.$reuniao->id,
+                'caminho_rotulo' => 'Abrir card no HC Brain',
             ])->all(),
         ];
     }
