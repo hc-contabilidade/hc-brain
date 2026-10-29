@@ -1273,7 +1273,8 @@ function abrirReuniaoDaUrl(): void {
 
     window.requestAnimationFrame(() => {
         const alvo = document.querySelector<HTMLElement>(`[data-meeting-id="${id}"]`);
-        alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+        // Sem smooth: o modal trava a rolagem em seguida; animar o fundo fica estranho.
+        alvo?.scrollIntoView({ block: "center", behavior: "instant" });
         openMeetingModal(reuniao);
     });
 }

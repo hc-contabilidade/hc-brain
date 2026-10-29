@@ -104,15 +104,32 @@ function garantirModais(): Modais {
     return modais;
 }
 
+function algumModalAberto(): boolean {
+    return Boolean(
+        modais?.generico.classList.contains("show") ||
+            modais?.reuniao.classList.contains("show"),
+    );
+}
+
+/** Trava a rolagem do fundo — inclusive o `.app` quando o dock da Sofia está aberto. */
+function travarRolagemDoFundo(travar: boolean): void {
+    document.documentElement.classList.toggle("modal-aberto", travar);
+    document.body.classList.toggle("modal-aberto", travar);
+}
+
 function abrir(modal: HTMLElement): void {
     focoAnterior = document.activeElement as HTMLElement | null;
     modal.classList.add("show");
+    travarRolagemDoFundo(true);
     modal.querySelector<HTMLElement>(".primary")?.focus();
 }
 
 function fechar(modal: HTMLElement | undefined): void {
     if (!modal?.classList.contains("show")) return;
     modal.classList.remove("show");
+    if (!algumModalAberto()) {
+        travarRolagemDoFundo(false);
+    }
     focoAnterior?.focus();
     focoAnterior = null;
 }

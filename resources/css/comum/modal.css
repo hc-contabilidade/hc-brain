@@ -4,6 +4,16 @@
    passa da altura da tela.
    ========================================================================== */
 
+/* Com modal aberto, o fundo (e o .app com dock da Sofia) não rola. */
+html.modal-aberto,
+body.modal-aberto {
+    overflow: hidden;
+}
+
+body.sofia-dock-aberta.modal-aberto > .app {
+    overflow: hidden;
+}
+
 .modal {
     position: fixed;
     z-index: 200;
