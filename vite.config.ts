@@ -23,7 +23,7 @@ const TELAS = [
   "perfil",
 ];
 
-const COMUNS = ["base", "layout", "sidebar", "componentes", "modal"];
+const COMUNS = ["base", "layout", "sidebar", "componentes", "modal", "sofia-agente"];
 
 // As páginas de erro não são telas do app: não têm script nem menu, só a
 // base e a própria folha.
