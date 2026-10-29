@@ -6,6 +6,12 @@
 
 :root {
     --sofia-dock-largura: min(480px, 42vw);
+    --sofia-dock-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --sofia-dock-tempo: 0.42s;
+}
+
+.app {
+    transition: padding-right var(--sofia-dock-tempo) var(--sofia-dock-ease);
 }
 
 body.sofia-dock-aberta > .app {
@@ -36,11 +42,17 @@ body.sofia-dock-aberta > form[data-form-sair] {
     color: #fff;
     cursor: pointer;
     place-items: center;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition:
+        transform 0.28s var(--sofia-dock-ease),
+        opacity 0.22s ease,
+        box-shadow 0.22s ease,
+        visibility 0.28s;
 }
 
 .sofia-agente-fab:hover {
-    transform: translateY(-2px);
+    transform: scale(1) translateY(-2px);
     box-shadow: 0 18px 40px rgb(124 108 245 / 42%);
 }
 
@@ -50,7 +62,10 @@ body.sofia-dock-aberta > form[data-form-sair] {
 }
 
 body.sofia-dock-aberta .sofia-agente-fab {
-    display: none;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.86) translateY(8px);
 }
 
 .sofia-agente-dock {
@@ -58,7 +73,7 @@ body.sofia-dock-aberta .sofia-agente-fab {
     top: 0;
     right: 0;
     z-index: 320;
-    display: none;
+    display: flex;
     flex-direction: column;
     width: var(--sofia-dock-largura);
     height: 100vh;
@@ -66,28 +81,29 @@ body.sofia-dock-aberta .sofia-agente-fab {
     border-left: 1px solid var(--border);
     background: var(--surface);
     box-shadow: -8px 0 28px rgb(8 12 24 / 12%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(100%);
+    transition:
+        transform var(--sofia-dock-tempo) var(--sofia-dock-ease),
+        opacity 0.28s ease,
+        visibility var(--sofia-dock-tempo);
+    will-change: transform, opacity;
 }
 
 body.sofia-dock-aberta .sofia-agente-dock {
-    display: flex;
-    animation: sofia-dock-abrir 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes sofia-dock-abrir {
-    from {
-        opacity: 0;
-        transform: translateX(36px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    body.sofia-dock-aberta .sofia-agente-dock {
-        animation: none;
+    .app,
+    .sofia-agente-fab,
+    .sofia-agente-dock {
+        transition: none;
     }
 }
 

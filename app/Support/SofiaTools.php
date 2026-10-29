@@ -21,7 +21,8 @@ use Throwable;
 /**
  * Consultas e ações que a Sofia faz na mesma base das outras telas. O modelo
  * não recebe a carteira inteira: ele pede o que precisa, lê o JSON e, quando
- * pedirem, grava (empresa, reunião, projeto, processo).
+ * pedirem, cria/edita/apaga empresa ou cria projeto e processo. Reuniões
+ * ficam só na consulta — a Sofia não agenda.
  */
 final class SofiaTools
 {
@@ -133,19 +134,26 @@ final class SofiaTools
                 ['nome'],
             ),
             self::funcao(
-                'criar_reuniao',
-                'Agenda uma reunião na base. Use quando pedirem para criar/agendar uma reunião.',
+                'editar_empresa',
+                'Atualiza dados de uma empresa já cadastrada (nome, setor, status, sócio). Use quando pedirem para editar/alterar um cliente.',
                 [
-                    'resumo' => ['type' => 'string', 'description' => 'Pauta ou resumo da reunião.'],
-                    'data' => ['type' => 'string', 'description' => 'hoje, amanhã, YYYY-MM-DD ou dd/mm/aaaa.'],
-                    'horario' => ['type' => 'string', 'description' => 'Horário no formato HH:MM, ex.: 14:30.'],
-                    'tipo' => ['type' => 'string', 'enum' => Reuniao::TIPOS, 'description' => 'Tipo da reunião. Padrão: Outra.'],
-                    'status' => ['type' => 'string', 'enum' => Reuniao::STATUS, 'description' => 'Status. Padrão: Agendada.'],
-                    'responsavel' => ['type' => 'string', 'description' => 'Quem conduz. Se omitido, usa quem está perguntando.'],
-                    'empresa' => ['type' => 'string', 'description' => 'Id ou nome da empresa. Obrigatório salvo se tipo for Interna.'],
-                    'titulo' => ['type' => 'string', 'description' => 'Título curto opcional (útil em reunião interna).'],
+                    'empresa_id' => ['type' => 'string', 'description' => 'Id da empresa, se já conhecido.'],
+                    'nome' => ['type' => 'string', 'description' => 'Nome atual da empresa, se o id ainda não for conhecido.'],
+                    'novo_nome' => ['type' => 'string', 'description' => 'Novo nome, se for renomear.'],
+                    'setor' => ['type' => 'string', 'description' => 'Novo setor.'],
+                    'status' => ['type' => 'string', 'description' => 'Novo status (ex.: Cliente ativo, Em negociação).'],
+                    'socio_nome' => ['type' => 'string', 'description' => 'Novo nome do sócio responsável.'],
                 ],
-                ['resumo', 'data'],
+            ),
+            self::funcao(
+                'apagar_empresa',
+                'Remove uma empresa da carteira. Só execute com confirmar=true depois de ter certeza do registro certo.',
+                [
+                    'empresa_id' => ['type' => 'string', 'description' => 'Id da empresa, se já conhecido.'],
+                    'nome' => ['type' => 'string', 'description' => 'Nome da empresa, se o id ainda não for conhecido.'],
+                    'confirmar' => ['type' => 'boolean', 'description' => 'Deve ser true para realmente apagar.'],
+                ],
+                ['confirmar'],
             ),
             self::funcao(
                 'criar_projeto',
@@ -197,7 +205,8 @@ final class SofiaTools
                 'buscar_pessoas' => self::buscarPessoas($argumentos),
                 'buscar_treinamentos' => self::buscarTreinamentos($argumentos),
                 'criar_empresa' => self::criarEmpresa($argumentos),
-                'criar_reuniao' => self::criarReuniao($argumentos),
+                'editar_empresa' => self::editarEmpresa($argumentos),
+                'apagar_empresa' => self::apagarEmpresa($argumentos),
                 'criar_projeto' => self::criarProjeto($argumentos),
                 'criar_processo' => self::criarProcesso($argumentos),
                 default => ['erro' => 'ferramenta não encontrada'],
@@ -778,74 +787,116 @@ final class SofiaTools
      * @param  array<string, mixed>  $argumentos
      * @return array<string, mixed>
      */
-    private static function criarReuniao(array $argumentos): array
+    private static function editarEmpresa(array $argumentos): array
     {
-        $resumo = self::texto($argumentos, 'resumo');
-        if ($resumo === '') {
-            return ['erro' => 'Informe o resumo ou a pauta da reunião.'];
+        $empresa = self::encontrarEmpresa(
+            self::texto($argumentos, 'empresa_id'),
+            self::texto($argumentos, 'nome'),
+        );
+
+        if ($empresa === null) {
+            return ['erro' => 'Empresa não encontrada na base.'];
         }
 
-        $dataIso = self::dataDoArgumento(self::texto($argumentos, 'data') ?: 'hoje');
-        if ($dataIso === null) {
-            return ['erro' => 'Data inválida. Use hoje, amanhã, YYYY-MM-DD ou dd/mm/aaaa.'];
+        $novoNome = self::texto($argumentos, 'novo_nome');
+        $setor = self::texto($argumentos, 'setor');
+        $status = self::texto($argumentos, 'status');
+        $socioNome = self::texto($argumentos, 'socio_nome');
+
+        if ($novoNome === '' && $setor === '' && $status === '' && $socioNome === '') {
+            return ['erro' => 'Informe o que alterar: novo_nome, setor, status ou socio_nome.'];
         }
 
-        $tipo = self::texto($argumentos, 'tipo') ?: Reuniao::OUTRA;
-        if (! in_array($tipo, Reuniao::TIPOS, true)) {
-            return ['erro' => 'Tipo de reunião inválido.', 'tipos' => Reuniao::TIPOS];
-        }
-
-        $status = self::texto($argumentos, 'status') ?: 'Agendada';
-        if (! in_array($status, Reuniao::STATUS, true)) {
-            return ['erro' => 'Status inválido.', 'status' => Reuniao::STATUS];
-        }
-
-        $horario = self::texto($argumentos, 'horario');
-        if ($horario !== '' && preg_match('/^\d{2}:\d{2}$/', $horario) !== 1) {
-            return ['erro' => 'Informe o horário como 14:30.'];
-        }
-
-        $empresaId = null;
-        $empresaRef = self::texto($argumentos, 'empresa');
-        if ($empresaRef !== '') {
-            $empresa = self::encontrarEmpresa($empresaRef, $empresaRef);
-            if ($empresa === null) {
-                return ['erro' => 'Empresa não encontrada na carteira. Cadastre-a antes ou use o id/nome certo.'];
+        DB::transaction(function () use ($empresa, $novoNome, $setor, $status, $socioNome): void {
+            $dados = [];
+            if ($novoNome !== '') {
+                $dados['nome'] = $novoNome;
             }
-            $empresaId = $empresa->id;
-        } elseif ($tipo !== Reuniao::INTERNA) {
-            return ['erro' => 'Informe a empresa, ou use tipo Interna para reunião só da equipe.'];
-        }
+            if ($setor !== '') {
+                $dados['setor'] = $setor;
+            }
+            if ($status !== '') {
+                $dados['status'] = $status;
+                $dados['status_tag'] = self::tagDoStatus($status);
+            }
+            if ($dados !== []) {
+                $empresa->update($dados);
+            }
 
-        $responsavel = self::texto($argumentos, 'responsavel') ?: (SofiaContexto::nome() ?: 'Equipe HC');
-        $titulo = self::texto($argumentos, 'titulo');
+            if ($socioNome !== '') {
+                $socio = $empresa->socio;
+                if ($socio === null) {
+                    Socio::create([
+                        'empresa_id' => $empresa->id,
+                        'nome' => $socioNome,
+                        'cargo' => 'Não informado',
+                        'email' => 'Não informado',
+                        'telefone' => 'Não informado',
+                        'participacao' => 'Não informado',
+                        'desde' => 'Não informado',
+                    ]);
+                } else {
+                    $socio->update(['nome' => $socioNome]);
+                }
+            }
+        });
 
-        $reuniao = Reuniao::create([
-            'empresa_id' => $empresaId,
-            'titulo' => $titulo !== '' ? $titulo : null,
-            'tipo' => $tipo,
-            'data' => $dataIso,
-            'horario' => $horario !== '' ? $horario : null,
-            'responsavel' => $responsavel,
-            'status' => $status,
-            'resumo' => $resumo,
-            'participantes' => [],
-            'decisoes' => [],
-            'proximos_passos' => [],
-        ]);
+        $empresa->refresh()->load('socio');
 
         return [
-            'criado' => true,
-            'id' => $reuniao->id,
-            'tipo' => $reuniao->tipo,
-            'data' => $reuniao->data?->format('d/m/Y'),
-            'horario' => $reuniao->horario,
-            'status' => $reuniao->status,
-            'responsavel' => $reuniao->responsavel,
-            'resumo' => $reuniao->resumo,
-            'caminho' => Telas::caminho('reunioes').'?reuniao='.$reuniao->id,
-            'caminho_rotulo' => 'Abrir card no HC Brain',
+            'editado' => true,
+            'id' => $empresa->id,
+            'nome' => $empresa->nome,
+            'setor' => $empresa->setor,
+            'status' => $empresa->status,
+            'socio' => $empresa->socio?->nome,
+            'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function apagarEmpresa(array $argumentos): array
+    {
+        if (! self::booleano($argumentos, 'confirmar')) {
+            return ['erro' => 'Para apagar, confirme com confirmar=true e o id ou nome exato da empresa.'];
+        }
+
+        $empresa = self::encontrarEmpresa(
+            self::texto($argumentos, 'empresa_id'),
+            self::texto($argumentos, 'nome'),
+        );
+
+        if ($empresa === null) {
+            return ['erro' => 'Empresa não encontrada na base.'];
+        }
+
+        $id = $empresa->id;
+        $nome = $empresa->nome;
+        $empresa->delete();
+
+        return [
+            'apagado' => true,
+            'id' => $id,
+            'nome' => $nome,
+            'caminho' => Telas::caminho('clientes'),
+        ];
+    }
+
+    private static function tagDoStatus(string $status): string
+    {
+        $normalizado = mb_strtolower($status);
+
+        return match (true) {
+            str_contains($normalizado, 'ativo') => 'blue',
+            str_contains($normalizado, 'negocia') => 'green',
+            str_contains($normalizado, 'acompanhar') => 'yellow',
+            str_contains($normalizado, 'novo') => 'purple',
+            str_contains($normalizado, 'exclu'), str_contains($normalizado, 'inativ') => 'gray',
+            default => in_array('gray', Empresa::TAGS, true) ? 'gray' : Empresa::TAGS[0],
+        };
     }
 
     /**

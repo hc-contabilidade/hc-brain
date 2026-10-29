@@ -524,34 +524,74 @@ class SofiaChatTest extends TestCase
         });
     }
 
-    public function test_sofia_cria_reuniao_quando_pedida(): void
+    public function test_sofia_edita_empresa_quando_pedida(): void
     {
         $this->simularChat(
-            'Reunião agendada.',
-            $this->chamada('criar_reuniao', [
-                'resumo' => 'Alinhamento semanal Sofia',
-                'data' => 'hoje',
-                'horario' => '10:00',
-                'tipo' => 'Alinhamento',
-                'empresa' => 'empresaX',
+            'Atualizei a Empresa X.',
+            $this->chamada('editar_empresa', [
+                'empresa_id' => 'empresaX',
+                'novo_nome' => 'Empresa X Renovada',
+                'status' => 'Cliente ativo',
+                'socio_nome' => 'Marina Costa',
             ]),
         );
 
         $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Agende uma reunião de alinhamento hoje às 10 com a Empresa X'])
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Renomeie a Empresa X para Empresa X Renovada e troque o sócio para Marina Costa'])
             ->assertOk();
 
-        $this->assertTrue(
-            Reuniao::query()
-                ->where('empresa_id', 'empresaX')
-                ->where('resumo', 'Alinhamento semanal Sofia')
-                ->where('tipo', 'Alinhamento')
-                ->where('status', 'Agendada')
-                ->whereDate('data', now('America/Sao_Paulo')->toDateString())
-                ->where('horario', '10:00')
-                ->exists(),
-            'A reunião criada pela Sofia deveria estar na base.',
+        $this->assertDatabaseHas('empresas', [
+            'id' => 'empresaX',
+            'nome' => 'Empresa X Renovada',
+            'status' => 'Cliente ativo',
+            'status_tag' => 'blue',
+        ]);
+        $this->assertDatabaseHas('socios', [
+            'empresa_id' => 'empresaX',
+            'nome' => 'Marina Costa',
+        ]);
+    }
+
+    public function test_sofia_apaga_empresa_quando_confirmado(): void
+    {
+        Empresa::create([
+            'id' => 'clinica-temp',
+            'nome' => 'Clínica Temp',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->simularChat(
+            'Apaguei a Clínica Temp.',
+            $this->chamada('apagar_empresa', [
+                'empresa_id' => 'clinica-temp',
+                'confirmar' => true,
+            ]),
         );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Apague a Clínica Temp'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('empresas', ['id' => 'clinica-temp']);
+    }
+
+    public function test_sofia_nao_apaga_empresa_sem_confirmacao(): void
+    {
+        $this->simularChat(
+            'Preciso da confirmação.',
+            $this->chamada('apagar_empresa', [
+                'empresa_id' => 'empresaX',
+                'confirmar' => false,
+            ]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Apague a Empresa X'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('empresas', ['id' => 'empresaX']);
     }
 
     public function test_sofia_cria_projeto_quando_pedido(): void
