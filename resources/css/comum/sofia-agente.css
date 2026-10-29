@@ -61,8 +61,8 @@ body.sofia-dock-aberta .sofia-agente-fab {
 .sofia-agente-dock {
     display: none;
     flex-direction: column;
-    flex: 0 0 min(400px, 38vw);
-    width: min(400px, 38vw);
+    flex: 0 0 min(480px, 42vw);
+    width: min(480px, 42vw);
     height: 100vh;
     overflow: hidden;
     border-left: 1px solid var(--border);
@@ -292,40 +292,54 @@ body.sofia-dock-aberta .sofia-agente-dock {
 
 .sofia-agente-msg {
     display: flex;
-    max-width: 94%;
+    width: 100%;
 }
 
 .sofia-agente-msg.user {
-    align-self: flex-end;
+    justify-content: flex-end;
 }
 
 .sofia-agente-msg.bot {
-    align-self: flex-start;
+    justify-content: flex-start;
 }
 
 .sofia-agente-bolha {
-    padding: 0.65rem 0.85rem;
-    border-radius: 14px;
     font-size: var(--texto-sm);
-    line-height: 1.45;
-    overflow-wrap: anywhere;
+    line-height: 1.55;
+    overflow-wrap: break-word;
+    white-space: pre-line;
+    word-break: normal;
 }
 
 .sofia-agente-msg.user .sofia-agente-bolha {
+    max-width: min(92%, 420px);
+    padding: 0.65rem 0.85rem;
+    border-radius: 14px;
+    border-bottom-right-radius: 4px;
     background: var(--roxo);
     color: #fff;
-    border-bottom-right-radius: 4px;
 }
 
 .sofia-agente-msg.bot .sofia-agente-bolha {
-    background: var(--surface-alto, var(--bg));
-    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 100%;
+    padding: 0.15rem 0;
     color: var(--texto);
-    border-bottom-left-radius: 4px;
+}
+
+.sofia-agente-msg.bot .sofia-agente-bolha strong {
+    font-weight: var(--peso-forte);
+    color: var(--texto-forte);
 }
 
 .sofia-agente-msg.bot .sofia-agente-bolha a {
-    color: var(--roxo-claro);
+    color: var(--azul, var(--roxo-claro));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sofia-agente-msg.bot .sofia-agente-bolha a:hover {
+    color: var(--roxo);
 }
 
 .sofia-agente-digitando {
@@ -427,8 +441,8 @@ body.sofia-dock-aberta .sofia-agente-dock {
         top: 0;
         right: 0;
         z-index: 320;
-        flex-basis: min(100vw, 400px);
-        width: min(100vw, 400px);
+        flex-basis: min(100vw, 480px);
+        width: min(100vw, 480px);
         box-shadow: -12px 0 40px rgb(8 12 24 / 24%);
     }
 

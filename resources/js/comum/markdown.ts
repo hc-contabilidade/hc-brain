@@ -5,9 +5,23 @@
 
 import { escapar } from "./formato.ts";
 
+/**
+ * Junta linhas consecutivas de campo (**Tipo:** …) numa só, separadas por ·.
+ * Evita o bloco vertical bagunçado no dock estreito — mesmo visual da tela cheia.
+ */
+export function compactarCamposMarkdown(texto: string): string {
+    return texto.replace(/\n(?=\*\*[^*]+\*\*)/g, (quebra, offset, fonte) => {
+        const atual = fonte.slice(0, offset).split("\n").at(-1) ?? "";
+        const proxima = fonte.slice(offset + 1).split("\n")[0] ?? "";
+        const ehCampo = (linha: string): boolean => /^\*\*[^*]+:\*\*/.test(linha.trim());
+
+        return ehCampo(atual) && ehCampo(proxima) ? " · " : quebra;
+    });
+}
+
 /** HTML a partir de um markdown simples (já escapado contra XSS). */
 export function htmlDeMarkdown(texto: string): string {
-    let html = escapar(texto);
+    let html = escapar(compactarCamposMarkdown(texto));
 
     html = html.replace(
         /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
