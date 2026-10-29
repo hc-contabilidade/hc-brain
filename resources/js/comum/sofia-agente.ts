@@ -130,6 +130,10 @@ function ligar(raiz: HTMLElement): void {
     const enviar = porSeletor<HTMLButtonElement>("[data-sofia-enviar]", raiz);
 
     porSeletor("[data-sofia-abrir]", raiz).addEventListener("click", () => {
+        if (obterSecao("sofia").agenteAberto) {
+            return;
+        }
+
         atualizarSecao("sofia", { agenteAberto: true });
         void hidratar();
         entrada.focus();
@@ -207,6 +211,13 @@ function ligar(raiz: HTMLElement): void {
 }
 
 function aplicarDock(aberto: boolean): void {
+    const estavaAberto = document.body.classList.contains("sofia-dock-aberta");
+    if (estavaAberto === aberto) {
+        const fab = talvez<HTMLButtonElement>("[data-sofia-abrir]");
+        fab?.setAttribute("aria-expanded", aberto ? "true" : "false");
+        return;
+    }
+
     document.body.classList.toggle("sofia-dock-aberta", aberto);
     const fab = talvez<HTMLButtonElement>("[data-sofia-abrir]");
     fab?.setAttribute("aria-expanded", aberto ? "true" : "false");

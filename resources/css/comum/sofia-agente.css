@@ -1,20 +1,15 @@
 /* ==========================================================================
    AGENTE SOFIA — DOCK LATERAL
-   Chat limpo à direita. Histórico abre por cima (ícone de lista), sem
-   dividir a conversa ao meio.
+   Painel fixo à direita. Não trava overflow do body — a rolagem da página
+   continua na janela, senão abrir/fechar várias vezes deixa a barra morta.
    ========================================================================== */
 
-body.sofia-dock-aberta {
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
+:root {
+    --sofia-dock-largura: min(480px, 42vw);
 }
 
 body.sofia-dock-aberta > .app {
-    flex: 1 1 auto;
-    min-width: 0;
-    height: 100vh;
-    overflow: auto;
+    padding-right: var(--sofia-dock-largura);
 }
 
 body.sofia-dock-aberta > form[data-form-sair] {
@@ -59,10 +54,13 @@ body.sofia-dock-aberta .sofia-agente-fab {
 }
 
 .sofia-agente-dock {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 320;
     display: none;
     flex-direction: column;
-    flex: 0 0 min(480px, 42vw);
-    width: min(480px, 42vw);
+    width: var(--sofia-dock-largura);
     height: 100vh;
     overflow: hidden;
     border-left: 1px solid var(--border);
@@ -455,13 +453,16 @@ body.sofia-dock-aberta .sofia-agente-dock {
 }
 
 @media (max-width: 900px) {
+    :root {
+        --sofia-dock-largura: min(100vw, 480px);
+    }
+
+    body.sofia-dock-aberta > .app {
+        padding-right: 0;
+    }
+
     body.sofia-dock-aberta .sofia-agente-dock {
-        position: fixed;
-        top: 0;
-        right: 0;
-        z-index: 320;
-        flex-basis: min(100vw, 480px);
-        width: min(100vw, 480px);
+        width: var(--sofia-dock-largura);
         box-shadow: -12px 0 40px rgb(8 12 24 / 24%);
     }
 
