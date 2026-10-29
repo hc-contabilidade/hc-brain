@@ -13,12 +13,15 @@ use App\Models\Treinamento;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use stdClass;
 use Throwable;
 
 /**
- * Consultas que a Sofia faz na mesma base das outras telas. O modelo não
- * recebe a carteira inteira: ele pede o que precisa e lê o JSON de volta.
+ * Consultas e ações que a Sofia faz na mesma base das outras telas. O modelo
+ * não recebe a carteira inteira: ele pede o que precisa, lê o JSON e, quando
+ * pedirem, grava (empresa, reunião, projeto, processo).
  */
 final class SofiaTools
 {
@@ -118,6 +121,61 @@ final class SofiaTools
                     'empresa' => ['type' => 'string', 'description' => 'Id ou nome da empresa para conteúdos vinculados a ela.'],
                 ],
             ),
+            self::funcao(
+                'criar_empresa',
+                'Cadastra uma empresa na carteira do HC Brain. Use quando pedirem para criar/cadastrar um cliente ou empresa.',
+                [
+                    'nome' => ['type' => 'string', 'description' => 'Nome da empresa ou cliente.'],
+                    'setor' => ['type' => 'string', 'description' => 'Ramo de atuação. Se omitido, fica "Não informado".'],
+                    'status' => ['type' => 'string', 'description' => 'Status do cadastro. Padrão: Ativo.'],
+                    'socio_nome' => ['type' => 'string', 'description' => 'Nome do sócio responsável, se informado.'],
+                ],
+                ['nome'],
+            ),
+            self::funcao(
+                'criar_reuniao',
+                'Agenda uma reunião na base. Use quando pedirem para criar/agendar uma reunião.',
+                [
+                    'resumo' => ['type' => 'string', 'description' => 'Pauta ou resumo da reunião.'],
+                    'data' => ['type' => 'string', 'description' => 'hoje, amanhã, YYYY-MM-DD ou dd/mm/aaaa.'],
+                    'horario' => ['type' => 'string', 'description' => 'Horário no formato HH:MM, ex.: 14:30.'],
+                    'tipo' => ['type' => 'string', 'enum' => Reuniao::TIPOS, 'description' => 'Tipo da reunião. Padrão: Outra.'],
+                    'status' => ['type' => 'string', 'enum' => Reuniao::STATUS, 'description' => 'Status. Padrão: Agendada.'],
+                    'responsavel' => ['type' => 'string', 'description' => 'Quem conduz. Se omitido, usa quem está perguntando.'],
+                    'empresa' => ['type' => 'string', 'description' => 'Id ou nome da empresa. Obrigatório salvo se tipo for Interna.'],
+                    'titulo' => ['type' => 'string', 'description' => 'Título curto opcional (útil em reunião interna).'],
+                ],
+                ['resumo', 'data'],
+            ),
+            self::funcao(
+                'criar_projeto',
+                'Cadastra um projeto na base. Use quando pedirem para criar um projeto.',
+                [
+                    'nome' => ['type' => 'string', 'description' => 'Nome do projeto.'],
+                    'descricao' => ['type' => 'string', 'description' => 'Descrição curta do objetivo.'],
+                    'responsavel' => ['type' => 'string', 'description' => 'Quem conduz. Se omitido, usa quem está perguntando.'],
+                    'area' => ['type' => 'string', 'description' => 'Área (Comercial, Operações…). Padrão: a área de quem pergunta, ou Geral.'],
+                    'status' => ['type' => 'string', 'enum' => Projeto::STATUS, 'description' => 'Padrão: Planejado.'],
+                    'prioridade' => ['type' => 'string', 'enum' => Projeto::PRIORIDADES, 'description' => 'Padrão: Média.'],
+                    'inicio' => ['type' => 'string', 'description' => 'Data de início. Padrão: hoje.'],
+                    'prazo' => ['type' => 'string', 'description' => 'Prazo. Padrão: 30 dias após o início.'],
+                    'empresa' => ['type' => 'string', 'description' => 'Id ou nome da empresa vinculada, se houver.'],
+                ],
+                ['nome', 'descricao'],
+            ),
+            self::funcao(
+                'criar_processo',
+                'Documenta um processo interno com etapas. Use quando pedirem para criar/cadastrar um processo.',
+                [
+                    'nome' => ['type' => 'string', 'description' => 'Nome do processo.'],
+                    'descricao' => ['type' => 'string', 'description' => 'O que o processo cobre.'],
+                    'etapas' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Etapas na ordem de execução (pelo menos uma).'],
+                    'responsavel' => ['type' => 'string', 'description' => 'Quem é dono do processo. Se omitido, usa quem está perguntando.'],
+                    'area' => ['type' => 'string', 'description' => 'Área. Padrão: a área de quem pergunta, ou Geral.'],
+                    'frequencia' => ['type' => 'string', 'description' => 'Com que frequência roda. Padrão: Sob demanda.'],
+                ],
+                ['nome', 'descricao', 'etapas'],
+            ),
         ];
     }
 
@@ -138,12 +196,16 @@ final class SofiaTools
                 'buscar_documentos' => self::buscarDocumentos($argumentos),
                 'buscar_pessoas' => self::buscarPessoas($argumentos),
                 'buscar_treinamentos' => self::buscarTreinamentos($argumentos),
+                'criar_empresa' => self::criarEmpresa($argumentos),
+                'criar_reuniao' => self::criarReuniao($argumentos),
+                'criar_projeto' => self::criarProjeto($argumentos),
+                'criar_processo' => self::criarProcesso($argumentos),
                 default => ['erro' => 'ferramenta não encontrada'],
             };
         } catch (Throwable $excecao) {
             report($excecao);
 
-            $resultado = ['erro' => 'falha ao consultar a base'];
+            $resultado = ['erro' => 'falha ao executar na base'];
         }
 
         return json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{"erro":"falha ao serializar"}';
@@ -661,6 +723,238 @@ final class SofiaTools
             'caminho' => Telas::caminho('treinamentos'),
             'total' => $encontrados->count(),
             'treinamentos' => $encontrados->map(fn (Treinamento $item) => self::resumoTreinamento($item))->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarEmpresa(array $argumentos): array
+    {
+        $nome = self::texto($argumentos, 'nome');
+        if ($nome === '') {
+            return ['erro' => 'Informe o nome da empresa.'];
+        }
+
+        $setor = self::texto($argumentos, 'setor') ?: 'Não informado';
+        $status = self::texto($argumentos, 'status') ?: 'Ativo';
+        $tag = in_array($status, ['Ativo', 'ativo'], true) ? 'green' : 'gray';
+        $socioNome = self::texto($argumentos, 'socio_nome') ?: 'Sócio não cadastrado';
+
+        $empresa = DB::transaction(function () use ($nome, $setor, $status, $tag, $socioNome): Empresa {
+            $empresa = Empresa::create([
+                'id' => Chave::apartirDe($nome, 'empresas'),
+                'nome' => $nome,
+                'setor' => $setor,
+                'status' => $status,
+                'status_tag' => $tag,
+            ]);
+
+            Socio::create([
+                'empresa_id' => $empresa->id,
+                'nome' => $socioNome,
+                'cargo' => 'Não informado',
+                'email' => 'Não informado',
+                'telefone' => 'Não informado',
+                'participacao' => 'Não informado',
+                'desde' => 'Não informado',
+            ]);
+
+            return $empresa;
+        });
+
+        return [
+            'criado' => true,
+            'id' => $empresa->id,
+            'nome' => $empresa->nome,
+            'setor' => $empresa->setor,
+            'status' => $empresa->status,
+            'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarReuniao(array $argumentos): array
+    {
+        $resumo = self::texto($argumentos, 'resumo');
+        if ($resumo === '') {
+            return ['erro' => 'Informe o resumo ou a pauta da reunião.'];
+        }
+
+        $dataIso = self::dataDoArgumento(self::texto($argumentos, 'data') ?: 'hoje');
+        if ($dataIso === null) {
+            return ['erro' => 'Data inválida. Use hoje, amanhã, YYYY-MM-DD ou dd/mm/aaaa.'];
+        }
+
+        $tipo = self::texto($argumentos, 'tipo') ?: Reuniao::OUTRA;
+        if (! in_array($tipo, Reuniao::TIPOS, true)) {
+            return ['erro' => 'Tipo de reunião inválido.', 'tipos' => Reuniao::TIPOS];
+        }
+
+        $status = self::texto($argumentos, 'status') ?: 'Agendada';
+        if (! in_array($status, Reuniao::STATUS, true)) {
+            return ['erro' => 'Status inválido.', 'status' => Reuniao::STATUS];
+        }
+
+        $horario = self::texto($argumentos, 'horario');
+        if ($horario !== '' && preg_match('/^\d{2}:\d{2}$/', $horario) !== 1) {
+            return ['erro' => 'Informe o horário como 14:30.'];
+        }
+
+        $empresaId = null;
+        $empresaRef = self::texto($argumentos, 'empresa');
+        if ($empresaRef !== '') {
+            $empresa = self::encontrarEmpresa($empresaRef, $empresaRef);
+            if ($empresa === null) {
+                return ['erro' => 'Empresa não encontrada na carteira. Cadastre-a antes ou use o id/nome certo.'];
+            }
+            $empresaId = $empresa->id;
+        } elseif ($tipo !== Reuniao::INTERNA) {
+            return ['erro' => 'Informe a empresa, ou use tipo Interna para reunião só da equipe.'];
+        }
+
+        $responsavel = self::texto($argumentos, 'responsavel') ?: (SofiaContexto::nome() ?: 'Equipe HC');
+        $titulo = self::texto($argumentos, 'titulo');
+
+        $reuniao = Reuniao::create([
+            'empresa_id' => $empresaId,
+            'titulo' => $titulo !== '' ? $titulo : null,
+            'tipo' => $tipo,
+            'data' => $dataIso,
+            'horario' => $horario !== '' ? $horario : null,
+            'responsavel' => $responsavel,
+            'status' => $status,
+            'resumo' => $resumo,
+            'participantes' => [],
+            'decisoes' => [],
+            'proximos_passos' => [],
+        ]);
+
+        return [
+            'criado' => true,
+            'id' => $reuniao->id,
+            'tipo' => $reuniao->tipo,
+            'data' => $reuniao->data?->format('d/m/Y'),
+            'horario' => $reuniao->horario,
+            'status' => $reuniao->status,
+            'responsavel' => $reuniao->responsavel,
+            'resumo' => $reuniao->resumo,
+            'caminho' => Telas::caminho('reunioes').'?reuniao='.$reuniao->id,
+            'caminho_rotulo' => 'Abrir card no HC Brain',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarProjeto(array $argumentos): array
+    {
+        $nome = self::texto($argumentos, 'nome');
+        $descricao = self::texto($argumentos, 'descricao');
+        if ($nome === '' || $descricao === '') {
+            return ['erro' => 'Informe nome e descrição do projeto.'];
+        }
+
+        $status = self::texto($argumentos, 'status') ?: 'Planejado';
+        if (! in_array($status, Projeto::STATUS, true)) {
+            return ['erro' => 'Status inválido.', 'status' => Projeto::STATUS];
+        }
+
+        $prioridade = self::texto($argumentos, 'prioridade') ?: 'Média';
+        if (! in_array($prioridade, Projeto::PRIORIDADES, true)) {
+            return ['erro' => 'Prioridade inválida.', 'prioridades' => Projeto::PRIORIDADES];
+        }
+
+        $inicioIso = self::dataDoArgumento(self::texto($argumentos, 'inicio') ?: 'hoje');
+        if ($inicioIso === null) {
+            return ['erro' => 'Data de início inválida.'];
+        }
+
+        $prazoTexto = self::texto($argumentos, 'prazo');
+        $prazoIso = $prazoTexto === ''
+            ? Carbon::parse($inicioIso, GoogleAgenda::FUSO)->addDays(30)->toDateString()
+            : self::dataDoArgumento($prazoTexto);
+        if ($prazoIso === null || $prazoIso < $inicioIso) {
+            return ['erro' => 'Prazo inválido: use uma data igual ou posterior ao início.'];
+        }
+
+        $empresaId = null;
+        $empresaRef = self::texto($argumentos, 'empresa');
+        if ($empresaRef !== '') {
+            $empresa = self::encontrarEmpresa($empresaRef, $empresaRef);
+            if ($empresa === null) {
+                return ['erro' => 'Empresa não encontrada na carteira.'];
+            }
+            $empresaId = $empresa->id;
+        }
+
+        $projeto = Projeto::create([
+            'id' => Chave::apartirDe($nome, 'projetos'),
+            'nome' => $nome,
+            'descricao' => $descricao,
+            'status' => $status,
+            'prioridade' => $prioridade,
+            'responsavel' => self::texto($argumentos, 'responsavel') ?: (SofiaContexto::nome() ?: 'Equipe HC'),
+            'area' => self::texto($argumentos, 'area') ?: (SofiaContexto::area() ?: 'Geral'),
+            'progresso' => 0,
+            'inicio' => $inicioIso,
+            'prazo' => $prazoIso,
+            'empresa_id' => $empresaId,
+            'ordem' => (int) Projeto::max('ordem') + 1,
+        ]);
+
+        return [
+            'criado' => true,
+            'id' => $projeto->id,
+            'nome' => $projeto->nome,
+            'status' => $projeto->status,
+            'prioridade' => $projeto->prioridade,
+            'caminho' => Telas::caminho('projetos'),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarProcesso(array $argumentos): array
+    {
+        $nome = self::texto($argumentos, 'nome');
+        $descricao = self::texto($argumentos, 'descricao');
+        $etapas = self::lista($argumentos['etapas'] ?? null);
+
+        if ($nome === '' || $descricao === '') {
+            return ['erro' => 'Informe nome e descrição do processo.'];
+        }
+
+        if ($etapas === []) {
+            return ['erro' => 'Descreva ao menos uma etapa do processo.'];
+        }
+
+        $processo = Processo::create([
+            'id' => Chave::apartirDe($nome, 'processos'),
+            'nome' => $nome,
+            'descricao' => $descricao,
+            'area' => self::texto($argumentos, 'area') ?: (SofiaContexto::area() ?: 'Geral'),
+            'responsavel' => self::texto($argumentos, 'responsavel') ?: (SofiaContexto::nome() ?: 'Equipe HC'),
+            'frequencia' => self::texto($argumentos, 'frequencia') ?: 'Sob demanda',
+            'etapas' => $etapas,
+            'atualizado_em' => today()->format('d/m/Y'),
+            'ordem' => (int) Processo::max('ordem') + 1,
+        ]);
+
+        return [
+            'criado' => true,
+            'id' => $processo->id,
+            'nome' => $processo->nome,
+            'area' => $processo->area,
+            'etapas' => $processo->etapas,
+            'caminho' => Telas::caminho('processos'),
         ];
     }
 

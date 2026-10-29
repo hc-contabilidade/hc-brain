@@ -479,6 +479,133 @@ class SofiaChatTest extends TestCase
         });
     }
 
+    public function test_sofia_cria_empresa_quando_pedida(): void
+    {
+        $this->simularChat(
+            'Cadastrei a Clínica Aurora.',
+            $this->chamada('criar_empresa', [
+                'nome' => 'Clínica Aurora',
+                'setor' => 'Saúde',
+                'socio_nome' => 'Ana Souza',
+            ]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie a empresa Clínica Aurora no setor Saúde, sócia Ana Souza'])
+            ->assertOk()
+            ->assertJsonPath('resposta', 'Cadastrei a Clínica Aurora.');
+
+        $this->assertDatabaseHas('empresas', [
+            'id' => 'clinica-aurora',
+            'nome' => 'Clínica Aurora',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+        ]);
+        $this->assertDatabaseHas('socios', [
+            'empresa_id' => 'clinica-aurora',
+            'nome' => 'Ana Souza',
+        ]);
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+
+                return is_array($corpo)
+                    && ($corpo['criado'] ?? false) === true
+                    && ($corpo['id'] ?? '') === 'clinica-aurora'
+                    && str_contains((string) ($corpo['caminho'] ?? ''), 'clinica-aurora');
+            });
+        });
+    }
+
+    public function test_sofia_cria_reuniao_quando_pedida(): void
+    {
+        $this->simularChat(
+            'Reunião agendada.',
+            $this->chamada('criar_reuniao', [
+                'resumo' => 'Alinhamento semanal Sofia',
+                'data' => 'hoje',
+                'horario' => '10:00',
+                'tipo' => 'Alinhamento',
+                'empresa' => 'empresaX',
+            ]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Agende uma reunião de alinhamento hoje às 10 com a Empresa X'])
+            ->assertOk();
+
+        $this->assertTrue(
+            Reuniao::query()
+                ->where('empresa_id', 'empresaX')
+                ->where('resumo', 'Alinhamento semanal Sofia')
+                ->where('tipo', 'Alinhamento')
+                ->where('status', 'Agendada')
+                ->whereDate('data', now('America/Sao_Paulo')->toDateString())
+                ->where('horario', '10:00')
+                ->exists(),
+            'A reunião criada pela Sofia deveria estar na base.',
+        );
+    }
+
+    public function test_sofia_cria_projeto_quando_pedido(): void
+    {
+        $this->simularChat(
+            'Projeto criado.',
+            $this->chamada('criar_projeto', [
+                'nome' => 'Dashboard Sofia',
+                'descricao' => 'Painel interno pedido via Sofia.',
+                'area' => 'Produto',
+            ]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie o projeto Dashboard Sofia'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('projetos', [
+            'id' => 'dashboard-sofia',
+            'nome' => 'Dashboard Sofia',
+            'status' => 'Planejado',
+            'prioridade' => 'Média',
+            'area' => 'Produto',
+        ]);
+    }
+
+    public function test_sofia_recusa_criar_empresa_sem_nome(): void
+    {
+        $this->simularChat(
+            'Preciso do nome da empresa.',
+            $this->chamada('criar_empresa', ['nome' => '']),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie uma empresa'])
+            ->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+
+                return is_array($corpo) && str_contains((string) ($corpo['erro'] ?? ''), 'nome');
+            });
+        });
+
+        $this->assertDatabaseMissing('empresas', ['nome' => '']);
+    }
+
     public function test_sofia_envia_o_historico_da_conversa(): void
     {
         $this->simularChat('O sócio é Flávia Silva.');

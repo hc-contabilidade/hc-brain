@@ -333,7 +333,7 @@ function render(): void {
     if (mensagens.length === 0 && !enviando) {
         chat.innerHTML = `
           <div class="sofia-agente-vazio">
-            <p>Pergunte enquanto usa o HC Brain.</p>
+            <p>Pergunte ou peça pra Sofia executar — criar empresa, agendar reunião, abrir um card.</p>
             <p class="muted">${escapar(tituloDaTela(paginaAtual))}</p>
           </div>
         `;
