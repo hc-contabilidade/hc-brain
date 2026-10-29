@@ -1,7 +1,7 @@
 /* =========================================================
    AGENTE SOFIA — DOCK LATERAL
-   A tela da Sofia em miniatura: histórico, chat e envio, fixa
-   à direita em qualquer página. Fica acima de modais e overlays.
+   Chat limpo à direita. O histórico abre num painel por cima,
+   como no ChatGPT — não fica espremido no meio da conversa.
    ========================================================= */
 
 import { ErroDeApi } from "./api.ts";
@@ -26,6 +26,8 @@ const PAINEL_ID = "sofiaAgente";
 let paginaAtual = "";
 let enviando = false;
 let hidratou = false;
+/** Lista de chats aberta por cima do chat atual. */
+let historicoAberto = false;
 
 export function montarSofiaAgente(paginaId: string): void {
     if (paginaId === "sofia-ia") {
@@ -50,11 +52,12 @@ export function montarSofiaAgente(paginaId: string): void {
 
       <aside class="sofia-agente-dock" id="sofiaAgenteDock" aria-label="Sofia, assistente do HC Brain">
         <header class="sofia-agente-topo">
-          <div class="sofia-agente-topo-info">
-            <span class="sofia-agente-avatar" aria-hidden="true">S</span>
-            <div>
-              <strong>Sofia</strong>
-              <small>Em qualquer tela</small>
+          <div class="sofia-agente-topo-esq">
+            <button type="button" class="icon-button" data-sofia-historico title="Ver chats" aria-label="Ver chats" aria-expanded="false">
+              ${icone("list")}
+            </button>
+            <div class="sofia-agente-topo-info">
+              <strong data-sofia-titulo>Novo chat</strong>
             </div>
           </div>
           <div class="sofia-agente-topo-acoes">
@@ -75,12 +78,20 @@ export function montarSofiaAgente(paginaId: string): void {
           <button type="button" data-sofia-modo="base">Base HC</button>
         </div>
 
-        <div class="sofia-agente-historico">
-          <p class="sofia-agente-historico-rotulo">Chats</p>
-          <div class="sofia-agente-conversas" data-sofia-conversas></div>
-        </div>
+        <div class="sofia-agente-corpo">
+          <div class="sofia-agente-chat" data-sofia-chat aria-live="polite"></div>
 
-        <div class="sofia-agente-chat" data-sofia-chat aria-live="polite"></div>
+          <div class="sofia-agente-lista" data-sofia-lista hidden>
+            <div class="sofia-agente-lista-topo">
+              <strong>Seus chats</strong>
+              <button type="button" class="secondary sofia-agente-lista-novo" data-sofia-nova-lista>
+                ${icone("plus")}
+                <span>Novo chat</span>
+              </button>
+            </div>
+            <div class="sofia-agente-conversas" data-sofia-conversas></div>
+          </div>
+        </div>
 
         <form class="sofia-agente-form" data-sofia-form>
           <label class="sr-only" for="sofiaAgentePergunta">Pergunta para a Sofia</label>
@@ -125,12 +136,26 @@ function ligar(raiz: HTMLElement): void {
     });
 
     porSeletor("[data-sofia-fechar]", raiz).addEventListener("click", () => {
+        historicoAberto = false;
         atualizarSecao("sofia", { agenteAberto: false });
     });
 
-    porSeletor("[data-sofia-nova]", raiz).addEventListener("click", () => {
+    const novoChat = (): void => {
+        historicoAberto = false;
         atualizarSecao("sofia", { conversaAtiva: null });
         entrada.focus();
+        render();
+    };
+
+    porSeletor("[data-sofia-nova]", raiz).addEventListener("click", novoChat);
+    porSeletor("[data-sofia-nova-lista]", raiz).addEventListener("click", novoChat);
+
+    porSeletor("[data-sofia-historico]", raiz).addEventListener("click", () => {
+        historicoAberto = !historicoAberto;
+        if (historicoAberto) {
+            void hidratar();
+        }
+        render();
     });
 
     raiz.querySelectorAll<HTMLButtonElement>("[data-sofia-modo]").forEach((botao) => {
@@ -158,7 +183,6 @@ function ligar(raiz: HTMLElement): void {
         void enviarPergunta(raiz);
     });
 
-    // Histórico: abrir / apagar — o HTML é refeito no render.
     porSeletor("[data-sofia-conversas]", raiz).addEventListener("click", (evento) => {
         const alvo = evento.target;
         if (!(alvo instanceof Element)) {
@@ -174,8 +198,10 @@ function ligar(raiz: HTMLElement): void {
 
         const abrir = alvo.closest<HTMLElement>("[data-conversa]");
         if (abrir) {
+            historicoAberto = false;
             atualizarSecao("sofia", { conversaAtiva: dado(abrir, "conversa") });
             entrada.focus();
+            render();
         }
     });
 }
@@ -184,6 +210,9 @@ function aplicarDock(aberto: boolean): void {
     document.body.classList.toggle("sofia-dock-aberta", aberto);
     const fab = talvez<HTMLButtonElement>("[data-sofia-abrir]");
     fab?.setAttribute("aria-expanded", aberto ? "true" : "false");
+    if (!aberto) {
+        historicoAberto = false;
+    }
 }
 
 async function hidratar(): Promise<void> {
@@ -236,7 +265,7 @@ function previaDa(conversa: ConversaSofia): string {
     const texto = ultima.texto.replace(/\s+/g, " ").trim();
     const prefixo = ultima.autor === "bot" ? "Sofia: " : "";
     const linha = `${prefixo}${texto}`;
-    return linha.length > 40 ? `${linha.slice(0, 37).trimEnd()}…` : linha;
+    return linha.length > 48 ? `${linha.slice(0, 45).trimEnd()}…` : linha;
 }
 
 function render(): void {
@@ -246,18 +275,37 @@ function render(): void {
     }
 
     const { modo, conversaAtiva, conversas } = obterSecao("sofia");
+    const aberta = conversaAberta();
+
     raiz.querySelectorAll<HTMLButtonElement>("[data-sofia-modo]").forEach((botao) => {
         botao.classList.toggle("active", botao.dataset.sofiaModo === modo);
     });
 
-    const lista = porSeletor("[data-sofia-conversas]", raiz);
-    const ordem = [...conversas].sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+    porSeletor("[data-sofia-titulo]", raiz).textContent = aberta?.titulo || "Novo chat";
 
-    lista.innerHTML = ordem.length
-        ? ordem
-              .map((conversa) => {
-                  const ativa = conversa.id === conversaAtiva ? " ativa" : "";
-                  return `
+    const botaoHistorico = porSeletor<HTMLButtonElement>("[data-sofia-historico]", raiz);
+    botaoHistorico.setAttribute("aria-expanded", historicoAberto ? "true" : "false");
+    botaoHistorico.title = historicoAberto ? "Voltar ao chat" : "Ver chats";
+    botaoHistorico.setAttribute("aria-label", botaoHistorico.title);
+
+    const listaPainel = porSeletor("[data-sofia-lista]", raiz);
+    const chat = porSeletor("[data-sofia-chat]", raiz);
+    const form = porSeletor<HTMLFormElement>("[data-sofia-form]", raiz);
+
+    listaPainel.hidden = !historicoAberto;
+    chat.hidden = historicoAberto;
+    form.hidden = historicoAberto;
+    raiz.classList.toggle("mostrando-historico", historicoAberto);
+
+    if (historicoAberto) {
+        const lista = porSeletor("[data-sofia-conversas]", raiz);
+        const ordem = [...conversas].sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+
+        lista.innerHTML = ordem.length
+            ? ordem
+                  .map((conversa) => {
+                      const ativa = conversa.id === conversaAtiva ? " ativa" : "";
+                      return `
               <div class="sofia-agente-conversa${ativa}">
                 <button type="button" class="sofia-agente-conversa-abrir" data-conversa="${escapar(conversa.id)}">
                   <span class="sofia-agente-conversa-titulo">${escapar(conversa.titulo)}</span>
@@ -272,20 +320,21 @@ function render(): void {
                   ${icone("trash-2")}
                 </button>
               </div>`;
-              })
-              .join("")
-        : `<p class="sofia-agente-historico-vazio">Nenhum chat ainda.</p>`;
+                  })
+                  .join("")
+            : `<p class="sofia-agente-historico-vazio">Nenhum chat ainda. Comece um novo.</p>`;
 
-    desenharIcones(lista);
+        desenharIcones(lista);
+        return;
+    }
 
-    const chat = porSeletor("[data-sofia-chat]", raiz);
-    const mensagens = conversaAberta()?.mensagens ?? [];
+    const mensagens = aberta?.mensagens ?? [];
 
     if (mensagens.length === 0 && !enviando) {
         chat.innerHTML = `
           <div class="sofia-agente-vazio">
-            <p>Pergunte daqui enquanto usa o HC Brain — empresas, reuniões, documentos, projetos…</p>
-            <p class="muted">Tela atual: <strong>${escapar(tituloDaTela(paginaAtual))}</strong></p>
+            <p>Pergunte enquanto usa o HC Brain.</p>
+            <p class="muted">${escapar(tituloDaTela(paginaAtual))}</p>
           </div>
         `;
         return;
@@ -348,7 +397,7 @@ async function enviarPergunta(raiz: HTMLElement): Promise<void> {
     const entrada = porSeletor<HTMLTextAreaElement>("[data-sofia-entrada]", raiz);
     const enviar = porSeletor<HTMLButtonElement>("[data-sofia-enviar]", raiz);
     const texto = entrada.value.trim();
-    if (!texto || enviando) {
+    if (!texto || enviando || historicoAberto) {
         return;
     }
 

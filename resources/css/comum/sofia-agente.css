@@ -1,7 +1,7 @@
 /* ==========================================================================
    AGENTE SOFIA — DOCK LATERAL
-   Painel fixo à direita (estilo ChatGPT na barra lateral do navegador).
-   Continua aberto ao trocar de tela; o estado fica no localStorage.
+   Chat limpo à direita. Histórico abre por cima (ícone de lista), sem
+   dividir a conversa ao meio.
    ========================================================================== */
 
 body.sofia-dock-aberta {
@@ -21,13 +21,11 @@ body.sofia-dock-aberta > form[data-form-sair] {
     display: none;
 }
 
-/* Acima de modais e overlays — a Sofia precisa ficar clicável sempre. */
 .sofia-agente {
     position: relative;
     z-index: 320;
 }
 
-/* Botão só quando o dock está fechado. */
 .sofia-agente-fab {
     position: fixed;
     right: var(--esp-5);
@@ -60,12 +58,11 @@ body.sofia-dock-aberta .sofia-agente-fab {
     display: none;
 }
 
-/* Dock em coluna, altura total — como a barra do ChatGPT. */
 .sofia-agente-dock {
     display: none;
     flex-direction: column;
-    flex: 0 0 min(420px, 40vw);
-    width: min(420px, 40vw);
+    flex: 0 0 min(400px, 38vw);
+    width: min(400px, 38vw);
     height: 100vh;
     overflow: hidden;
     border-left: 1px solid var(--border);
@@ -82,53 +79,43 @@ body.sofia-dock-aberta .sofia-agente-dock {
     flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
-    gap: var(--esp-3);
-    padding: var(--esp-3) var(--esp-4);
+    gap: var(--esp-2);
+    padding: var(--esp-3);
     border-bottom: 1px solid var(--border);
 }
 
-.sofia-agente-topo-info {
+.sofia-agente-topo-esq {
     display: flex;
     align-items: center;
-    gap: var(--esp-3);
+    gap: var(--esp-2);
     min-width: 0;
 }
 
-.sofia-agente-avatar {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    flex-shrink: 0;
-    border-radius: 11px;
-    background: linear-gradient(135deg, var(--roxo), var(--azul));
-    color: #fff;
-    font-size: var(--texto-sm);
-    font-weight: var(--peso-forte);
-    place-items: center;
+.sofia-agente-topo-info {
+    min-width: 0;
 }
 
 .sofia-agente-topo-info strong {
     display: block;
+    overflow: hidden;
     color: var(--texto-forte);
-    font-size: var(--texto-md);
+    font-size: var(--texto-sm);
     font-weight: var(--peso-medio);
-}
-
-.sofia-agente-topo-info small {
-    color: var(--texto-suave);
-    font-size: var(--texto-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sofia-agente-topo-acoes {
     display: flex;
-    gap: 0.15rem;
+    flex-shrink: 0;
+    gap: 0.1rem;
 }
 
 .sofia-agente-modos {
     display: flex;
     flex-shrink: 0;
     gap: 2px;
-    margin: var(--esp-3) var(--esp-4) 0;
+    margin: var(--esp-3) var(--esp-3) 0;
     padding: 3px;
     border: 1px solid var(--border);
     border-radius: var(--raio-pill);
@@ -153,38 +140,82 @@ body.sofia-dock-aberta .sofia-agente-dock {
     color: var(--roxo-claro);
 }
 
-.sofia-agente-historico {
+.sofia-agente.mostrando-historico .sofia-agente-modos {
+    display: none;
+}
+
+.sofia-agente-corpo {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.sofia-agente-chat {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--esp-3);
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--esp-4) var(--esp-3);
+}
+
+.sofia-agente-lista {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
     display: flex;
     flex-direction: column;
-    flex: 0 1 34%;
-    min-height: 7rem;
-    max-height: 38%;
-    margin-top: var(--esp-3);
+    background: var(--surface);
+}
+
+.sofia-agente-lista[hidden] {
+    display: none;
+}
+
+.sofia-agente-lista-topo {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--esp-2);
+    padding: var(--esp-3);
     border-bottom: 1px solid var(--border);
 }
 
-.sofia-agente-historico-rotulo {
-    flex-shrink: 0;
-    margin: 0 var(--esp-4) var(--esp-2);
-    color: var(--texto-fraco);
-    font-size: 11px;
-    font-weight: var(--peso-medio);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+.sofia-agente-lista-topo strong {
+    color: var(--texto-forte);
+    font-size: var(--texto-sm);
+}
+
+.sofia-agente-lista-novo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 32px;
+    padding: 0 0.75rem;
+    font-size: var(--texto-sm);
+}
+
+.sofia-agente-lista-novo svg {
+    width: 14px;
+    height: 14px;
 }
 
 .sofia-agente-conversas {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 var(--esp-2) var(--esp-2);
+    padding: var(--esp-2);
 }
 
 .sofia-agente-historico-vazio {
-    margin: 0 var(--esp-2);
-    padding: var(--esp-2);
+    margin: var(--esp-4) var(--esp-2);
     color: var(--texto-fraco);
-    font-size: var(--texto-xs);
+    font-size: var(--texto-sm);
+    text-align: center;
 }
 
 .sofia-agente-conversa {
@@ -205,9 +236,9 @@ body.sofia-dock-aberta .sofia-agente-dock {
     flex: 1;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.1rem;
+    gap: 0.15rem;
     min-width: 0;
-    padding: 0.45rem 0.55rem;
+    padding: 0.65rem 0.7rem;
     border: 0;
     background: transparent;
     color: inherit;
@@ -230,7 +261,7 @@ body.sofia-dock-aberta .sofia-agente-dock {
     width: 100%;
     overflow: hidden;
     color: var(--texto-fraco);
-    font-size: 11px;
+    font-size: var(--texto-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -243,16 +274,6 @@ body.sofia-dock-aberta .sofia-agente-dock {
 .sofia-agente-conversa:hover .sofia-agente-conversa-apagar,
 .sofia-agente-conversa:focus-within .sofia-agente-conversa-apagar {
     opacity: 1;
-}
-
-.sofia-agente-chat {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: var(--esp-3);
-    min-height: 0;
-    overflow-y: auto;
-    padding: var(--esp-4);
 }
 
 .sofia-agente-vazio {
@@ -348,8 +369,12 @@ body.sofia-dock-aberta .sofia-agente-dock {
     flex-shrink: 0;
     align-items: flex-end;
     gap: var(--esp-2);
-    padding: var(--esp-3) var(--esp-4) var(--esp-4);
+    padding: var(--esp-3);
     border-top: 1px solid var(--border);
+}
+
+.sofia-agente-form[hidden] {
+    display: none;
 }
 
 .sofia-agente-form textarea {
@@ -402,8 +427,8 @@ body.sofia-dock-aberta .sofia-agente-dock {
         top: 0;
         right: 0;
         z-index: 320;
-        flex-basis: min(100vw, 420px);
-        width: min(100vw, 420px);
+        flex-basis: min(100vw, 400px);
+        width: min(100vw, 400px);
         box-shadow: -12px 0 40px rgb(8 12 24 / 24%);
     }
 
