@@ -430,6 +430,7 @@ final class SofiaTools
             'total' => $total,
             'mostradas' => $reunioes->count(),
             'reunioes' => $reunioes->map(fn (Reuniao $reuniao) => [
+                'id' => $reuniao->id,
                 'titulo' => $reuniao->titulo,
                 'tipo' => $reuniao->tipo,
                 'data' => $reuniao->data?->format('d/m/Y'),
@@ -441,10 +442,9 @@ final class SofiaTools
                 'resumo' => self::trecho($reuniao->resumo),
                 'decisoes' => self::lista($reuniao->decisoes),
                 'proximos_passos' => self::lista($reuniao->proximos_passos),
+                // Meet abre a videochamada; caminho abre essa reunião no HC Brain.
                 'link_meet' => $reuniao->link_meet,
-                'caminho' => $reuniao->empresa_id
-                    ? Telas::caminho('cliente', ['id' => $reuniao->empresa_id])
-                    : Telas::caminho('reunioes'),
+                'caminho' => Telas::caminho('reunioes').'?reuniao='.$reuniao->id,
             ])->all(),
         ];
     }

@@ -1243,4 +1243,40 @@ function atualizarTela(): void {
 
 observarEstado(["reunioes"], atualizarTela);
 
+/**
+ * Link da Sofia: /reunioes?reuniao=123 abre a reunião no modal.
+ * Limpa filtros que esconderiam o card e tira o parâmetro da URL.
+ */
+function abrirReuniaoDaUrl(): void {
+    const id = Number(new URLSearchParams(window.location.search).get("reuniao"));
+    if (!Number.isFinite(id) || id <= 0) {
+        return;
+    }
+
+    const reuniao = meetingsData.find((registro) => registro.id === id);
+    const limpa = new URL(window.location.href);
+    limpa.searchParams.delete("reuniao");
+    history.replaceState(null, "", limpa.pathname + limpa.search + limpa.hash);
+
+    if (!reuniao) {
+        return;
+    }
+
+    atualizarSecao("reunioes", {
+        ...SEM_FILTROS,
+        de: reuniao.dataOrd,
+        ate: reuniao.dataOrd,
+        visualizacao: obterSecao("reunioes").visualizacao === "calendar"
+            ? "list"
+            : obterSecao("reunioes").visualizacao,
+    });
+
+    window.requestAnimationFrame(() => {
+        const alvo = document.querySelector<HTMLElement>(`[data-meeting-id="${id}"]`);
+        alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+        openMeetingModal(reuniao);
+    });
+}
+
 atualizarTela();
+abrirReuniaoDaUrl();

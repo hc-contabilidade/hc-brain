@@ -263,12 +263,15 @@ class SofiaChatTest extends TestCase
                 $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
                 $reunioes = is_array($corpo) ? ($corpo['reunioes'] ?? []) : [];
 
+                $primeira = is_array($reunioes[0] ?? null) ? $reunioes[0] : [];
+
                 return is_array($corpo)
                     && ($corpo['hoje'] ?? null) === '22/10/2026'
                     && ($corpo['total'] ?? 0) === 1
-                    && ($reunioes[0]['data'] ?? null) === '22/10/2026'
-                    && ($reunioes[0]['horario'] ?? null) === '09:00'
-                    && ($reunioes[0]['status'] ?? null) === 'Agendada';
+                    && ($primeira['data'] ?? null) === '22/10/2026'
+                    && ($primeira['horario'] ?? null) === '09:00'
+                    && ($primeira['status'] ?? null) === 'Agendada'
+                    && str_starts_with((string) ($primeira['caminho'] ?? ''), '/reunioes?reuniao=');
             });
         });
     }
