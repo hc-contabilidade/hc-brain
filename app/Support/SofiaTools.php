@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Documento;
 use App\Models\Empresa;
+use App\Models\Pasta;
 use App\Models\Processo;
 use App\Models\Projeto;
 use App\Models\ResultadoPesquisa;
@@ -14,6 +15,8 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use stdClass;
 use Throwable;
@@ -21,7 +24,7 @@ use Throwable;
 /**
  * Consultas e ações que a Sofia faz na mesma base das outras telas. O modelo
  * não recebe a carteira inteira: ele pede o que precisa, lê o JSON e, quando
- * pedirem, cria usuário/projeto/processo ou entrega documentos e links.
+ * pedirem, cria usuário/projeto/processo/documento/imagem ou entrega links.
  * Empresas e reuniões ficam só na consulta.
  */
 final class SofiaTools
@@ -145,6 +148,26 @@ final class SofiaTools
                 ['termo'],
             ),
             self::funcao(
+                'criar_documento',
+                'Cria um documento de texto na base de Documentos do HC Brain. Use quando pedirem para redigir/salvar um texto, checklist, ata, roteiro ou material escrito.',
+                [
+                    'nome' => ['type' => 'string', 'description' => 'Nome do documento (sem extensão).'],
+                    'conteudo' => ['type' => 'string', 'description' => 'Texto completo a gravar no arquivo.'],
+                    'pasta' => ['type' => 'string', 'description' => 'Pasta de destino. Se omitida ou inexistente, usa/cria "Sofia".'],
+                ],
+                ['nome', 'conteudo'],
+            ),
+            self::funcao(
+                'criar_imagem',
+                'Gera uma imagem com IA e grava na base de Documentos. Use quando pedirem para criar/gerar uma imagem, ilustração ou arte.',
+                [
+                    'prompt' => ['type' => 'string', 'description' => 'Descrição visual clara do que gerar.'],
+                    'nome' => ['type' => 'string', 'description' => 'Nome do arquivo (sem extensão). Se omitido, deriva do prompt.'],
+                    'pasta' => ['type' => 'string', 'description' => 'Pasta de destino. Se omitida ou inexistente, usa/cria "Sofia".'],
+                ],
+                ['prompt'],
+            ),
+            self::funcao(
                 'criar_projeto',
                 'Cadastra um projeto na base. Use quando pedirem para criar um projeto.',
                 [
@@ -195,6 +218,8 @@ final class SofiaTools
                 'buscar_treinamentos' => self::buscarTreinamentos($argumentos),
                 'criar_usuario' => self::criarUsuario($argumentos),
                 'entregar_documento' => self::entregarDocumento($argumentos),
+                'criar_documento' => self::criarDocumento($argumentos),
+                'criar_imagem' => self::criarImagem($argumentos),
                 'criar_projeto' => self::criarProjeto($argumentos),
                 'criar_processo' => self::criarProcesso($argumentos),
                 default => ['erro' => 'ferramenta não encontrada'],
@@ -835,6 +860,164 @@ final class SofiaTools
                 ];
             })->all(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarDocumento(array $argumentos): array
+    {
+        $nome = self::texto($argumentos, 'nome');
+        $conteudo = self::texto($argumentos, 'conteudo');
+        if ($nome === '' || $conteudo === '') {
+            return ['erro' => 'Informe o nome e o conteúdo do documento.'];
+        }
+
+        if (mb_strlen($conteudo) > 100_000) {
+            return ['erro' => 'O conteúdo passa do limite de 100 mil caracteres.'];
+        }
+
+        return self::gravarNaBaseDeDocumentos(
+            nome: $nome,
+            extensao: 'txt',
+            bytes: $conteudo,
+            mime: 'text/plain; charset=UTF-8',
+            pastaNome: self::texto($argumentos, 'pasta'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $argumentos
+     * @return array<string, mixed>
+     */
+    private static function criarImagem(array $argumentos): array
+    {
+        $prompt = self::texto($argumentos, 'prompt');
+        if ($prompt === '') {
+            return ['erro' => 'Descreva a imagem a gerar (prompt).'];
+        }
+
+        if (mb_strlen($prompt) > 1000) {
+            return ['erro' => 'O prompt passa do limite de 1000 caracteres.'];
+        }
+
+        $chave = (string) config('hc.sofia.provedores.openai.chave', '');
+        if ($chave === '') {
+            return ['erro' => 'Geração de imagem precisa da OPENAI_API_KEY no ambiente.'];
+        }
+
+        $modelo = (string) config('hc.sofia.imagem.modelo', 'dall-e-2');
+        $url = (string) config('hc.sofia.imagem.url', 'https://api.openai.com/v1/images/generations');
+
+        try {
+            $resposta = Http::withToken($chave)
+                ->acceptJson()
+                ->timeout(120)
+                ->post($url, [
+                    'model' => $modelo,
+                    'prompt' => $prompt,
+                    'n' => 1,
+                    'size' => (string) config('hc.sofia.imagem.tamanho', '1024x1024'),
+                    'response_format' => 'b64_json',
+                ])
+                ->throw()
+                ->json();
+        } catch (Throwable $excecao) {
+            report($excecao);
+
+            return ['erro' => 'Não consegui gerar a imagem agora. Tente de novo em instantes.'];
+        }
+
+        $b64 = data_get($resposta, 'data.0.b64_json');
+        if (! is_string($b64) || $b64 === '') {
+            return ['erro' => 'A API de imagem não devolveu o arquivo.'];
+        }
+
+        $bytes = base64_decode($b64, true);
+        if ($bytes === false || $bytes === '') {
+            return ['erro' => 'Falha ao decodificar a imagem gerada.'];
+        }
+
+        $nome = self::texto($argumentos, 'nome');
+        if ($nome === '') {
+            $nome = Str::limit($prompt, 60, '');
+        }
+
+        $gravado = self::gravarNaBaseDeDocumentos(
+            nome: $nome,
+            extensao: 'png',
+            bytes: $bytes,
+            mime: 'image/png',
+            pastaNome: self::texto($argumentos, 'pasta'),
+        );
+
+        if (($gravado['criado'] ?? false) !== true) {
+            return $gravado;
+        }
+
+        return [
+            ...$gravado,
+            'prompt' => $prompt,
+            'markdown_imagem' => '!['.$gravado['nome'].']('.$gravado['arquivo'].')',
+            'instrucao' => 'Na resposta, inclua markdown_imagem para a pessoa ver a figura no chat, e markdown_download para baixar.',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function gravarNaBaseDeDocumentos(
+        string $nome,
+        string $extensao,
+        string $bytes,
+        string $mime,
+        string $pastaNome,
+    ): array {
+        $pasta = self::encontrarOuCriarPasta($pastaNome !== '' ? $pastaNome : 'Sofia');
+        $disco = Storage::disk(config('hc.documentos.disco'));
+        $caminho = 'documentos/'.$pasta->id.'/'.Str::random(40).'.'.$extensao;
+
+        $disco->put($caminho, $bytes);
+
+        $documento = Documento::create([
+            'pasta_id' => $pasta->id,
+            'nome' => trim($nome) !== '' ? trim($nome) : 'Arquivo Sofia',
+            'extensao' => $extensao,
+            'arquivo' => $caminho,
+            'tamanho' => strlen($bytes),
+            'mime' => $mime,
+            'enviado_por' => auth()->id(),
+        ]);
+
+        $resumo = self::resumoDocumento($documento->load(['pasta', 'enviadoPor']));
+
+        return [
+            'criado' => true,
+            'id' => $documento->id,
+            'nome' => $documento->nomeDoArquivo(),
+            'pasta' => $pasta->nome,
+            'caminho' => Telas::caminho('documentos'),
+            'arquivo' => $resumo['arquivo'],
+            'markdown_download' => '['.$documento->nomeDoArquivo().']('.$resumo['arquivo'].')',
+        ];
+    }
+
+    private static function encontrarOuCriarPasta(string $nome): Pasta
+    {
+        $existente = Pasta::query()
+            ->where('nome', $nome)
+            ->orderBy('ordem')
+            ->first();
+
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        return Pasta::create([
+            'nome' => $nome,
+            'ordem' => (int) Pasta::max('ordem') + 1,
+        ]);
     }
 
     /**

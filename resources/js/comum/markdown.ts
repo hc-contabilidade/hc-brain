@@ -23,6 +23,15 @@ export function compactarCamposMarkdown(texto: string): string {
 export function htmlDeMarkdown(texto: string): string {
     let html = escapar(compactarCamposMarkdown(texto));
 
+    // Imagens antes dos links: ![alt](url) não pode virar âncora.
+    html = html.replace(
+        /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g,
+        '<img src="$2" alt="$1" class="sofia-md-img" loading="lazy" />',
+    );
+    html = html.replace(
+        /!\[([^\]]*)\]\((\/[^)\s]+)\)/g,
+        '<img src="$2" alt="$1" class="sofia-md-img" loading="lazy" />',
+    );
     html = html.replace(
         /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
@@ -39,6 +48,7 @@ export function htmlDeMarkdown(texto: string): string {
 /** Texto limpo para voz alta sem asteriscos de markdown. */
 export function textoSemMarkdown(texto: string): string {
     return texto
+        .replace(/!\[([^\]]*)\]\(((?:\/[^)\s]+)|(?:https?:\/\/[^)\s]+))\)/g, "$1")
         .replace(/\[([^\]]+)\]\(((?:\/[^)\s]+)|(?:https?:\/\/[^)\s]+))\)/g, "$1")
         .replace(/\*\*([^*]+)\*\*/g, "$1")
         .replace(/__([^_]+)__/g, "$1")
@@ -54,6 +64,7 @@ export function textoSemMarkdown(texto: string): string {
  */
 export function textoParaFala(texto: string): string {
     return texto
+        .replace(/!\[([^\]]*)\]\(((?:\/[^)\s]+)|(?:https?:\/\/[^)\s]+))\)/g, "$1")
         .replace(/\[([^\]]+)\]\(((?:\/[^)\s]+)|(?:https?:\/\/[^)\s]+))\)/g, "$1")
         .replace(/\*\*([^*]+)\*\*/g, "$1")
         .replace(/__([^_]+)__/g, "$1")

@@ -736,6 +736,15 @@
     color: var(--roxo);
 }
 
+.message.bot .message-texto .sofia-md-img {
+    display: block;
+    max-width: min(100%, 420px);
+    height: auto;
+    margin: var(--esp-3) 0;
+    border: 1px solid var(--border);
+    border-radius: var(--raio-lg);
+}
+
 .sofia-avatar {
     display: grid;
     flex: 0 0 24px;

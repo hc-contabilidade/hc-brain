@@ -77,6 +77,13 @@ return [
             'modelo' => env('SOFIA_CHAT_MODEL', env('OPENAI_CHAT_MODEL', 'gpt-4o-mini')),
         ],
 
+        /* Geração de imagem (OpenAI Images). Usa a mesma OPENAI_API_KEY. */
+        'imagem' => [
+            'url' => env('OPENAI_IMAGE_URL', 'https://api.openai.com/v1/images/generations'),
+            'modelo' => env('OPENAI_IMAGE_MODEL', 'dall-e-2'),
+            'tamanho' => env('OPENAI_IMAGE_SIZE', '1024x1024'),
+        ],
+
         'provedores' => [
             'openai' => [
                 'nome' => 'OpenAI',

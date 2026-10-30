@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Api\SofiaController;
+use App\Models\Documento;
 use App\Models\Empresa;
+use App\Models\Pasta;
 use App\Models\Reuniao;
 use App\Models\User;
 use App\Support\SofiaTools;
@@ -11,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -609,6 +612,87 @@ class SofiaChatTest extends TestCase
         ]);
     }
 
+    public function test_sofia_cria_documento_de_texto(): void
+    {
+        Storage::fake(config('hc.documentos.disco'));
+
+        $this->simularChat(
+            'Documento criado.',
+            $this->chamada('criar_documento', [
+                'nome' => 'Checklist onboarding',
+                'conteudo' => "1. Criar acessos\n2. Apresentar a equipe",
+                'pasta' => 'Operações',
+            ]),
+        );
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie um checklist de onboarding'])
+            ->assertOk();
+
+        $documento = Documento::query()->where('nome', 'Checklist onboarding')->first();
+        $this->assertNotNull($documento);
+        $this->assertSame('txt', $documento->extensao);
+        $this->assertSame('Operações', $documento->pasta?->nome);
+        Storage::disk(config('hc.documentos.disco'))->assertExists($documento->arquivo);
+    }
+
+    public function test_sofia_cria_imagem_quando_pedida(): void
+    {
+        Storage::fake(config('hc.documentos.disco'));
+        config()->set('hc.sofia.chave', 'chave-de-teste');
+        config()->set('hc.sofia.provedores.openai.chave', 'chave-de-teste');
+        Http::preventStrayRequests();
+
+        $png = base64_encode('png-fake');
+        Http::fake([
+            'https://api.openai.com/v1/images/generations' => Http::response([
+                'data' => [['b64_json' => $png]],
+            ]),
+            'https://api.openai.com/v1/chat/completions' => function (Request $request) {
+                $messages = $request->data()['messages'] ?? [];
+                $temFerramenta = collect($messages)->contains(
+                    fn ($mensagem) => is_array($mensagem) && ($mensagem['role'] ?? '') === 'tool',
+                );
+
+                if (! $temFerramenta) {
+                    return Http::response([
+                        'choices' => [[
+                            'message' => [
+                                'role' => 'assistant',
+                                'content' => null,
+                                'tool_calls' => [$this->chamada('criar_imagem', [
+                                    'prompt' => 'Logo simples da HC em roxo',
+                                    'nome' => 'Logo HC',
+                                ])],
+                            ],
+                        ]],
+                    ]);
+                }
+
+                return Http::response([
+                    'choices' => [[
+                        'message' => [
+                            'role' => 'assistant',
+                            'content' => 'Imagem pronta.',
+                        ],
+                    ]],
+                ]);
+            },
+        ]);
+
+        $this->autenticado()
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Gere uma logo da HC'])
+            ->assertOk()
+            ->assertJsonPath('resposta', 'Imagem pronta.');
+
+        $documento = Documento::query()->where('nome', 'Logo HC')->first();
+        $this->assertNotNull($documento);
+        $this->assertSame('png', $documento->extensao);
+        $this->assertSame('Sofia', Pasta::find($documento->pasta_id)?->nome);
+        Storage::disk(config('hc.documentos.disco'))->assertExists($documento->arquivo);
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/images/generations'));
+    }
+
     public function test_sofia_nao_tem_ferramenta_de_criar_empresa(): void
     {
         $nomes = collect(SofiaTools::definicoes())
@@ -620,6 +704,8 @@ class SofiaChatTest extends TestCase
         $this->assertNotContains('apagar_empresa', $nomes);
         $this->assertContains('criar_usuario', $nomes);
         $this->assertContains('entregar_documento', $nomes);
+        $this->assertContains('criar_documento', $nomes);
+        $this->assertContains('criar_imagem', $nomes);
     }
 
     public function test_sofia_envia_o_historico_da_conversa(): void
