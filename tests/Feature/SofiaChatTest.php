@@ -479,31 +479,29 @@ class SofiaChatTest extends TestCase
         });
     }
 
-    public function test_sofia_cria_empresa_quando_pedida(): void
+    public function test_sofia_cria_usuario_quando_pedido(): void
     {
         $this->simularChat(
-            'Cadastrei a Clínica Aurora.',
-            $this->chamada('criar_empresa', [
-                'nome' => 'Clínica Aurora',
-                'setor' => 'Saúde',
-                'socio_nome' => 'Ana Souza',
+            'Cadastrei a Joana.',
+            $this->chamada('criar_usuario', [
+                'nome' => 'Joana Mendes',
+                'email' => 'joana.mendes@healthcare.com.br',
+                'perfil' => 'Colaborador',
+                'area' => 'Comercial',
             ]),
         );
 
         $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie a empresa Clínica Aurora no setor Saúde, sócia Ana Souza'])
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie a usuária Joana Mendes no Comercial'])
             ->assertOk()
-            ->assertJsonPath('resposta', 'Cadastrei a Clínica Aurora.');
+            ->assertJsonPath('resposta', 'Cadastrei a Joana.');
 
-        $this->assertDatabaseHas('empresas', [
-            'id' => 'clinica-aurora',
-            'nome' => 'Clínica Aurora',
-            'setor' => 'Saúde',
+        $this->assertDatabaseHas('users', [
+            'name' => 'Joana Mendes',
+            'email' => 'joana.mendes@healthcare.com.br',
+            'perfil' => 'Colaborador',
+            'area' => 'Comercial',
             'status' => 'Ativo',
-        ]);
-        $this->assertDatabaseHas('socios', [
-            'empresa_id' => 'clinica-aurora',
-            'nome' => 'Ana Souza',
         ]);
 
         Http::assertSent(function (Request $request): bool {
@@ -518,80 +516,73 @@ class SofiaChatTest extends TestCase
 
                 return is_array($corpo)
                     && ($corpo['criado'] ?? false) === true
-                    && ($corpo['id'] ?? '') === 'clinica-aurora'
-                    && str_contains((string) ($corpo['caminho'] ?? ''), 'clinica-aurora');
+                    && filled($corpo['senha_temporaria'] ?? null)
+                    && str_contains((string) ($corpo['caminho'] ?? ''), 'usuarios');
             });
         });
     }
 
-    public function test_sofia_edita_empresa_quando_pedida(): void
+    public function test_sofia_recusa_usuario_com_email_duplicado(): void
     {
+        $email = User::firstOrFail()->email;
+
         $this->simularChat(
-            'Atualizei a Empresa X.',
-            $this->chamada('editar_empresa', [
-                'empresa_id' => 'empresaX',
-                'novo_nome' => 'Empresa X Renovada',
-                'status' => 'Cliente ativo',
-                'socio_nome' => 'Marina Costa',
+            'Esse e-mail já existe.',
+            $this->chamada('criar_usuario', [
+                'nome' => 'Outra Pessoa',
+                'email' => $email,
             ]),
         );
 
         $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Renomeie a Empresa X para Empresa X Renovada e troque o sócio para Marina Costa'])
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie outro usuário com esse e-mail'])
             ->assertOk();
 
-        $this->assertDatabaseHas('empresas', [
-            'id' => 'empresaX',
-            'nome' => 'Empresa X Renovada',
-            'status' => 'Cliente ativo',
-            'status_tag' => 'blue',
-        ]);
-        $this->assertDatabaseHas('socios', [
-            'empresa_id' => 'empresaX',
-            'nome' => 'Marina Costa',
-        ]);
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
+
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
+
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+
+                return is_array($corpo) && str_contains((string) ($corpo['erro'] ?? ''), 'e-mail');
+            });
+        });
+
+        $this->assertSame(1, User::query()->where('email', $email)->count());
     }
 
-    public function test_sofia_apaga_empresa_quando_confirmado(): void
+    public function test_sofia_entrega_documento_com_link_de_download(): void
     {
-        Empresa::create([
-            'id' => 'clinica-temp',
-            'nome' => 'Clínica Temp',
-            'setor' => 'Saúde',
-            'status' => 'Ativo',
-            'status_tag' => 'green',
-        ]);
-
         $this->simularChat(
-            'Apaguei a Clínica Temp.',
-            $this->chamada('apagar_empresa', [
-                'empresa_id' => 'clinica-temp',
-                'confirmar' => true,
-            ]),
+            'Aqui está o arquivo.',
+            $this->chamada('entregar_documento', ['termo' => 'Proposta']),
         );
 
         $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Apague a Clínica Temp'])
+            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Me manda o PDF da proposta comercial'])
             ->assertOk();
 
-        $this->assertDatabaseMissing('empresas', ['id' => 'clinica-temp']);
-    }
+        Http::assertSent(function (Request $request): bool {
+            $messages = $request->data()['messages'] ?? [];
 
-    public function test_sofia_nao_apaga_empresa_sem_confirmacao(): void
-    {
-        $this->simularChat(
-            'Preciso da confirmação.',
-            $this->chamada('apagar_empresa', [
-                'empresa_id' => 'empresaX',
-                'confirmar' => false,
-            ]),
-        );
+            return collect($messages)->contains(function ($mensagem) {
+                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
+                    return false;
+                }
 
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Apague a Empresa X'])
-            ->assertOk();
+                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
+                $docs = $corpo['documentos'] ?? null;
 
-        $this->assertDatabaseHas('empresas', ['id' => 'empresaX']);
+                return is_array($corpo)
+                    && is_array($docs)
+                    && $docs !== []
+                    && str_contains((string) ($docs[0]['markdown_download'] ?? ''), '](/api/documentos/');
+            });
+        });
     }
 
     public function test_sofia_cria_projeto_quando_pedido(): void
@@ -618,32 +609,17 @@ class SofiaChatTest extends TestCase
         ]);
     }
 
-    public function test_sofia_recusa_criar_empresa_sem_nome(): void
+    public function test_sofia_nao_tem_ferramenta_de_criar_empresa(): void
     {
-        $this->simularChat(
-            'Preciso do nome da empresa.',
-            $this->chamada('criar_empresa', ['nome' => '']),
-        );
+        $nomes = collect(SofiaTools::definicoes())
+            ->pluck('function.name')
+            ->all();
 
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie uma empresa'])
-            ->assertOk();
-
-        Http::assertSent(function (Request $request): bool {
-            $messages = $request->data()['messages'] ?? [];
-
-            return collect($messages)->contains(function ($mensagem) {
-                if (! is_array($mensagem) || ($mensagem['role'] ?? '') !== 'tool') {
-                    return false;
-                }
-
-                $corpo = json_decode((string) ($mensagem['content'] ?? ''), true);
-
-                return is_array($corpo) && str_contains((string) ($corpo['erro'] ?? ''), 'nome');
-            });
-        });
-
-        $this->assertDatabaseMissing('empresas', ['nome' => '']);
+        $this->assertNotContains('criar_empresa', $nomes);
+        $this->assertNotContains('editar_empresa', $nomes);
+        $this->assertNotContains('apagar_empresa', $nomes);
+        $this->assertContains('criar_usuario', $nomes);
+        $this->assertContains('entregar_documento', $nomes);
     }
 
     public function test_sofia_envia_o_historico_da_conversa(): void

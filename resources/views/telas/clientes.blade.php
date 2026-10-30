@@ -9,11 +9,12 @@
   <section class="page active" id="clientes">
     <div class="page-header">
       <div class="page-header-copy">
-        <span class="page-overline">Banco central</span>
+        <span class="page-overline">Banco central • só consulta</span>
         <h1>Empresas &amp; clientes</h1>
         <p class="muted">
-          Empresas sincronizadas com a automação: sócio responsável, fontes e
-          reuniões. Dá para editar os dados da ficha por aqui.
+          Consulta das empresas sincronizadas com a automação: sócio responsável,
+          fontes vinculadas e as reuniões do relacionamento. O cadastro e a edição
+          não são feitos por aqui.
         </p>
       </div>
     </div>

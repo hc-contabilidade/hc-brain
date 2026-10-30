@@ -344,7 +344,7 @@ function render(): void {
     if (mensagens.length === 0 && !enviando) {
         chat.innerHTML = `
           <div class="sofia-agente-vazio">
-            <p>Pergunte ou peça pra Sofia executar — criar, editar ou apagar empresa, abrir um card.</p>
+            <p>Pergunte ou peça pra Sofia executar — criar usuário, mandar um PDF ou abrir um card.</p>
             <p class="muted">${escapar(tituloDaTela(paginaAtual))}</p>
           </div>
         `;

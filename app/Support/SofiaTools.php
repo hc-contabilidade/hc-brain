@@ -14,15 +14,15 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use stdClass;
 use Throwable;
 
 /**
  * Consultas e ações que a Sofia faz na mesma base das outras telas. O modelo
  * não recebe a carteira inteira: ele pede o que precisa, lê o JSON e, quando
- * pedirem, cria/edita/apaga empresa ou cria projeto e processo. Reuniões
- * ficam só na consulta — a Sofia não agenda.
+ * pedirem, cria usuário/projeto/processo ou entrega documentos e links.
+ * Empresas e reuniões ficam só na consulta.
  */
 final class SofiaTools
 {
@@ -100,7 +100,7 @@ final class SofiaTools
             ),
             self::funcao(
                 'buscar_documentos',
-                'Busca arquivos da base de documentos pelo nome ou pela pasta.',
+                'Busca arquivos da base de documentos pelo nome ou pela pasta. Cada item traz o link de download (arquivo) para colar na resposta.',
                 [
                     'termo' => ['type' => 'string', 'description' => 'Trecho do nome do arquivo.'],
                     'pasta' => ['type' => 'string', 'description' => 'Nome da pasta (Comercial, Projetos, Financeiro…).'],
@@ -123,37 +123,26 @@ final class SofiaTools
                 ],
             ),
             self::funcao(
-                'criar_empresa',
-                'Cadastra uma empresa na carteira do HC Brain. Use quando pedirem para criar/cadastrar um cliente ou empresa.',
+                'criar_usuario',
+                'Cadastra uma pessoa no HC Brain (acesso ao sistema). Use quando pedirem para criar/cadastrar um usuário.',
                 [
-                    'nome' => ['type' => 'string', 'description' => 'Nome da empresa ou cliente.'],
-                    'setor' => ['type' => 'string', 'description' => 'Ramo de atuação. Se omitido, fica "Não informado".'],
-                    'status' => ['type' => 'string', 'description' => 'Status do cadastro. Padrão: Ativo.'],
-                    'socio_nome' => ['type' => 'string', 'description' => 'Nome do sócio responsável, se informado.'],
+                    'nome' => ['type' => 'string', 'description' => 'Nome completo.'],
+                    'email' => ['type' => 'string', 'description' => 'E-mail de acesso.'],
+                    'perfil' => ['type' => 'string', 'enum' => User::PERFIS, 'description' => 'Padrão: Colaborador.'],
+                    'area' => ['type' => 'string', 'enum' => User::AREAS, 'description' => 'Área. Se omitida, usa a de quem pergunta ou Gestão.'],
+                    'status' => ['type' => 'string', 'enum' => User::STATUS, 'description' => 'Padrão: Ativo.'],
+                    'senha' => ['type' => 'string', 'description' => 'Senha inicial (mín. 8). Se omitida, a ferramenta gera uma temporária.'],
                 ],
-                ['nome'],
+                ['nome', 'email'],
             ),
             self::funcao(
-                'editar_empresa',
-                'Atualiza dados de uma empresa já cadastrada (nome, setor, status, sócio). Use quando pedirem para editar/alterar um cliente.',
+                'entregar_documento',
+                'Localiza um arquivo da base (PDF, planilha, doc…) e devolve o link de download pronto para colar na resposta. Use quando pedirem o PDF, o arquivo ou o link do documento.',
                 [
-                    'empresa_id' => ['type' => 'string', 'description' => 'Id da empresa, se já conhecido.'],
-                    'nome' => ['type' => 'string', 'description' => 'Nome atual da empresa, se o id ainda não for conhecido.'],
-                    'novo_nome' => ['type' => 'string', 'description' => 'Novo nome, se for renomear.'],
-                    'setor' => ['type' => 'string', 'description' => 'Novo setor.'],
-                    'status' => ['type' => 'string', 'description' => 'Novo status (ex.: Cliente ativo, Em negociação).'],
-                    'socio_nome' => ['type' => 'string', 'description' => 'Novo nome do sócio responsável.'],
+                    'termo' => ['type' => 'string', 'description' => 'Trecho do nome do arquivo.'],
+                    'pasta' => ['type' => 'string', 'description' => 'Pasta opcional para afunilar (Comercial, Projetos…).'],
                 ],
-            ),
-            self::funcao(
-                'apagar_empresa',
-                'Remove uma empresa da carteira. Só execute com confirmar=true depois de ter certeza do registro certo.',
-                [
-                    'empresa_id' => ['type' => 'string', 'description' => 'Id da empresa, se já conhecido.'],
-                    'nome' => ['type' => 'string', 'description' => 'Nome da empresa, se o id ainda não for conhecido.'],
-                    'confirmar' => ['type' => 'boolean', 'description' => 'Deve ser true para realmente apagar.'],
-                ],
-                ['confirmar'],
+                ['termo'],
             ),
             self::funcao(
                 'criar_projeto',
@@ -204,9 +193,8 @@ final class SofiaTools
                 'buscar_documentos' => self::buscarDocumentos($argumentos),
                 'buscar_pessoas' => self::buscarPessoas($argumentos),
                 'buscar_treinamentos' => self::buscarTreinamentos($argumentos),
-                'criar_empresa' => self::criarEmpresa($argumentos),
-                'editar_empresa' => self::editarEmpresa($argumentos),
-                'apagar_empresa' => self::apagarEmpresa($argumentos),
+                'criar_usuario' => self::criarUsuario($argumentos),
+                'entregar_documento' => self::entregarDocumento($argumentos),
                 'criar_projeto' => self::criarProjeto($argumentos),
                 'criar_processo' => self::criarProcesso($argumentos),
                 default => ['erro' => 'ferramenta não encontrada'],
@@ -739,47 +727,66 @@ final class SofiaTools
      * @param  array<string, mixed>  $argumentos
      * @return array<string, mixed>
      */
-    private static function criarEmpresa(array $argumentos): array
+    private static function criarUsuario(array $argumentos): array
     {
         $nome = self::texto($argumentos, 'nome');
-        if ($nome === '') {
-            return ['erro' => 'Informe o nome da empresa.'];
+        $email = self::texto($argumentos, 'email');
+        if ($nome === '' || $email === '') {
+            return ['erro' => 'Informe nome e e-mail do usuário.'];
         }
 
-        $setor = self::texto($argumentos, 'setor') ?: 'Não informado';
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return ['erro' => 'Informe um e-mail válido.'];
+        }
+
+        if (User::query()->where('email', $email)->exists()) {
+            return ['erro' => 'Já existe um usuário com este e-mail na base.'];
+        }
+
+        $perfil = self::texto($argumentos, 'perfil') ?: 'Colaborador';
+        if (! in_array($perfil, User::PERFIS, true)) {
+            return ['erro' => 'Perfil inválido.', 'perfis' => User::PERFIS];
+        }
+
+        $area = self::texto($argumentos, 'area') ?: (SofiaContexto::area() ?: 'Gestão');
+        if (! in_array($area, User::AREAS, true)) {
+            return ['erro' => 'Área inválida.', 'areas' => User::AREAS];
+        }
+
         $status = self::texto($argumentos, 'status') ?: 'Ativo';
-        $tag = in_array($status, ['Ativo', 'ativo'], true) ? 'green' : 'gray';
-        $socioNome = self::texto($argumentos, 'socio_nome') ?: 'Sócio não cadastrado';
+        if (! in_array($status, User::STATUS, true)) {
+            return ['erro' => 'Status inválido.', 'status' => User::STATUS];
+        }
 
-        $empresa = DB::transaction(function () use ($nome, $setor, $status, $tag, $socioNome): Empresa {
-            $empresa = Empresa::create([
-                'id' => Chave::apartirDe($nome, 'empresas'),
-                'nome' => $nome,
-                'setor' => $setor,
-                'status' => $status,
-                'status_tag' => $tag,
-            ]);
+        $senhaInformada = self::texto($argumentos, 'senha');
+        $gerouSenha = $senhaInformada === '';
+        $senha = $gerouSenha ? Str::password(12) : $senhaInformada;
+        if (mb_strlen($senha) < 8) {
+            return ['erro' => 'A senha precisa de ao menos 8 caracteres.'];
+        }
 
-            Socio::create([
-                'empresa_id' => $empresa->id,
-                'nome' => $socioNome,
-                'cargo' => 'Não informado',
-                'email' => 'Não informado',
-                'telefone' => 'Não informado',
-                'participacao' => 'Não informado',
-                'desde' => 'Não informado',
-            ]);
-
-            return $empresa;
-        });
+        $usuario = User::create([
+            'name' => $nome,
+            'email' => $email,
+            'password' => $senha,
+            'perfil' => $perfil,
+            'area' => $area,
+            'status' => $status,
+        ]);
 
         return [
             'criado' => true,
-            'id' => $empresa->id,
-            'nome' => $empresa->nome,
-            'setor' => $empresa->setor,
-            'status' => $empresa->status,
-            'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
+            'id' => $usuario->id,
+            'nome' => $usuario->name,
+            'email' => $usuario->email,
+            'perfil' => $usuario->perfil,
+            'area' => $usuario->area,
+            'status' => $usuario->status,
+            'senha_temporaria' => $gerouSenha ? $senha : null,
+            'aviso' => $gerouSenha
+                ? 'Mostre a senha_temporaria uma vez para quem pediu o cadastro — ela não fica salva em texto puro.'
+                : 'A senha informada foi aplicada; não a repita na resposta.',
+            'caminho' => Telas::caminho('usuarios'),
         ];
     }
 
@@ -787,116 +794,47 @@ final class SofiaTools
      * @param  array<string, mixed>  $argumentos
      * @return array<string, mixed>
      */
-    private static function editarEmpresa(array $argumentos): array
+    private static function entregarDocumento(array $argumentos): array
     {
-        $empresa = self::encontrarEmpresa(
-            self::texto($argumentos, 'empresa_id'),
-            self::texto($argumentos, 'nome'),
-        );
-
-        if ($empresa === null) {
-            return ['erro' => 'Empresa não encontrada na base.'];
+        $termo = self::texto($argumentos, 'termo');
+        if ($termo === '') {
+            return ['erro' => 'Informe o nome (ou trecho) do documento.'];
         }
 
-        $novoNome = self::texto($argumentos, 'novo_nome');
-        $setor = self::texto($argumentos, 'setor');
-        $status = self::texto($argumentos, 'status');
-        $socioNome = self::texto($argumentos, 'socio_nome');
+        $consulta = Documento::query()
+            ->with(['pasta', 'enviadoPor'])
+            ->where('nome', 'like', self::contem($termo))
+            ->orderByDesc('updated_at');
 
-        if ($novoNome === '' && $setor === '' && $status === '' && $socioNome === '') {
-            return ['erro' => 'Informe o que alterar: novo_nome, setor, status ou socio_nome.'];
+        $pasta = self::texto($argumentos, 'pasta');
+        if ($pasta !== '') {
+            $consulta->whereHas('pasta', function (Builder $q) use ($pasta): void {
+                $q->where('nome', 'like', self::contem($pasta));
+            });
         }
 
-        DB::transaction(function () use ($empresa, $novoNome, $setor, $status, $socioNome): void {
-            $dados = [];
-            if ($novoNome !== '') {
-                $dados['nome'] = $novoNome;
-            }
-            if ($setor !== '') {
-                $dados['setor'] = $setor;
-            }
-            if ($status !== '') {
-                $dados['status'] = $status;
-                $dados['status_tag'] = self::tagDoStatus($status);
-            }
-            if ($dados !== []) {
-                $empresa->update($dados);
-            }
-
-            if ($socioNome !== '') {
-                $socio = $empresa->socio;
-                if ($socio === null) {
-                    Socio::create([
-                        'empresa_id' => $empresa->id,
-                        'nome' => $socioNome,
-                        'cargo' => 'Não informado',
-                        'email' => 'Não informado',
-                        'telefone' => 'Não informado',
-                        'participacao' => 'Não informado',
-                        'desde' => 'Não informado',
-                    ]);
-                } else {
-                    $socio->update(['nome' => $socioNome]);
-                }
-            }
-        });
-
-        $empresa->refresh()->load('socio');
+        $documentos = $consulta->limit(self::LIMITE_BUSCA)->get();
+        if ($documentos->isEmpty()) {
+            return [
+                'erro' => 'Nenhum documento encontrado com esse nome.',
+                'caminho' => Telas::caminho('documentos'),
+            ];
+        }
 
         return [
-            'editado' => true,
-            'id' => $empresa->id,
-            'nome' => $empresa->nome,
-            'setor' => $empresa->setor,
-            'status' => $empresa->status,
-            'socio' => $empresa->socio?->nome,
-            'caminho' => Telas::caminho('cliente', ['id' => $empresa->id]),
+            'caminho' => Telas::caminho('documentos'),
+            'total' => $documentos->count(),
+            'instrucao' => 'Na resposta, use markdown_download de cada item como link clicável. Se houver vários, liste os mais relevantes.',
+            'documentos' => $documentos->map(function (Documento $documento): array {
+                $resumo = self::resumoDocumento($documento);
+
+                return [
+                    ...$resumo,
+                    'markdown_download' => '['.$documento->nomeDoArquivo().']('.$resumo['arquivo'].')',
+                    'markdown_pasta' => '[Abrir documentos]('.Telas::caminho('documentos').')',
+                ];
+            })->all(),
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $argumentos
-     * @return array<string, mixed>
-     */
-    private static function apagarEmpresa(array $argumentos): array
-    {
-        if (! self::booleano($argumentos, 'confirmar')) {
-            return ['erro' => 'Para apagar, confirme com confirmar=true e o id ou nome exato da empresa.'];
-        }
-
-        $empresa = self::encontrarEmpresa(
-            self::texto($argumentos, 'empresa_id'),
-            self::texto($argumentos, 'nome'),
-        );
-
-        if ($empresa === null) {
-            return ['erro' => 'Empresa não encontrada na base.'];
-        }
-
-        $id = $empresa->id;
-        $nome = $empresa->nome;
-        $empresa->delete();
-
-        return [
-            'apagado' => true,
-            'id' => $id,
-            'nome' => $nome,
-            'caminho' => Telas::caminho('clientes'),
-        ];
-    }
-
-    private static function tagDoStatus(string $status): string
-    {
-        $normalizado = mb_strtolower($status);
-
-        return match (true) {
-            str_contains($normalizado, 'ativo') => 'blue',
-            str_contains($normalizado, 'negocia') => 'green',
-            str_contains($normalizado, 'acompanhar') => 'yellow',
-            str_contains($normalizado, 'novo') => 'purple',
-            str_contains($normalizado, 'exclu'), str_contains($normalizado, 'inativ') => 'gray',
-            default => in_array('gray', Empresa::TAGS, true) ? 'gray' : Empresa::TAGS[0],
-        };
     }
 
     /**
