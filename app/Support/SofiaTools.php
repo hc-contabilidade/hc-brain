@@ -902,16 +902,18 @@ final class SofiaTools
             return ['erro' => 'O prompt passa do limite de 1000 caracteres.'];
         }
 
-        $chave = (string) config('hc.sofia.provedores.openai.chave', '');
+        $chave = (string) (config('hc.sofia.provedores.openai.chave') ?: config('hc.sofia.chave') ?: '');
         if ($chave === '') {
-            return ['erro' => 'Geração de imagem precisa da OPENAI_API_KEY no ambiente.'];
+            return [
+                'erro' => 'OPENAI_API_KEY vazia neste ambiente. Coloque a chave no .env (local) ou nas Environment Variables do Render e reinicie.',
+            ];
         }
 
         $modelo = (string) config('hc.sofia.imagem.modelo', 'dall-e-2');
         $url = (string) config('hc.sofia.imagem.url', 'https://api.openai.com/v1/images/generations');
 
         try {
-            $resposta = Http::withToken($chave)
+            $http = Http::withToken($chave)
                 ->acceptJson()
                 ->timeout(120)
                 ->post($url, [
@@ -920,17 +922,64 @@ final class SofiaTools
                     'n' => 1,
                     'size' => (string) config('hc.sofia.imagem.tamanho', '1024x1024'),
                     'response_format' => 'b64_json',
-                ])
-                ->throw()
-                ->json();
+                ]);
+
+            if ($http->failed()) {
+                $detalhe = data_get($http->json(), 'error.message');
+                report(new \RuntimeException('Sofia criar_imagem HTTP '.$http->status().': '.(is_string($detalhe) ? $detalhe : $http->body())));
+
+                return [
+                    'erro' => is_string($detalhe) && $detalhe !== ''
+                        ? 'Falha na API de imagem: '.$detalhe
+                        : 'Falha na API de imagem (HTTP '.$http->status().').',
+                ];
+            }
+
+            $resposta = $http->json();
         } catch (Throwable $excecao) {
             report($excecao);
 
-            return ['erro' => 'Não consegui gerar a imagem agora. Tente de novo em instantes.'];
+            return ['erro' => 'Não consegui gerar a imagem agora: '.$excecao->getMessage()];
         }
 
         $b64 = data_get($resposta, 'data.0.b64_json');
         if (! is_string($b64) || $b64 === '') {
+            // Alguns modelos devolvem URL em vez de base64.
+            $urlImagem = data_get($resposta, 'data.0.url');
+            if (is_string($urlImagem) && $urlImagem !== '') {
+                try {
+                    $baixada = Http::timeout(60)->get($urlImagem);
+                    if ($baixada->successful() && $baixada->body() !== '') {
+                        $bytes = $baixada->body();
+                        $nome = self::texto($argumentos, 'nome');
+                        if ($nome === '') {
+                            $nome = Str::limit($prompt, 60, '');
+                        }
+
+                        $gravado = self::gravarNaBaseDeDocumentos(
+                            nome: $nome,
+                            extensao: 'png',
+                            bytes: $bytes,
+                            mime: 'image/png',
+                            pastaNome: self::texto($argumentos, 'pasta'),
+                        );
+
+                        if (($gravado['criado'] ?? false) !== true) {
+                            return $gravado;
+                        }
+
+                        return [
+                            ...$gravado,
+                            'prompt' => $prompt,
+                            'markdown_imagem' => '!['.$gravado['nome'].']('.$gravado['arquivo'].')',
+                            'instrucao' => 'Na resposta, inclua markdown_imagem para a pessoa ver a figura no chat, e markdown_download para baixar.',
+                        ];
+                    }
+                } catch (Throwable $excecao) {
+                    report($excecao);
+                }
+            }
+
             return ['erro' => 'A API de imagem não devolveu o arquivo.'];
         }
 
