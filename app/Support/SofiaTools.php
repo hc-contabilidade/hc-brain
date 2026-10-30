@@ -149,10 +149,11 @@ final class SofiaTools
             ),
             self::funcao(
                 'criar_documento',
-                'Cria um documento de texto na base de Documentos do HC Brain. Use quando pedirem para redigir/salvar um texto, checklist, ata, roteiro ou material escrito.',
+                'Cria um documento na base de Documentos do HC Brain (PDF ou texto). Use quando pedirem para redigir/salvar lista, checklist, ata, roteiro ou material escrito. Se pedirem PDF, use formato=pdf.',
                 [
                     'nome' => ['type' => 'string', 'description' => 'Nome do documento (sem extensão).'],
                     'conteudo' => ['type' => 'string', 'description' => 'Texto completo a gravar no arquivo.'],
+                    'formato' => ['type' => 'string', 'enum' => ['pdf', 'txt'], 'description' => 'pdf (padrão, arquivo .pdf baixável) ou txt. Prefira pdf quando pedirem PDF, lista para baixar ou relatório.'],
                     'pasta' => ['type' => 'string', 'description' => 'Pasta de destino. Se omitida ou inexistente, usa/cria "Sofia".'],
                 ],
                 ['nome', 'conteudo'],
@@ -876,6 +877,21 @@ final class SofiaTools
 
         if (mb_strlen($conteudo) > 100_000) {
             return ['erro' => 'O conteúdo passa do limite de 100 mil caracteres.'];
+        }
+
+        $formato = strtolower(self::texto($argumentos, 'formato') ?: 'pdf');
+        if (! in_array($formato, ['pdf', 'txt'], true)) {
+            return ['erro' => 'Formato inválido. Use pdf ou txt.'];
+        }
+
+        if ($formato === 'pdf') {
+            return self::gravarNaBaseDeDocumentos(
+                nome: $nome,
+                extensao: 'pdf',
+                bytes: TextoPdf::de($nome, $conteudo),
+                mime: 'application/pdf',
+                pastaNome: self::texto($argumentos, 'pasta'),
+            );
         }
 
         return self::gravarNaBaseDeDocumentos(
