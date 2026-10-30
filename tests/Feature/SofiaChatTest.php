@@ -612,7 +612,7 @@ class SofiaChatTest extends TestCase
         ]);
     }
 
-    public function test_sofia_cria_documento_pdf_por_padrao(): void
+    public function test_sofia_cria_documento_sempre_em_pdf(): void
     {
         Storage::fake(config('hc.documentos.disco'));
 
@@ -636,31 +636,6 @@ class SofiaChatTest extends TestCase
         $this->assertSame('Operações', $documento->pasta?->nome);
         Storage::disk(config('hc.documentos.disco'))->assertExists($documento->arquivo);
         $this->assertStringStartsWith('%PDF', Storage::disk(config('hc.documentos.disco'))->get($documento->arquivo));
-    }
-
-    public function test_sofia_cria_documento_txt_quando_pedido(): void
-    {
-        Storage::fake(config('hc.documentos.disco'));
-
-        $this->simularChat(
-            'Documento criado.',
-            $this->chamada('criar_documento', [
-                'nome' => 'Checklist onboarding',
-                'conteudo' => "1. Criar acessos\n2. Apresentar a equipe",
-                'formato' => 'txt',
-                'pasta' => 'Operações',
-            ]),
-        );
-
-        $this->autenticado()
-            ->postJson('/api/sofia/perguntar', ['pergunta' => 'Crie um checklist de onboarding em txt'])
-            ->assertOk();
-
-        $documento = Documento::query()->where('nome', 'Checklist onboarding')->first();
-        $this->assertNotNull($documento);
-        $this->assertSame('txt', $documento->extensao);
-        $this->assertSame('Operações', $documento->pasta?->nome);
-        Storage::disk(config('hc.documentos.disco'))->assertExists($documento->arquivo);
     }
 
     public function test_sofia_cria_imagem_quando_pedida(): void

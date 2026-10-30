@@ -149,11 +149,10 @@ final class SofiaTools
             ),
             self::funcao(
                 'criar_documento',
-                'Cria um documento na base de Documentos do HC Brain (PDF ou texto). Use quando pedirem para redigir/salvar lista, checklist, ata, roteiro ou material escrito. Se pedirem PDF, use formato=pdf.',
+                'Cria um arquivo PDF na base de Documentos do HC Brain. Use quando pedirem para redigir/salvar lista, checklist, ata, roteiro, relatório ou material escrito para baixar. O arquivo gerado é sempre .pdf.',
                 [
-                    'nome' => ['type' => 'string', 'description' => 'Nome do documento (sem extensão).'],
-                    'conteudo' => ['type' => 'string', 'description' => 'Texto completo a gravar no arquivo.'],
-                    'formato' => ['type' => 'string', 'enum' => ['pdf', 'txt'], 'description' => 'pdf (padrão, arquivo .pdf baixável) ou txt. Prefira pdf quando pedirem PDF, lista para baixar ou relatório.'],
+                    'nome' => ['type' => 'string', 'description' => 'Nome do documento (sem extensão). O arquivo será nome.pdf.'],
+                    'conteudo' => ['type' => 'string', 'description' => 'Texto completo que vai dentro do PDF.'],
                     'pasta' => ['type' => 'string', 'description' => 'Pasta de destino. Se omitida ou inexistente, usa/cria "Sofia".'],
                 ],
                 ['nome', 'conteudo'],
@@ -879,26 +878,11 @@ final class SofiaTools
             return ['erro' => 'O conteúdo passa do limite de 100 mil caracteres.'];
         }
 
-        $formato = strtolower(self::texto($argumentos, 'formato') ?: 'pdf');
-        if (! in_array($formato, ['pdf', 'txt'], true)) {
-            return ['erro' => 'Formato inválido. Use pdf ou txt.'];
-        }
-
-        if ($formato === 'pdf') {
-            return self::gravarNaBaseDeDocumentos(
-                nome: $nome,
-                extensao: 'pdf',
-                bytes: TextoPdf::de($nome, $conteudo),
-                mime: 'application/pdf',
-                pastaNome: self::texto($argumentos, 'pasta'),
-            );
-        }
-
         return self::gravarNaBaseDeDocumentos(
             nome: $nome,
-            extensao: 'txt',
-            bytes: $conteudo,
-            mime: 'text/plain; charset=UTF-8',
+            extensao: 'pdf',
+            bytes: TextoPdf::de($nome, $conteudo),
+            mime: 'application/pdf',
             pastaNome: self::texto($argumentos, 'pasta'),
         );
     }
