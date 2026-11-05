@@ -6,6 +6,8 @@
 
 .empresa-detail {
     display: none;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .empresa-detail.active {
@@ -392,10 +394,17 @@
     font-size: var(--texto-sm);
 }
 
+#empresaMeetingsList {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
 .mini-meeting {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--esp-4);
+    box-sizing: border-box;
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -408,10 +417,11 @@
 
 .mini-meeting > .tag {
     flex-shrink: 0;
+    margin-top: 0.15em;
 }
 
 .mini-meeting-body {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
 }
@@ -427,12 +437,14 @@
 }
 
 .mini-meeting-body small {
-    display: block;
+    display: -webkit-box;
     overflow: hidden;
     color: var(--texto-suave);
     font-size: var(--texto-sm);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
 }
 
 /* --------------------------------------------------------------------------
