@@ -6,6 +6,8 @@
 
 .empresa-detail {
     display: none;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .empresa-detail.active {
@@ -242,9 +244,15 @@
    -------------------------------------------------------------------------- */
 .empresa-body {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
     gap: var(--esp-5);
     align-items: start;
+}
+
+/* O mínimo automático da grade é o texto mais longo. Um link de reunião
+   sem espaço alargava a coluna e empurrava o restante para fora da janela. */
+.empresa-body > * {
+    min-width: 0;
 }
 
 .socio-card {
@@ -273,10 +281,15 @@
     place-items: center;
 }
 
+.socio-header > div:last-child {
+    min-width: 0;
+}
+
 .socio-header strong {
     display: block;
     color: var(--texto-forte);
     font-size: var(--texto-md);
+    overflow-wrap: anywhere;
 }
 
 .socio-header span {
@@ -298,19 +311,24 @@
 }
 
 .socio-field span:first-child {
+    flex-shrink: 0;
     color: var(--texto-suave);
 }
 
 .socio-field span:last-child {
+    min-width: 0;
     color: var(--texto-forte);
+    overflow-wrap: anywhere;
     text-align: right;
 }
 
 .empresa-section-title {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--esp-3);
+    min-width: 0;
     margin: var(--esp-6) 0 var(--esp-3);
 }
 
@@ -319,13 +337,19 @@
 }
 
 .empresa-section-title h2 {
+    min-width: 0;
     margin: 0;
+}
+
+.empresa-section-title .clear-filters {
+    flex-shrink: 0;
 }
 
 .fontes-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: var(--esp-3);
+    min-width: 0;
 }
 
 .fonte-item {
@@ -370,36 +394,57 @@
     font-size: var(--texto-sm);
 }
 
+#empresaMeetingsList {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
 .mini-meeting {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--esp-4);
+    box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: var(--esp-3) var(--esp-4);
     margin-bottom: var(--esp-2);
+    overflow: hidden;
     text-align: left;
     cursor: pointer;
 }
 
+.mini-meeting > .tag {
+    flex-shrink: 0;
+    margin-top: 0.15em;
+}
+
 .mini-meeting-body {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
+    overflow: hidden;
 }
 
 .mini-meeting-body strong {
     display: block;
+    overflow: hidden;
     color: var(--texto-forte);
     font-size: var(--texto-base);
     font-weight: var(--peso-medio);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .mini-meeting-body small {
-    display: block;
+    display: -webkit-box;
     overflow: hidden;
     color: var(--texto-suave);
     font-size: var(--texto-sm);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
 }
 
 /* --------------------------------------------------------------------------

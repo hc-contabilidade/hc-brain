@@ -44,9 +44,11 @@ return [
     /*
     | Omie (ERP). Credenciais ficam na tabela omie_apps (a HC tem vários apps).
     | Cada empresa aponta para um app + código de cliente.
+    | AUTOMACAO_APP_KEY descriptografa app_secret vindo de omie_bases.
     */
     'omie' => [
         'base_url' => rtrim((string) env('OMIE_BASE_URL', 'https://app.omie.com.br/api/v1'), '/'),
+        'automacao_app_key' => env('AUTOMACAO_APP_KEY'),
     ],
 
     'documentos' => [

@@ -145,6 +145,10 @@
 .page {
     display: none;
     width: 100%;
+    /* A página é item de flex. Sem largura mínima zero, um texto sem quebra
+       (um link colado no resumo da reunião) vira a largura mínima da tela
+       e o conteúdo passa da janela com o zoom em 100%. */
+    min-width: 0;
     max-width: var(--largura-conteudo);
     margin: 0 auto;
     padding: var(--esp-8) var(--esp-6) var(--esp-12);

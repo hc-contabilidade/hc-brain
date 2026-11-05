@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Credenciais de um app Omie. O secret fica criptografado na base.
  */
-#[Fillable(['nome', 'app_key', 'app_secret', 'ativo'])]
+#[Fillable(['automacao_id', 'nome', 'app_key', 'app_secret', 'ativo'])]
 #[Hidden(['app_secret'])]
 class OmieApp extends Model
 {

@@ -35,9 +35,12 @@
         visibility 0s linear 280ms;
 }
 
-/* A página nunca é empurrada: a barra passa por cima dela. */
+/* A página nunca é empurrada: a barra passa por cima dela.
+   min-width: 0 impede que um texto sem quebra (ex.: URL no resumo da
+   reunião) force a área principal a passar da largura da janela. */
 .app .main {
     width: 100%;
+    min-width: 0;
     margin-left: 0;
 }
 
