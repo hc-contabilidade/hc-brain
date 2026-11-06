@@ -313,9 +313,16 @@ minuto apontando para:
 https://SEU-APP.onrender.com/interno/agendar/SEU_TOKEN
 ```
 
-Isso acorda o site e roda `php artisan schedule:run`. Em serviço que não dorme, dá
-para ligar `HC_EMBEDDED_SCHEDULER=1` ou um Cron Job Docker com
-`HC_ROLE=cron` / comando `php artisan schedule:run`.
+Isso acorda o site e roda `php artisan schedule:run`. Sem Shell (plano free), a
+primeira carga em massa pode ser disparada no navegador:
+
+```text
+https://SEU-APP.onrender.com/interno/agendar/SEU_TOKEN?tarefa=tudo
+```
+
+`?tarefa=` aceita `schedule` (padrão), `empresas`, `vinculos`, `honorarios`,
+`omie` ou `tudo`. Em serviço que não dorme, dá para ligar
+`HC_EMBEDDED_SCHEDULER=1` ou um Cron Job Docker com `HC_ROLE=cron`.
 
 Falta uma peça para os dados durarem de verdade: o SQLite mora no sistema de arquivos do
 contêiner, que é descartado a cada deploy. Em produção ele precisa de um disco persistente
