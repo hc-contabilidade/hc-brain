@@ -19,6 +19,15 @@ if [ -n "$MYSQL_ATTR_SSL_CA" ] && [ -f "$MYSQL_ATTR_SSL_CA" ]; then
     export MYSQL_ATTR_SSL_CA=/app/storage/mysql-ca.pem
 fi
 
+# --------------------------------------------------------------------------
+# Modo Cron Job do Render (plano free: o Web dorme e mata o schedule:work).
+# Docker Command: php artisan schedule:run
+# ou variável HC_ROLE=cron
+# --------------------------------------------------------------------------
+if [ "${HC_ROLE}" = "cron" ] || { [ "$1" = "php" ] && [ "$2" = "artisan" ] && [ "$3" = "schedule:run" ]; }; then
+    exec runuser -u www-data --preserve-environment -- php artisan schedule:run
+fi
+
 # Porta literal: o Apache não expande variável de ambiente no VirtualHost.
 PORT="${PORT:-10000}"
 printf 'Listen %s\n' "${PORT}" > /etc/apache2/ports.conf
@@ -59,19 +68,23 @@ APACHE_PID=$!
     fi
 ) &
 
-# O agendador precisa ficar vivo: se cair (OOM, exceção), sobe de novo.
-# Log em storage/logs/scheduler.log para ver no shell do Render.
-mkdir -p /app/storage/logs
-touch /app/storage/logs/scheduler.log
-chown www-data:www-data /app/storage/logs/scheduler.log
-(
-    while true; do
-        echo "$(date -Is) iniciando schedule:work" >> /app/storage/logs/scheduler.log
-        runuser -u www-data --preserve-environment -- php artisan schedule:work >> /app/storage/logs/scheduler.log 2>&1
-        code=$?
-        echo "$(date -Is) schedule:work saiu com código ${code}; reiniciando em 5s" >> /app/storage/logs/scheduler.log
-        sleep 5
-    done
-) &
+# No plano free o Web dorme sem tráfego e mata processos em background.
+# Por padrão NÃO sobe schedule:work aqui — use o endpoint /interno/agendar
+# com um cron externo (cron-job.org) ou um Cron Job no Render.
+# Para forçar o worker embutido (serviço que não dorme): HC_EMBEDDED_SCHEDULER=1
+if [ "${HC_EMBEDDED_SCHEDULER}" = "1" ]; then
+    mkdir -p /app/storage/logs
+    touch /app/storage/logs/scheduler.log
+    chown www-data:www-data /app/storage/logs/scheduler.log
+    (
+        while true; do
+            echo "$(date -Is) iniciando schedule:work" >> /app/storage/logs/scheduler.log
+            runuser -u www-data --preserve-environment -- php artisan schedule:work >> /app/storage/logs/scheduler.log 2>&1
+            code=$?
+            echo "$(date -Is) schedule:work saiu com código ${code}; reiniciando em 5s" >> /app/storage/logs/scheduler.log
+            sleep 5
+        done
+    ) &
+fi
 
 wait "${APACHE_PID}"
