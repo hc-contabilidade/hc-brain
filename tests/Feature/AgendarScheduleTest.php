@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Mockery;
 use Tests\TestCase;
 
 class AgendarScheduleTest extends TestCase
@@ -16,22 +17,28 @@ class AgendarScheduleTest extends TestCase
 
         $this->get('/interno/agendar/segredo-de-teste')
             ->assertOk()
-            ->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+            ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
+            ->assertSee('tarefa=schedule');
     }
 
-    public function test_tarefa_honorarios_responde_ok_e_agenda_comando(): void
+    public function test_tarefa_honorarios_roda_comando_e_mostra_saida(): void
     {
         config(['hc.schedule_token' => 'segredo-de-teste']);
 
-        Artisan::partialMock()
-            ->shouldReceive('call')
+        Artisan::shouldReceive('call')
             ->once()
             ->with('hc:sincronizar-honorarios')
             ->andReturn(0);
+        Artisan::shouldReceive('output')
+            ->once()
+            ->andReturn("Honorários: 1 empresa(s) atualizada(s), 0 sem cobrança no automacao.\n");
 
         $this->get('/interno/agendar/segredo-de-teste?tarefa=honorarios')
             ->assertOk()
-            ->assertSee('honorarios');
+            ->assertSee('hc:sincronizar-honorarios')
+            ->assertSee('Honorários:');
+
+        Mockery::close();
     }
 
     public function test_tarefa_desconhecida_responde_404(): void

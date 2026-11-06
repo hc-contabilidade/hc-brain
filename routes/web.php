@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 
 // Cron externo (plano free do Render): acorda o Web e roda schedule:run.
 Route::get('/interno/agendar/{token}', AgendarController::class)
-    ->middleware('throttle:6,1')
+    ->middleware('throttle:12,1')
     ->name('interno.agendar');
 
 Route::middleware('guest')->group(function () {

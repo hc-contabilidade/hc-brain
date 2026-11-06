@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 /**
  * Acorda o Web free do Render e dispara o schedule (ou uma sync sob demanda).
@@ -18,6 +19,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * ?tarefa=honorarios → hc:sincronizar-honorarios
  * ?tarefa=omie       → hc:sincronizar-omie
  * ?tarefa=tudo       → empresas + vínculos + honorários
+ *
+ * No plano free não há Shell: a sync roda neste request e a saída (ou o erro)
+ * volta no corpo da resposta para dá para ver no navegador.
  */
 class AgendarController extends Controller
 {
@@ -50,28 +54,25 @@ class AgendarController extends Controller
             throw new NotFoundHttpException;
         }
 
-        // O cron externo usa o padrão: só o que está "na hora" no schedule.
-        if ($tarefa === 'schedule') {
-            Artisan::call('schedule:run');
+        set_time_limit(300);
 
-            return response(Artisan::output() ?: "schedule:run ok\n", 200)
+        $linhas = ["tarefa={$tarefa}"];
+
+        try {
+            foreach ($comandos as $comando) {
+                $codigo = Artisan::call($comando);
+                $saida = trim(Artisan::output());
+                $linhas[] = "=== {$comando} (exit {$codigo}) ===";
+                $linhas[] = $saida !== '' ? $saida : '(sem saída)';
+            }
+        } catch (Throwable $erro) {
+            $linhas[] = 'ERRO: '.$erro->getMessage();
+
+            return response(implode("\n", $linhas)."\n", 500)
                 ->header('Content-Type', 'text/plain; charset=UTF-8');
         }
 
-        // Sync pesada: responde já e continua no mesmo request (plano free
-        // não tem Shell nem fila). Abra a URL no navegador e espere 1–3 min.
-        $comandosParaRodar = $comandos;
-        dispatch(function () use ($comandosParaRodar) {
-            foreach ($comandosParaRodar as $comando) {
-                Artisan::call($comando);
-            }
-        })->afterResponse();
-
-        return response(
-            "ok: {$tarefa} iniciada em segundo plano\n".
-            'comandos: '.implode(', ', $comandos)."\n".
-            "aguarde 1–3 minutos e atualize o Financeiro geral\n",
-            200
-        )->header('Content-Type', 'text/plain; charset=UTF-8');
+        return response(implode("\n", $linhas)."\n", 200)
+            ->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 }
