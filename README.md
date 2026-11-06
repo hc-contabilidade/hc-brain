@@ -303,7 +303,8 @@ php artisan hc:preparar
 `migrate`, não `migrate:fresh`: o servidor reinicia sozinho, e recriar a base a cada boot
 levaria junto tudo o que foi cadastrado pelo site. O `hc:preparar` semeia apenas quando a
 base está vazia e garante o acesso de `HC_ACESSO_EMAIL` e `HC_ACESSO_SENHA` — as duas
-operações são seguras de repetir.
+operações são seguras de repetir. O mesmo entrypoint sobe `php artisan schedule:work`
+(com o ambiente do contêiner preservado); o log fica em `storage/logs/scheduler.log`.
 
 Falta uma peça para os dados durarem de verdade: o SQLite mora no sistema de arquivos do
 contêiner, que é descartado a cada deploy. Em produção ele precisa de um disco persistente

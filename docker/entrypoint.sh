@@ -51,12 +51,27 @@ APACHE_PID=$!
 
 (
     php artisan hc:preparar || true
-    runuser -u www-data -- php artisan db:seed --class=ImportEmpresasSeeder --force || true
+    # --preserve-environment: sem isso o runuser zera DB_*, APP_KEY etc. e o
+    # comando falha em silêncio no Render.
+    runuser -u www-data --preserve-environment -- php artisan db:seed --class=ImportEmpresasSeeder --force || true
     if [ -f /app/storage/app/colaboradores.xlsx ]; then
-        runuser -u www-data -- php artisan hc:importar-colaboradores || true
+        runuser -u www-data --preserve-environment -- php artisan hc:importar-colaboradores || true
     fi
 ) &
 
-runuser -u www-data -- php artisan schedule:work &
+# O agendador precisa ficar vivo: se cair (OOM, exceção), sobe de novo.
+# Log em storage/logs/scheduler.log para ver no shell do Render.
+mkdir -p /app/storage/logs
+touch /app/storage/logs/scheduler.log
+chown www-data:www-data /app/storage/logs/scheduler.log
+(
+    while true; do
+        echo "$(date -Is) iniciando schedule:work" >> /app/storage/logs/scheduler.log
+        runuser -u www-data --preserve-environment -- php artisan schedule:work >> /app/storage/logs/scheduler.log 2>&1
+        code=$?
+        echo "$(date -Is) schedule:work saiu com código ${code}; reiniciando em 5s" >> /app/storage/logs/scheduler.log
+        sleep 5
+    done
+) &
 
 wait "${APACHE_PID}"
