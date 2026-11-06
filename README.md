@@ -305,6 +305,18 @@ levaria junto tudo o que foi cadastrado pelo site. O `hc:preparar` semeia apenas
 base está vazia e garante o acesso de `HC_ACESSO_EMAIL` e `HC_ACESSO_SENHA` — as duas
 operações são seguras de repetir.
 
+No **plano free** do Render o Web dorme sem tráfego e o `schedule:work` embutido não
+serve. Configure `HC_SCHEDULE_TOKEN` e um cron externo (ex.: cron-job.org) a cada
+minuto apontando para:
+
+```text
+https://SEU-APP.onrender.com/interno/agendar/SEU_TOKEN
+```
+
+Isso acorda o site e roda `php artisan schedule:run`. Em serviço que não dorme, dá
+para ligar `HC_EMBEDDED_SCHEDULER=1` ou um Cron Job Docker com
+`HC_ROLE=cron` / comando `php artisan schedule:run`.
+
 Falta uma peça para os dados durarem de verdade: o SQLite mora no sistema de arquivos do
 contêiner, que é descartado a cada deploy. Em produção ele precisa de um disco persistente
 montado numa pasta própria, com `DB_DATABASE` apontando para o arquivo lá dentro.

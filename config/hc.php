@@ -51,6 +51,13 @@ return [
         'automacao_app_key' => env('AUTOMACAO_APP_KEY'),
     ],
 
+    /*
+    | Token do endpoint /interno/agendar/{token}. No plano free do Render o
+    | Web dorme e o schedule:work morre — um cron externo (cron-job.org)
+    | acorda o site e dispara php artisan schedule:run por este URL.
+    */
+    'schedule_token' => env('HC_SCHEDULE_TOKEN'),
+
     'documentos' => [
 
         /*

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SenhaController;
 use App\Http\Controllers\GoogleController;
+use App\Http\Controllers\Interno\AgendarController;
 use App\Http\Controllers\TelaController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\Route;
 | guardando o destino pretendido, e a API que alimenta o TypeScript vive na
 | mesma sessão do navegador — por isso ela fica aqui, e não em routes/api.php.
 */
+
+// Cron externo (plano free do Render): acorda o Web e roda schedule:run.
+Route::get('/interno/agendar/{token}', AgendarController::class)
+    ->middleware('throttle:6,1')
+    ->name('interno.agendar');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
