@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
@@ -22,9 +23,10 @@ class AgendarScheduleTest extends TestCase
             ->assertSee('tarefa=schedule');
     }
 
-    public function test_tarefa_honorarios_roda_comando_e_mostra_saida(): void
+    public function test_tarefa_honorarios_aceita_e_responde_na_hora(): void
     {
         config(['hc.schedule_token' => 'segredo-de-teste']);
+        Cache::flush();
 
         Artisan::shouldReceive('call')
             ->once()
@@ -36,10 +38,20 @@ class AgendarScheduleTest extends TestCase
 
         $this->get('/interno/agendar/segredo-de-teste?tarefa=honorarios')
             ->assertOk()
-            ->assertSee('hc:sincronizar-honorarios')
-            ->assertSee('Honorários:');
+            ->assertSee('segundo plano')
+            ->assertSee('tarefa=status');
 
         Mockery::close();
+    }
+
+    public function test_tarefa_status_mostra_cache(): void
+    {
+        config(['hc.schedule_token' => 'segredo-de-teste']);
+        Cache::put('hc.interno.sync_status', "status=ok\n", now()->addHour());
+
+        $this->get('/interno/agendar/segredo-de-teste?tarefa=status')
+            ->assertOk()
+            ->assertSee('status=ok');
     }
 
     public function test_tarefa_ip_mostra_ip_de_saida(): void
