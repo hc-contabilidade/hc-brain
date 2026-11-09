@@ -114,6 +114,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('AUTOMACAO_DB_SSLMODE', 'prefer'),
+            // Sem Trusted Sources o PDO travava ~60s e o Render devolvia 502.
+            'options' => extension_loaded('pdo_pgsql') ? [
+                PDO::ATTR_TIMEOUT => 8,
+            ] : [],
         ],
 
         'sqlsrv' => [
