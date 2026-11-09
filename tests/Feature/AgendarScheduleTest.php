@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
 
@@ -39,6 +40,19 @@ class AgendarScheduleTest extends TestCase
             ->assertSee('Honorários:');
 
         Mockery::close();
+    }
+
+    public function test_tarefa_ip_mostra_ip_de_saida(): void
+    {
+        config(['hc.schedule_token' => 'segredo-de-teste']);
+
+        Http::fake([
+            'api.ipify.org' => Http::response('203.0.113.10', 200),
+        ]);
+
+        $this->get('/interno/agendar/segredo-de-teste?tarefa=ip')
+            ->assertOk()
+            ->assertSee('ip_saida=203.0.113.10');
     }
 
     public function test_tarefa_desconhecida_responde_404(): void
