@@ -19,14 +19,15 @@
       </div>
     </div>
 
-    <div class="finance-panel" id="omieAppsPanel">
+    <div class="finance-panel" id="omieAppsPanel" hidden>
       <div class="finance-panel-head">
         <div>
           <h2>Apps Omie</h2>
-          <p>Credenciais dos apps Omie da HC. Cada empresa escolhe um app + código de cliente.</p>
+          <p>Credenciais dos apps Omie da HC. Só administradores veem e alteram.</p>
         </div>
+        <button type="button" class="secondary" id="omieAppsToggle" aria-expanded="false" aria-controls="omieAppsCorpo">Mostrar</button>
       </div>
-      <div class="finance-panel-body">
+      <div class="finance-panel-body" id="omieAppsCorpo" hidden>
         <div class="omie-apps-lista" id="omieAppsLista"></div>
         <form class="omie-apps-form" id="omieAppsForm" hidden>
           <div class="omie-apps-campos">

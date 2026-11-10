@@ -326,18 +326,30 @@ async function carregarPainelOmie(): Promise<void> {
     renderOmieApps();
 }
 
+function definirPainelOmie(aberto: boolean): void {
+    const corpo = porId("omieAppsCorpo");
+    const botao = porId("omieAppsToggle");
+
+    corpo.hidden = !aberto;
+    botao.setAttribute("aria-expanded", aberto ? "true" : "false");
+    botao.textContent = aberto ? "Ocultar" : "Mostrar";
+    porId("omieAppsPanel").classList.toggle("is-aberto", aberto);
+}
+
 function renderOmieApps(): void {
+    const painel = porId("omieAppsPanel");
     const lista = porId("omieAppsLista");
     const form = porId("omieAppsForm") as HTMLFormElement;
     const botaoNovo = porId("omieAppNovo") as HTMLButtonElement;
 
-    botaoNovo.hidden = !podeGerenciarOmie;
     if (!podeGerenciarOmie) {
+        painel.hidden = true;
         form.hidden = true;
-        lista.innerHTML =
-            `<div class="empty-state">Só administradores cadastram apps Omie. Há ${omieApps.length} app(s) na base.</div>`;
         return;
     }
+
+    painel.hidden = false;
+    botaoNovo.hidden = false;
 
     if (form.dataset.aberto !== "1") {
         form.hidden = true;
@@ -366,6 +378,7 @@ function renderOmieApps(): void {
             const app = omieApps.find((item) => item.id === Number(botao.getAttribute("data-omie-editar")));
             if (!app) return;
             editandoOmieId = app.id;
+            definirPainelOmie(true);
             form.dataset.aberto = "1";
             campo("omieAppNome").value = app.nome;
             campo("omieAppKey").value = app.appKey;
@@ -394,8 +407,13 @@ function renderOmieApps(): void {
     });
 }
 
+porId("omieAppsToggle").addEventListener("click", () => {
+    definirPainelOmie(porId("omieAppsCorpo").hidden);
+});
+
 porId("omieAppNovo").addEventListener("click", () => {
     editandoOmieId = null;
+    definirPainelOmie(true);
     const form = porId("omieAppsForm") as HTMLFormElement;
     form.dataset.aberto = "1";
     form.hidden = false;

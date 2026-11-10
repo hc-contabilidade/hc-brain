@@ -544,6 +544,15 @@
     }
 }
 
+#omieAppsPanel .finance-panel-head {
+    border-bottom: 0;
+}
+#omieAppsPanel.is-aberto .finance-panel-head {
+    border-bottom: 1px solid var(--border);
+}
+#omieAppsToggle {
+    flex-shrink: 0;
+}
 .omie-apps-lista {
     display: flex;
     flex-direction: column;
