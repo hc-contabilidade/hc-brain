@@ -14,7 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * vinculadas diretamente a ela e as reuniões do relacionamento.
  */
 #[Fillable([
-    'id', 'automacao_id', 'omie_codigo_cliente', 'omie_app_id',
+    'id', 'automacao_id', 'codigo', 'documento', 'documento_tipo',
+    'omie_codigo_cliente', 'omie_app_id',
     'nome', 'setor', 'status', 'status_tag',
 ])]
 class Empresa extends Model
