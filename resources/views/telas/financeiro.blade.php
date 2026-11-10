@@ -151,13 +151,18 @@
             <tr>
               <th>Código</th>
               <th>Cliente</th>
-              <th>CNPJ/CPF</th>
               <th>Status</th>
+              <th>CNPJ/CPF</th>
+              <th>Regime</th>
+              <th>Tempo de vida</th>
+              <th>1º honorário</th>
+              <th>Honorário atual</th>
+              <th>LTV / total arrecadado</th>
             </tr>
           </thead>
           <tbody id="financeTableBody">
             <tr>
-              <td colspan="4">
+              <td colspan="9">
                 <div class="estado-carregando">Carregando carteira…</div>
               </td>
             </tr>

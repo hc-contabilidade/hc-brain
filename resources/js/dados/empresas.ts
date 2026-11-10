@@ -206,6 +206,10 @@ export interface EmpresaDaLista {
     status: string;
     statusTag: CorTag;
     regime: string | null;
+    meses: number | null;
+    primeiro: number | null;
+    atual: number | null;
+    total: number | null;
 }
 
 export function carregarEmpresasDaLista(): Promise<EmpresaDaLista[]> {

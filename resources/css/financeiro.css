@@ -449,7 +449,7 @@
 .finance-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 640px;
+    min-width: 1080px;
 }
 .finance-table th {
     position: sticky;

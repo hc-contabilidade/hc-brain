@@ -23,7 +23,7 @@ import {
 import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
 import { atualizarSecao, observarEstado, obterSecao } from "../comum/estado.ts";
-import { escapar, duracaoEmMeses, moeda, plural } from "../comum/formato.ts";
+import { documento, duracaoEmMeses, escapar, moeda, plural } from "../comum/formato.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
@@ -256,21 +256,29 @@ function renderTabela(): void {
         ? dados
               .map((empresa) => {
                   const inativa = empresa.status === "Inativo";
-                  const documento = empresa.documento
-                      ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(empresa.documento)}</span>`
+                  const documentoHtml = empresa.documento
+                      ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(documento(empresa.documento))}</span>`
+                      : "—";
+                  const regimeHtml = empresa.regime
+                      ? `<span class="finance-regime">${escapar(empresa.regime)}</span>`
                       : "—";
 
                   return `
             <tr class="${inativa ? "is-inativa" : ""}">
               <td class="finance-codigo">${escapar(empresa.codigo ?? "—")}</td>
               <td><a class="finance-cliente" href="${caminhoDaPagina("cliente", { id: empresa.id })}">${escapar(empresa.nome)}</a></td>
-              <td><div class="finance-doc">${documento}</div></td>
               <td><span class="tag ${empresa.statusTag}">${escapar(empresa.status)}</span></td>
+              <td><div class="finance-doc">${documentoHtml}</div></td>
+              <td>${regimeHtml}</td>
+              <td>${empresa.meses === null ? "—" : duracaoEmMeses(empresa.meses)}</td>
+              <td>${empresa.primeiro === null ? "—" : moeda(empresa.primeiro)}</td>
+              <td>${empresa.atual === null ? "—" : moeda(empresa.atual)}</td>
+              <td>${empresa.total === null ? "—" : `<strong>${moeda(empresa.total)}</strong>`}</td>
             </tr>
           `;
               })
               .join("")
-        : `<tr><td colspan="4"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
+        : `<tr><td colspan="9"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
 }
 
 function renderFinanceiro(): void {

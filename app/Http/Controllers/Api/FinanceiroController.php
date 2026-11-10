@@ -46,8 +46,15 @@ class FinanceiroController extends Controller
     {
         $empresas = Empresa::query()
             ->whereNotNull('automacao_id')
-            ->with('financeiro:id,empresa_id,regime')
+            ->with('financeiro:id,empresa_id,regime,desde,primeiro,atual,total')
             ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
+            ->map(function (Empresa $empresa) {
+                $empresa->codigo = filled($empresa->codigo)
+                    ? $empresa->codigo
+                    : $this->codigoNoNome($empresa->nome);
+
+                return $empresa;
+            })
             ->sortBy(fn (Empresa $empresa) => sprintf('%010d-%s', (int) $empresa->codigo, $empresa->nome))
             ->values()
             ->map(fn (Empresa $empresa) => [
@@ -59,8 +66,25 @@ class FinanceiroController extends Controller
                 'status' => $empresa->status,
                 'statusTag' => $empresa->status_tag,
                 'regime' => $empresa->financeiro?->regime,
+                'meses' => $empresa->financeiro?->mesesDeVida(),
+                'primeiro' => $empresa->financeiro?->primeiro,
+                'atual' => $empresa->financeiro?->atual,
+                'total' => $empresa->financeiro?->total,
             ]);
 
         return response()->json($empresas);
+    }
+
+    /**
+     * Empresas sincronizadas antes da coluna `codigo` ainda carregam o número
+     * no fim do nome, no formato "RAZÃO (1389)".
+     */
+    private function codigoNoNome(string $nome): ?string
+    {
+        if (preg_match('/\((\d+)\)\s*$/', $nome, $encontrado) !== 1) {
+            return null;
+        }
+
+        return $encontrado[1];
     }
 }

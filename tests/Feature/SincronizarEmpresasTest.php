@@ -198,6 +198,27 @@ class SincronizarEmpresasTest extends TestCase
             ->assertJsonFragment(['nome' => 'Sócio não cadastrado']);
     }
 
+    public function test_sem_colunas_de_documento_ainda_grava_codigo_e_status(): void
+    {
+        Schema::connection('automacao')->table('companies', function (Blueprint $table) {
+            $table->dropColumn(['document_number', 'document_type']);
+        });
+
+        $this->company([
+            'code' => '25',
+            'trade_name' => 'Clínica Vida',
+            'status' => 'INACTIVE',
+        ]);
+
+        $this->artisan('hc:sincronizar-empresas')->assertSuccessful();
+
+        $empresa = Empresa::sole();
+        $this->assertSame('25', $empresa->codigo);
+        $this->assertNull($empresa->documento);
+        $this->assertSame('Inativo', $empresa->status);
+        $this->assertSame('gray', $empresa->status_tag);
+    }
+
     public function test_falha_sem_gravar_nada_quando_o_banco_da_automacao_nao_responde(): void
     {
         Schema::connection('automacao')->drop('company_partner');

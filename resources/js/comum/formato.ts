@@ -40,6 +40,21 @@ export function numero(valor: number | null | undefined): string {
     return NUMERO.format(Number(valor ?? 0));
 }
 
+/** CNPJ 00.000.000/0000-00 ou CPF 000.000.000-00. Outro tamanho fica só com os dígitos. */
+export function documento(digitos: string): string {
+    const numeros = digitos.replace(/\D/g, "");
+
+    if (numeros.length === 14) {
+        return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+
+    if (numeros.length === 11) {
+        return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+
+    return numeros || digitos;
+}
+
 export function percentual(valor: number, casas = 1): string {
     return `${valor.toFixed(casas).replace(".", ",")}%`;
 }

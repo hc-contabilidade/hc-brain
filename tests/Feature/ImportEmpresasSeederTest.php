@@ -75,6 +75,9 @@ class ImportEmpresasSeederTest extends TestCase
 
         $empresa = Empresa::with('socio')->sole();
         $this->assertSame('clinica-vida-ltda', $empresa->id);
+        $this->assertSame('952', $empresa->codigo);
+        $this->assertSame('00000000000100', $empresa->documento);
+        $this->assertSame('CNPJ', $empresa->documento_tipo);
         $this->assertSame('CLINICA VIDA LTDA', $empresa->nome);
         $this->assertSame('Bloqueado', $empresa->status);
         $this->assertSame('red', $empresa->status_tag);
@@ -100,6 +103,8 @@ class ImportEmpresasSeederTest extends TestCase
             Empresa::orderBy('nome')->pluck('nome')->all(),
         );
         $this->assertSame('gray', Empresa::firstWhere('nome', 'GAIA SERVICOS MEDICOS LTDA (776)')->status_tag);
+        $this->assertSame('775', Empresa::firstWhere('nome', 'GAIA SERVICOS MEDICOS LTDA')->codigo);
+        $this->assertSame('776', Empresa::firstWhere('nome', 'GAIA SERVICOS MEDICOS LTDA (776)')->codigo);
     }
 
     public function test_empresa_que_reaproveita_o_codigo_de_outra_nao_herda_o_socio_dela(): void
@@ -134,7 +139,11 @@ class ImportEmpresasSeederTest extends TestCase
             ['CLINICA VIDA LTDA', 'CLINICA VIDA LTDA (953)', 'NOVA LTDA'],
             Empresa::orderBy('nome')->pluck('nome')->all(),
         );
-        $this->assertSame('Ativo', $cadastrada->fresh()->status);
+        $cadastrada->refresh();
+        $this->assertSame('Ativo', $cadastrada->status);
+        $this->assertSame('952', $cadastrada->codigo);
+        $this->assertSame('00000000000100', $cadastrada->documento);
+        $this->assertSame('CNPJ', $cadastrada->documento_tipo);
         $this->assertDatabaseCount('socios', 2);
     }
 }

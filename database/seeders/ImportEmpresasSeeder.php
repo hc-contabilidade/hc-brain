@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Empresa;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -14,8 +15,9 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
  * vira a empresa e a aba Sócios, ligada pelo código, vira o sócio dela.
  *
  * Roda a cada inicialização do contêiner, então é seguro repetir: empresa cujo
- * nome já está na carteira fica como está, seja de uma importação anterior,
- * do cadastro pela tela ou da sincronização com o automacao-2-hc.
+ * nome já está na carteira não é recriada nem tem o status trocado. Código e
+ * CNPJ/CPF vazios são preenchidos, inclusive na cópia "RAZÃO (código)" que a
+ * sincronização grava quando o nome simples já existia.
  */
 class ImportEmpresasSeeder extends Seeder
 {
@@ -52,22 +54,31 @@ class ImportEmpresasSeeder extends Seeder
         $empresas = [];
         $socios = [];
         $nomesDaPlanilha = [];
+        $documentosPorNome = [];
         $agora = now();
 
-        foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, , $razaoSocial, $status]) {
+        foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, $cnpj, $razaoSocial, $status]) {
             $razaoSocial = trim((string) $razaoSocial);
+            $codigo = trim((string) $codigo);
 
             if ($razaoSocial === '' || $razaoSocial === self::RASCUNHO) {
                 continue;
             }
 
-            $nome = $this->nomeUnico($razaoSocial, (string) $codigo, $nomesDaPlanilha);
+            $documento = $this->documentoDe($cnpj);
+            $this->lembrarDocumento($documentosPorNome, $razaoSocial, $codigo, $documento);
+            if ($codigo !== '') {
+                $this->lembrarDocumento($documentosPorNome, "{$razaoSocial} ({$codigo})", $codigo, $documento);
+            }
+
+            $nome = $this->nomeUnico($razaoSocial, $codigo, $nomesDaPlanilha);
 
             if ($nome === null) {
                 continue;
             }
 
-            $nomesDaPlanilha[$nome] = (string) $codigo;
+            $nomesDaPlanilha[$nome] = $codigo;
+            $this->lembrarDocumento($documentosPorNome, $nome, $codigo, $documento);
 
             if (isset($nomesNaCarteira[$nome])) {
                 continue;
@@ -79,6 +90,9 @@ class ImportEmpresasSeeder extends Seeder
 
             $empresas[] = [
                 'id' => $id,
+                'codigo' => $codigo !== '' ? $codigo : null,
+                'documento' => $documento,
+                'documento_tipo' => $this->documentoTipoDe($documento),
                 'nome' => $nome,
                 'setor' => 'Não informado',
                 'status' => $status,
@@ -95,13 +109,19 @@ class ImportEmpresasSeeder extends Seeder
             ];
         }
 
-        DB::transaction(function () use ($empresas, $socios) {
+        $atualizacoes = $this->documentosEmFalta($documentosPorNome, $agora);
+
+        DB::transaction(function () use ($empresas, $socios, $atualizacoes) {
             foreach (array_chunk($empresas, 500) as $lote) {
                 DB::table('empresas')->insert($lote);
             }
 
             foreach (array_chunk($socios, 500) as $lote) {
                 DB::table('socios')->insert($lote);
+            }
+
+            foreach ($atualizacoes as $atualizacao) {
+                DB::table('empresas')->where('id', $atualizacao['id'])->update($atualizacao['dados']);
             }
         });
 
@@ -215,6 +235,82 @@ class ImportEmpresasSeeder extends Seeder
             'participacao' => self::NAO_INFORMADO,
             'desde' => self::NAO_INFORMADO,
         ];
+    }
+
+    /**
+     * @param  array<string, array{codigo: string, documento: ?string}>  $documentosPorNome
+     */
+    private function lembrarDocumento(array &$documentosPorNome, string $nome, string $codigo, ?string $documento): void
+    {
+        if (isset($documentosPorNome[$nome])) {
+            return;
+        }
+
+        $documentosPorNome[$nome] = ['codigo' => $codigo, 'documento' => $documento];
+    }
+
+    /**
+     * @param  array<string, array{codigo: string, documento: ?string}>  $documentosPorNome
+     * @return list<array{id: string, dados: array<string, mixed>}>
+     */
+    private function documentosEmFalta(array $documentosPorNome, Carbon $agora): array
+    {
+        if ($documentosPorNome === []) {
+            return [];
+        }
+
+        $atualizacoes = [];
+
+        foreach (Empresa::query()->whereIn('nome', array_keys($documentosPorNome))->get(['id', 'nome', 'codigo', 'documento']) as $empresa) {
+            $linha = $documentosPorNome[$empresa->nome];
+            $dados = [];
+
+            if (blank($empresa->codigo) && $linha['codigo'] !== '') {
+                $dados['codigo'] = $linha['codigo'];
+            }
+
+            if (blank($empresa->documento) && $linha['documento'] !== null) {
+                $dados['documento'] = $linha['documento'];
+                $dados['documento_tipo'] = $this->documentoTipoDe($linha['documento']);
+            }
+
+            if ($dados === []) {
+                continue;
+            }
+
+            $dados['updated_at'] = $agora;
+            $atualizacoes[] = ['id' => $empresa->id, 'dados' => $dados];
+        }
+
+        return $atualizacoes;
+    }
+
+    private function documentoDe(mixed $valor): ?string
+    {
+        $texto = is_int($valor) || is_float($valor) ? sprintf('%.0f', (float) $valor) : (string) $valor;
+        $digitos = preg_replace('/\D+/', '', $texto) ?? '';
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        $digitos = match (true) {
+            strlen($digitos) <= 11 => str_pad($digitos, 11, '0', STR_PAD_LEFT),
+            strlen($digitos) <= 14 => str_pad($digitos, 14, '0', STR_PAD_LEFT),
+            default => null,
+        };
+
+        return $digitos;
+    }
+
+    /** @return 'CNPJ'|'CPF'|null */
+    private function documentoTipoDe(?string $documento): ?string
+    {
+        return match (strlen((string) $documento)) {
+            14 => 'CNPJ',
+            11 => 'CPF',
+            default => null,
+        };
     }
 
     private function preenchido(mixed $valor): string

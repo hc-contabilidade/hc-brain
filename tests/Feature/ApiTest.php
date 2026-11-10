@@ -10,6 +10,7 @@ use App\Models\Reuniao;
 use App\Models\User;
 use App\Support\GoogleAgenda;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -317,6 +318,8 @@ class ApiTest extends TestCase
 
     public function test_lista_do_financeiro_mostra_ativa_e_inativa_e_acompanha_a_troca(): void
     {
+        Carbon::setTestNow('2026-11-10');
+
         $ruegg = Empresa::query()->create([
             'id' => 'ruegg',
             'automacao_id' => 1,
@@ -350,19 +353,35 @@ class ApiTest extends TestCase
             'status' => 'Inativo',
             'status_tag' => 'gray',
         ]);
+        Empresa::query()->create([
+            'id' => 'sieg',
+            'automacao_id' => 1389,
+            'nome' => 'SIEG ASSISTENCIA MEDICA LTDA (1389)',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
 
         $this->autenticado()
             ->getJson('/api/financeiro/empresas')
             ->assertOk()
-            ->assertJsonCount(2)
+            ->assertJsonCount(3)
             ->assertJsonPath('0.codigo', '1')
             ->assertJsonPath('0.status', 'Ativo')
             ->assertJsonPath('0.documento', '33152744000180')
             ->assertJsonPath('0.documentoTipo', 'CNPJ')
             ->assertJsonPath('0.regime', 'MEI')
+            ->assertJsonPath('0.meses', 34)
+            ->assertJsonPath('0.primeiro', 1000)
+            ->assertJsonPath('0.atual', 1500)
+            ->assertJsonPath('0.total', 8000)
             ->assertJsonPath('1.codigo', '3')
             ->assertJsonPath('1.regime', null)
+            ->assertJsonPath('1.meses', null)
+            ->assertJsonPath('1.primeiro', null)
             ->assertJsonPath('1.status', 'Inativo')
+            ->assertJsonPath('2.codigo', '1389')
+            ->assertJsonPath('2.documento', null)
             ->assertJsonMissing(['id' => 'empresaX']);
 
         Empresa::query()->whereKey('ruegg')->update(['status' => 'Inativo', 'status_tag' => 'gray']);

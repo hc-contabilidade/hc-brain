@@ -117,27 +117,61 @@ class SincronizarEmpresas extends Command
      */
     private function companies(ConnectionInterface $origem): Collection
     {
-        $colunas = [
-            'id', 'code', 'name', 'trade_name', 'status', 'metier',
-            'segment_type', 'contract_start_date', 'deleted_at',
-        ];
+        $companies = $origem->table('companies')
+            ->where('draft', false)
+            ->orderBy('id')
+            ->get([
+                'id', 'code', 'name', 'trade_name', 'status', 'metier',
+                'segment_type', 'contract_start_date', 'deleted_at',
+            ]);
 
+        $documentos = $this->documentosPorCompany($origem);
+
+        return $companies->each(function (stdClass $company) use ($documentos): void {
+            $documento = $documentos[$company->id] ?? null;
+            $company->document_number = $documento->document_number ?? null;
+            $company->document_type = $documento->document_type ?? null;
+        });
+    }
+
+    /**
+     * CNPJ/CPF numa leitura à parte: se o usuário de leitura não puder ver
+     * essas colunas, código e status continuam sendo gravados.
+     *
+     * @return array<int, object>
+     */
+    private function documentosPorCompany(ConnectionInterface $origem): array
+    {
         try {
             return $origem->table('companies')
                 ->where('draft', false)
-                ->orderBy('id')
-                ->get([...$colunas, 'document_number', 'document_type']);
-        } catch (QueryException) {
-            // O usuário de leitura pode não ter estas colunas. A lista segue
-            // sem CNPJ, e o status continua sendo atualizado.
-            return $origem->table('companies')
-                ->where('draft', false)
-                ->orderBy('id')
-                ->get($colunas)
-                ->each(function (stdClass $company): void {
-                    $company->document_number = null;
-                    $company->document_type = null;
-                });
+                ->get(['id', 'document_number', 'document_type'])
+                ->keyBy('id')
+                ->all();
+        } catch (QueryException $erro) {
+            $this->limparConsultaFalhada($origem);
+            $this->components->warn('CNPJ/CPF da automação não foi lido: '.$erro->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * No Postgres, uma coluna sem permissão aborta a transação da conexão.
+     * Sem este rollback, a leitura seguinte de código e status também falha.
+     */
+    private function limparConsultaFalhada(ConnectionInterface $origem): void
+    {
+        try {
+            if ($origem->transactionLevel() > 0) {
+                $origem->rollBack();
+
+                return;
+            }
+
+            $origem->unprepared('ROLLBACK');
+        } catch (\Throwable) {
+            // Não havia transação aberta: a próxima leitura segue.
         }
     }
 
