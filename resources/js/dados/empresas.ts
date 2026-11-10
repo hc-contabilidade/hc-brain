@@ -79,7 +79,14 @@ export interface TransacaoEmpresa {
     status: string;
 }
 
-export type RegimeTributario = "Simples Nacional" | "Lucro Presumido" | "Lucro Real";
+export const REGIMES_TRIBUTARIOS = [
+    "Lucro Presumido",
+    "MEI",
+    "Simples Nacional",
+    "Pessoa Física",
+] as const;
+
+export type RegimeTributario = (typeof REGIMES_TRIBUTARIOS)[number];
 
 export interface FinanceiroEmpresa {
     regime: RegimeTributario;
@@ -124,10 +131,11 @@ export interface LinhaCarteira {
  * A cor de cada regime nos gráficos. São tokens, não hex soltos: mudar a
  * paleta em base.css muda o gráfico junto.
  */
-export const corDoRegime: Record<string, string> = {
-    "Simples Nacional": "var(--azul)",
+export const corDoRegime: Record<RegimeTributario, string> = {
     "Lucro Presumido": "var(--verde)",
-    "Lucro Real": "var(--roxo-claro)",
+    MEI: "var(--roxo-claro)",
+    "Simples Nacional": "var(--azul)",
+    "Pessoa Física": "var(--amarelo)",
 };
 
 /** Usada quando o regime não está no mapa acima. */
@@ -197,6 +205,7 @@ export interface EmpresaDaLista {
     documentoTipo: "CNPJ" | "CPF" | null;
     status: string;
     statusTag: CorTag;
+    regime: string | null;
 }
 
 export function carregarEmpresasDaLista(): Promise<EmpresaDaLista[]> {

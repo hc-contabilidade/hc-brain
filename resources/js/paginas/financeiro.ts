@@ -14,9 +14,11 @@ import {
     salvarOmieApp,
     COR_PADRAO_DO_GRAFICO,
     corDoRegime,
+    REGIMES_TRIBUTARIOS,
     type EmpresaDaLista,
     type LinhaCarteira,
     type OmieAppResumo,
+    type RegimeTributario,
 } from "../dados/empresas.ts";
 import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
@@ -40,19 +42,29 @@ function linhas(): LinhaCarteira[] {
     const palavras = termoDeBusca(estado.busca);
 
     return carteira.filter((item) => {
-        const texto = `${item.nome} ${item.setor} ${item.socio}`;
-        return (
-            combina(texto, palavras) &&
-            (estado.regime === "Todos" || item.regime === estado.regime)
-        );
+        const texto = `${item.nome} ${item.setor} ${item.socio} ${item.regime}`;
+        return combina(texto, palavras) && regimeSelecionado(estado.regime, item.regime);
     });
 }
 
-function porRegime(dados: LinhaCarteira[]): Record<string, LinhaCarteira[]> {
-    return dados.reduce<Record<string, LinhaCarteira[]>>((grupos, item) => {
-        (grupos[item.regime] ||= []).push(item);
-        return grupos;
-    }, {});
+function regimeDoFiltro(valor: string): string {
+    return valor === "Todos" || (REGIMES_TRIBUTARIOS as readonly string[]).includes(valor)
+        ? valor
+        : "Todos";
+}
+
+function regimeSelecionado(filtro: string, regime: string): boolean {
+    const escolhido = regimeDoFiltro(filtro);
+
+    return escolhido === "Todos" || escolhido === regime;
+}
+
+/** Só os quatro regimes do filtro, na ordem em que aparecem no gráfico. */
+function porRegime(dados: LinhaCarteira[]): [RegimeTributario, LinhaCarteira[]][] {
+    return REGIMES_TRIBUTARIOS.flatMap((nome) => {
+        const lista = dados.filter((item) => item.regime === nome);
+        return lista.length ? [[nome, lista] as [RegimeTributario, LinhaCarteira[]]] : [];
+    });
 }
 
 function renderKpis(dados: LinhaCarteira[]): void {
@@ -89,8 +101,7 @@ function renderKpis(dados: LinhaCarteira[]): void {
 }
 
 function renderLtv(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const valores: [string, number][] = Object.entries(grupos).map(([nome, lista]) => [
+    const valores: [RegimeTributario, number][] = porRegime(dados).map(([nome, lista]) => [
         nome,
         lista.reduce((soma, item) => soma + item.total, 0) / lista.length,
     ]);
@@ -112,8 +123,7 @@ function renderLtv(dados: LinhaCarteira[]): void {
 }
 
 function renderDonut(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const totais: [string, number][] = Object.entries(grupos).map(([nome, lista]) => [
+    const totais: [RegimeTributario, number][] = porRegime(dados).map(([nome, lista]) => [
         nome,
         lista.reduce((soma, item) => soma + item.total, 0),
     ]);
@@ -149,8 +159,7 @@ function renderDonut(dados: LinhaCarteira[]): void {
 }
 
 function renderHonorarios(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const valores: [string, number, number][] = Object.entries(grupos).map(
+    const valores: [RegimeTributario, number, number][] = porRegime(dados).map(
         ([nome, lista]) => [
             nome,
             lista.reduce((soma, item) => soma + item.primeiro, 0) / lista.length,
@@ -228,11 +237,14 @@ function renderInsights(dados: LinhaCarteira[]): void {
 function empresasDaLista(): EmpresaDaLista[] {
     const palavras = termoDeBusca(obterSecao("financeiro").busca);
 
-    return empresas.filter((empresa) =>
-        combina(
-            `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status}`,
-            palavras,
-        ),
+    const regime = obterSecao("financeiro").regime;
+
+    return empresas.filter(
+        (empresa) =>
+            combina(
+                `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status} ${empresa.regime ?? ""}`,
+                palavras,
+            ) && regimeSelecionado(regime, empresa.regime ?? ""),
     );
 }
 
@@ -272,7 +284,7 @@ function renderFinanceiro(): void {
             ? `${plural(dados.length, "empresa analisada", "empresas analisadas")}`
             : "Nenhuma empresa encontrada"
     }${estado.busca.trim() ? ` · busca: “${escapar(estado.busca.trim())}”` : ""}${
-        estado.regime !== "Todos" ? ` · ${estado.regime}` : ""
+        regimeDoFiltro(estado.regime) !== "Todos" ? ` · ${regimeDoFiltro(estado.regime)}` : ""
     }</span>
   `;
 
@@ -285,7 +297,7 @@ function renderFinanceiro(): void {
     renderTabela();
 
     if (busca.value !== estado.busca) busca.value = estado.busca;
-    regime.value = estado.regime;
+    regime.value = regimeDoFiltro(estado.regime);
 }
 
 busca.addEventListener("input", () =>

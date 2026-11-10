@@ -66,9 +66,10 @@
         <label for="financeRegimeFilter">Regime tributário</label>
         <select id="financeRegimeFilter">
           <option value="Todos">Todos os regimes</option>
-          <option value="Simples Nacional">Simples Nacional</option>
           <option value="Lucro Presumido">Lucro Presumido</option>
-          <option value="Lucro Real">Lucro Real</option>
+          <option value="MEI">MEI</option>
+          <option value="Simples Nacional">Simples Nacional</option>
+          <option value="Pessoa Física">Pessoa Física</option>
         </select>
       </div>
       <button class="finance-clear" id="clearFinanceFilters">Limpar filtros</button>
