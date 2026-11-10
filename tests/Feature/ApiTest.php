@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Documento;
+use App\Models\Empresa;
+use App\Models\OmieApp;
 use App\Models\Pasta;
 use App\Models\Reuniao;
 use App\Models\User;
@@ -284,13 +286,33 @@ class ApiTest extends TestCase
             ->assertJsonPath('periodo', '2026-09');
     }
 
-    public function test_carteira_financeira(): void
+    public function test_carteira_financeira_lista_somente_empresa_integrada_ao_omie(): void
     {
         $this->autenticado()
             ->getJson('/api/financeiro')
             ->assertOk()
-            ->assertJsonCount(5)
-            ->assertJsonStructure([['nome', 'setor', 'socio', 'regime', 'meses', 'primeiro', 'atual', 'total']]);
+            ->assertJsonCount(0);
+
+        $empresa = Empresa::query()->where('nome', 'Empresa X')->firstOrFail();
+        $app = OmieApp::query()->create([
+            'nome' => 'HC Contábil',
+            'app_key' => 'chave-teste',
+            'app_secret' => 'segredo-teste',
+            'ativo' => true,
+        ]);
+        $empresa->update([
+            'omie_app_id' => $app->id,
+            'omie_codigo_cliente' => 424242,
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', 'empresaX')
+            ->assertJsonPath('0.nome', 'Empresa X')
+            ->assertJsonPath('0.total', 142600)
+            ->assertJsonMissing(['id' => 'empresaY']);
     }
 
     public function test_indice_de_pesquisa_vem_da_base_ao_vivo(): void

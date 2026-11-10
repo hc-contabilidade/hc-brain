@@ -8,10 +8,16 @@ use Illuminate\Http\JsonResponse;
 
 class FinanceiroController extends Controller
 {
-    /** A carteira consolidada: uma linha por empresa com relacionamento financeiro. */
+    /**
+     * Carteira do financeiro geral. Empresas de rascunho (Empresa X e as
+     * demais do seeder) têm honorários fictícios e ficam de fora: só entra
+     * quem já está vinculado a um app Omie e a um código de cliente.
+     */
     public function index(): JsonResponse
     {
         $carteira = Empresa::with(['socio', 'financeiro'])
+            ->whereNotNull('omie_app_id')
+            ->whereNotNull('omie_codigo_cliente')
             ->whereHas('financeiro')
             ->orderBy('created_at')
             ->get()
