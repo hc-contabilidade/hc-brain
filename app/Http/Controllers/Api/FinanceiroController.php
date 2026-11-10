@@ -36,4 +36,29 @@ class FinanceiroController extends Controller
 
         return response()->json($carteira);
     }
+
+    /**
+     * Lista de baixo do financeiro, no formato da automação: código, cliente
+     * e documento. Entram ativas e inativas. O status é o da última
+     * sincronização, então uma ativa que vira inativa muda aqui sozinha.
+     */
+    public function empresas(): JsonResponse
+    {
+        $empresas = Empresa::query()
+            ->whereNotNull('automacao_id')
+            ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
+            ->sortBy(fn (Empresa $empresa) => sprintf('%010d-%s', (int) $empresa->codigo, $empresa->nome))
+            ->values()
+            ->map(fn (Empresa $empresa) => [
+                'id' => $empresa->id,
+                'codigo' => $empresa->codigo,
+                'nome' => $empresa->nome,
+                'documento' => $empresa->documento,
+                'documentoTipo' => $empresa->documento_tipo,
+                'status' => $empresa->status,
+                'statusTag' => $empresa->status_tag,
+            ]);
+
+        return response()->json($empresas);
+    }
 }

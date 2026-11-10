@@ -138,8 +138,8 @@
     <div class="finance-table-panel">
       <div class="finance-table-head">
         <div>
-          <h2>Clientes analisados</h2>
-          <span class="muted">Indicadores consolidados por empresa.</span>
+          <h2>Empresas</h2>
+          <span class="muted">Ativas e inativas, como na automação. O status acompanha a sincronização.</span>
         </div>
         <span class="finance-count" id="financeCount">0 empresas</span>
       </div>
@@ -147,17 +147,15 @@
         <table class="finance-table">
           <thead>
             <tr>
-              <th>Empresa</th>
-              <th>Regime</th>
-              <th>Tempo de vida</th>
-              <th>1º honorário</th>
-              <th>Honorário atual</th>
-              <th>LTV / total arrecadado</th>
+              <th>Código</th>
+              <th>Cliente</th>
+              <th>CNPJ/CPF</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody id="financeTableBody">
             <tr>
-              <td colspan="6">
+              <td colspan="4">
                 <div class="estado-carregando">Carregando carteira…</div>
               </td>
             </tr>

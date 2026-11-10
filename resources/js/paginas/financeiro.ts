@@ -8,11 +8,13 @@
 import { ErroDeApi } from "../comum/api.ts";
 import {
     carregarCarteira,
+    carregarEmpresasDaLista,
     carregarOmieApps,
     excluirOmieApp,
     salvarOmieApp,
     COR_PADRAO_DO_GRAFICO,
     corDoRegime,
+    type EmpresaDaLista,
     type LinhaCarteira,
     type OmieAppResumo,
 } from "../dados/empresas.ts";
@@ -20,6 +22,7 @@ import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
 import { atualizarSecao, observarEstado, obterSecao } from "../comum/estado.ts";
 import { escapar, duracaoEmMeses, moeda, plural } from "../comum/formato.ts";
+import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
 type ValorFinanceiro = "primeiro" | "atual" | "total";
@@ -30,6 +33,7 @@ const busca = campo("financeEmpresaSearch");
 const regime = selecao("financeRegimeFilter");
 
 const carteira = await carregarCarteira();
+const empresas = await carregarEmpresasDaLista();
 
 function linhas(): LinhaCarteira[] {
     const estado = obterSecao("financeiro");
@@ -221,26 +225,40 @@ function renderInsights(dados: LinhaCarteira[]): void {
   `;
 }
 
-function renderTabela(dados: LinhaCarteira[]): void {
+function empresasDaLista(): EmpresaDaLista[] {
+    const palavras = termoDeBusca(obterSecao("financeiro").busca);
+
+    return empresas.filter((empresa) =>
+        combina(
+            `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status}`,
+            palavras,
+        ),
+    );
+}
+
+function renderTabela(): void {
+    const dados = empresasDaLista();
     porId("financeCount").textContent = plural(dados.length, "empresa", "empresas");
 
     porId("financeTableBody").innerHTML = dados.length
-        ? [...dados]
-              .sort((a, b) => a.nome.localeCompare(b.nome))
-              .map(
-                  (item) => `
-            <tr>
-              <td><strong>${escapar(item.nome)}</strong></td>
-              <td><span class="finance-regime">${item.regime}</span></td>
-              <td>${duracaoEmMeses(item.meses)}</td>
-              <td>${moeda(item.primeiro)}</td>
-              <td>${moeda(item.atual)}</td>
-              <td><strong>${moeda(item.total)}</strong></td>
+        ? dados
+              .map((empresa) => {
+                  const inativa = empresa.status === "Inativo";
+                  const documento = empresa.documento
+                      ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(empresa.documento)}</span>`
+                      : "—";
+
+                  return `
+            <tr class="${inativa ? "is-inativa" : ""}">
+              <td class="finance-codigo">${escapar(empresa.codigo ?? "—")}</td>
+              <td><a class="finance-cliente" href="${caminhoDaPagina("cliente", { id: empresa.id })}">${escapar(empresa.nome)}</a></td>
+              <td><div class="finance-doc">${documento}</div></td>
+              <td><span class="tag ${empresa.statusTag}">${escapar(empresa.status)}</span></td>
             </tr>
-          `,
-              )
+          `;
+              })
               .join("")
-        : `<tr><td colspan="6"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
+        : `<tr><td colspan="4"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
 }
 
 function renderFinanceiro(): void {
@@ -264,7 +282,7 @@ function renderFinanceiro(): void {
     renderHonorarios(dados);
     renderConcentracao(dados);
     renderInsights(dados);
-    renderTabela(dados);
+    renderTabela();
 
     if (busca.value !== estado.busca) busca.value = estado.busca;
     regime.value = estado.regime;

@@ -450,7 +450,7 @@
 .finance-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 760px;
+    min-width: 640px;
 }
 .finance-table th {
     position: sticky;
@@ -474,6 +474,33 @@
 }
 .finance-table tr:hover td {
     background: var(--surface-hover);
+}
+.finance-table tr.is-inativa td {
+    color: var(--texto-suave);
+}
+.finance-codigo {
+    width: 88px;
+    font-variant-numeric: tabular-nums;
+}
+.finance-cliente {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+.finance-cliente:hover {
+    text-decoration: underline;
+}
+.finance-doc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.finance-doc-tipo {
+    color: var(--texto-fraco);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 .finance-regime {
     display: inline-block;

@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use stdClass;
 
 /**
  * Traz as empresas do automacao-2-hc para a carteira do HC Brain.
@@ -76,6 +77,9 @@ class SincronizarEmpresas extends Command
             $empresas[] = [
                 'id' => $id,
                 'automacao_id' => $company->id,
+                'codigo' => $this->codigoDe($company),
+                'documento' => $this->documentoDe($company),
+                'documento_tipo' => $this->documentoTipoDe($company),
                 'nome' => $nome,
                 'setor' => $this->setor($company),
                 'status' => $status,
@@ -87,7 +91,10 @@ class SincronizarEmpresas extends Command
 
         DB::transaction(function () use ($empresas, $linhasSocio) {
             foreach (array_chunk($empresas, 500) as $lote) {
-                Empresa::upsert($lote, ['id'], ['automacao_id', 'nome', 'setor', 'status', 'status_tag']);
+                Empresa::upsert($lote, ['id'], [
+                    'automacao_id', 'codigo', 'documento', 'documento_tipo',
+                    'nome', 'setor', 'status', 'status_tag',
+                ]);
             }
 
             foreach (array_chunk($linhasSocio, 500) as $lote) {
@@ -110,10 +117,28 @@ class SincronizarEmpresas extends Command
      */
     private function companies(ConnectionInterface $origem): Collection
     {
-        return $origem->table('companies')
-            ->where('draft', false)
-            ->orderBy('id')
-            ->get(['id', 'code', 'name', 'trade_name', 'status', 'metier', 'segment_type', 'contract_start_date', 'deleted_at']);
+        $colunas = [
+            'id', 'code', 'name', 'trade_name', 'status', 'metier',
+            'segment_type', 'contract_start_date', 'deleted_at',
+        ];
+
+        try {
+            return $origem->table('companies')
+                ->where('draft', false)
+                ->orderBy('id')
+                ->get([...$colunas, 'document_number', 'document_type']);
+        } catch (QueryException) {
+            // O usuário de leitura pode não ter estas colunas. A lista segue
+            // sem CNPJ, e o status continua sendo atualizado.
+            return $origem->table('companies')
+                ->where('draft', false)
+                ->orderBy('id')
+                ->get($colunas)
+                ->each(function (stdClass $company): void {
+                    $company->document_number = null;
+                    $company->document_type = null;
+                });
+        }
     }
 
     /**
@@ -158,6 +183,28 @@ class SincronizarEmpresas extends Command
     private function nomeDe(object $company): string
     {
         return trim((string) $company->trade_name) ?: trim((string) $company->name);
+    }
+
+    private function codigoDe(object $company): ?string
+    {
+        $codigo = trim((string) $company->code);
+
+        return $codigo === '' ? null : $codigo;
+    }
+
+    private function documentoDe(object $company): ?string
+    {
+        $documento = preg_replace('/\D+/', '', (string) $company->document_number) ?? '';
+
+        return $documento === '' ? null : $documento;
+    }
+
+    /** @return 'CNPJ'|'CPF'|null */
+    private function documentoTipoDe(object $company): ?string
+    {
+        $tipo = strtoupper(trim((string) $company->document_type));
+
+        return in_array($tipo, ['CNPJ', 'CPF'], true) ? $tipo : null;
     }
 
     /**

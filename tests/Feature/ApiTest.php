@@ -315,6 +315,53 @@ class ApiTest extends TestCase
             ->assertJsonMissing(['id' => 'empresaY']);
     }
 
+    public function test_lista_do_financeiro_mostra_ativa_e_inativa_e_acompanha_a_troca(): void
+    {
+        Empresa::query()->create([
+            'id' => 'ruegg',
+            'automacao_id' => 1,
+            'codigo' => '1',
+            'nome' => 'RUEGG ODONTOLOGIA LTDA',
+            'documento' => '33152744000180',
+            'documento_tipo' => 'CNPJ',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        Empresa::query()->create([
+            'id' => 'margem',
+            'automacao_id' => 3,
+            'codigo' => '3',
+            'nome' => 'MARGEM PINTURAS E REFORMAS EM GERAL LTDA',
+            'documento' => '18045084000145',
+            'documento_tipo' => 'CNPJ',
+            'setor' => 'Construção',
+            'status' => 'Inativo',
+            'status_tag' => 'gray',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonCount(2)
+            ->assertJsonPath('0.codigo', '1')
+            ->assertJsonPath('0.status', 'Ativo')
+            ->assertJsonPath('0.documento', '33152744000180')
+            ->assertJsonPath('0.documentoTipo', 'CNPJ')
+            ->assertJsonPath('1.codigo', '3')
+            ->assertJsonPath('1.status', 'Inativo')
+            ->assertJsonMissing(['id' => 'empresaX']);
+
+        Empresa::query()->whereKey('ruegg')->update(['status' => 'Inativo', 'status_tag' => 'gray']);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonPath('0.id', 'ruegg')
+            ->assertJsonPath('0.status', 'Inativo')
+            ->assertJsonPath('0.statusTag', 'gray');
+    }
+
     public function test_indice_de_pesquisa_vem_da_base_ao_vivo(): void
     {
         $documento = Documento::query()->where('nome', 'Proposta comercial')->firstOrFail();

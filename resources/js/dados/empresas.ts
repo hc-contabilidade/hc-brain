@@ -188,6 +188,21 @@ export function carregarCarteira(): Promise<LinhaCarteira[]> {
     return obter<LinhaCarteira[]>("/financeiro");
 }
 
+/** Empresa da lista de baixo do financeiro, no formato da automação. */
+export interface EmpresaDaLista {
+    id: string;
+    codigo: string | null;
+    nome: string;
+    documento: string | null;
+    documentoTipo: "CNPJ" | "CPF" | null;
+    status: string;
+    statusTag: CorTag;
+}
+
+export function carregarEmpresasDaLista(): Promise<EmpresaDaLista[]> {
+    return obter<EmpresaDaLista[]>("/financeiro/empresas");
+}
+
 export async function salvarVinculoOmie(
     id: string,
     omieAppId: number | null,

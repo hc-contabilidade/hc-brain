@@ -35,6 +35,8 @@ class SincronizarEmpresasTest extends TestCase
             $table->string('code');
             $table->string('name');
             $table->string('trade_name')->nullable();
+            $table->string('document_number')->nullable();
+            $table->string('document_type')->nullable();
             $table->string('status')->default('ACTIVE');
             $table->string('metier')->nullable();
             $table->text('segment_type')->nullable();
@@ -106,7 +108,9 @@ class SincronizarEmpresasTest extends TestCase
     public function test_traz_a_empresa_com_status_setor_e_o_socio_administrador(): void
     {
         $companyId = $this->company([
+            'code' => '25',
             'trade_name' => 'Clínica Vida', 'status' => 'IN_OPENING',
+            'document_number' => '36.359.902/0001-66', 'document_type' => 'CNPJ',
             'metier' => 'Cardiologia', 'contract_start_date' => '2025-03-10',
         ]);
         $this->socio($companyId, 'Paulo Sócio', false, [['email' => 'paulo@vida.com.br']]);
@@ -120,6 +124,9 @@ class SincronizarEmpresasTest extends TestCase
         $empresa = Empresa::with('socio')->sole();
         $this->assertSame('clinica-vida', $empresa->id);
         $this->assertSame($companyId, $empresa->automacao_id);
+        $this->assertSame('25', $empresa->codigo);
+        $this->assertSame('36359902000166', $empresa->documento);
+        $this->assertSame('CNPJ', $empresa->documento_tipo);
         $this->assertSame('Clínica Vida', $empresa->nome);
         $this->assertSame('Cardiologia', $empresa->setor);
         $this->assertSame('Em abertura', $empresa->status);
@@ -147,14 +154,14 @@ class SincronizarEmpresasTest extends TestCase
         $this->artisan('hc:sincronizar-empresas')->assertSuccessful();
 
         DB::connection('automacao')->table('companies')->where('id', $companyId)
-            ->update(['trade_name' => 'Vida Saúde', 'status' => 'BLOCKED']);
+            ->update(['trade_name' => 'Vida Saúde', 'status' => 'INACTIVE']);
         $this->artisan('hc:sincronizar-empresas')->assertSuccessful();
 
         $empresa = Empresa::sole();
         $this->assertSame('clinica-vida', $empresa->id);
         $this->assertSame('Vida Saúde', $empresa->nome);
-        $this->assertSame('Bloqueado', $empresa->status);
-        $this->assertSame('red', $empresa->status_tag);
+        $this->assertSame('Inativo', $empresa->status);
+        $this->assertSame('gray', $empresa->status_tag);
     }
 
     public function test_rascunho_fica_de_fora_e_excluida_vem_marcada(): void
