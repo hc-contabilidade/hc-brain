@@ -46,6 +46,7 @@ class FinanceiroController extends Controller
     {
         $empresas = Empresa::query()
             ->whereNotNull('automacao_id')
+            ->with('financeiro:id,empresa_id,regime')
             ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
             ->sortBy(fn (Empresa $empresa) => sprintf('%010d-%s', (int) $empresa->codigo, $empresa->nome))
             ->values()
@@ -57,6 +58,7 @@ class FinanceiroController extends Controller
                 'documentoTipo' => $empresa->documento_tipo,
                 'status' => $empresa->status,
                 'statusTag' => $empresa->status_tag,
+                'regime' => $empresa->financeiro?->regime,
             ]);
 
         return response()->json($empresas);

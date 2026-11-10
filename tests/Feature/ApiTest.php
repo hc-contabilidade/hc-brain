@@ -317,7 +317,7 @@ class ApiTest extends TestCase
 
     public function test_lista_do_financeiro_mostra_ativa_e_inativa_e_acompanha_a_troca(): void
     {
-        Empresa::query()->create([
+        $ruegg = Empresa::query()->create([
             'id' => 'ruegg',
             'automacao_id' => 1,
             'codigo' => '1',
@@ -327,6 +327,17 @@ class ApiTest extends TestCase
             'setor' => 'Saúde',
             'status' => 'Ativo',
             'status_tag' => 'green',
+        ]);
+        $ruegg->financeiro()->create([
+            'regime' => 'MEI',
+            'desde' => '2024-01-01',
+            'primeiro' => 1000,
+            'atual' => 1500,
+            'total' => 8000,
+            'saldo' => 0,
+            'receber' => 0,
+            'despesas' => 0,
+            'margem' => 0,
         ]);
         Empresa::query()->create([
             'id' => 'margem',
@@ -348,7 +359,9 @@ class ApiTest extends TestCase
             ->assertJsonPath('0.status', 'Ativo')
             ->assertJsonPath('0.documento', '33152744000180')
             ->assertJsonPath('0.documentoTipo', 'CNPJ')
+            ->assertJsonPath('0.regime', 'MEI')
             ->assertJsonPath('1.codigo', '3')
+            ->assertJsonPath('1.regime', null)
             ->assertJsonPath('1.status', 'Inativo')
             ->assertJsonMissing(['id' => 'empresaX']);
 
