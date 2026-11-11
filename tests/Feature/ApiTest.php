@@ -394,6 +394,71 @@ class ApiTest extends TestCase
             ->assertJsonPath('0.statusTag', 'gray');
     }
 
+    public function test_lista_do_financeiro_completa_cnpj_pelo_codigo_da_empresa(): void
+    {
+        Empresa::query()->create([
+            'id' => 'planilha-aaf',
+            'codigo' => '1402',
+            'nome' => 'AAF REPRESENTACOES COMERCIAIS LTDA',
+            'documento' => '11222333000181',
+            'documento_tipo' => 'CNPJ',
+            'setor' => 'Comércio',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        Empresa::query()->create([
+            'id' => 'automacao-aaf',
+            'automacao_id' => 501,
+            'codigo' => '1402',
+            'nome' => 'AAF Comercial',
+            'setor' => 'Comércio',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'automacao-aaf',
+                'codigo' => '1402',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_lista_do_financeiro_completa_codigo_e_cnpj_pelo_nome_da_empresa(): void
+    {
+        Empresa::query()->create([
+            'id' => 'planilha-abcl',
+            'codigo' => '669',
+            'nome' => 'ABCL SERVICOS MEDICOS LTDA',
+            'documento' => '33444555000172',
+            'documento_tipo' => 'CNPJ',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        Empresa::query()->create([
+            'id' => 'automacao-abcl',
+            'automacao_id' => 502,
+            'nome' => 'ABCL Serviços Médicos LTDA',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'automacao-abcl',
+                'codigo' => '669',
+                'documento' => '33444555000172',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
     public function test_indice_de_pesquisa_vem_da_base_ao_vivo(): void
     {
         $documento = Documento::query()->where('nome', 'Proposta comercial')->firstOrFail();
