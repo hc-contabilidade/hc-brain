@@ -8,6 +8,7 @@ use App\Models\OmieApp;
 use App\Models\Pasta;
 use App\Models\Reuniao;
 use App\Models\User;
+use App\Support\ChaveDeEmpresa;
 use App\Support\GoogleAgenda;
 use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -410,7 +411,9 @@ class ApiTest extends TestCase
                         '8801' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '8801'],
                     ],
                     'porNome' => [
-                        'CLINICA EXEMPLO LTDA' => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '8802'],
+                        ChaveDeEmpresa::nome('Clínica Exemplo LTDA') => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '8802'],
+                        ChaveDeEmpresa::nome('A&E OLIVEIRA GESTAO PATRIMONIAL LTDA') => ['documento' => '55666777000190', 'tipo' => 'CNPJ', 'codigo' => '1489'],
+                        ChaveDeEmpresa::nome('PESSOA EXEMPLO') => ['documento' => '12345678901', 'tipo' => 'CPF', 'codigo' => '1500'],
                     ],
                 ];
             }
@@ -433,6 +436,22 @@ class ApiTest extends TestCase
             'status' => 'Ativo',
             'status_tag' => 'green',
         ]);
+        Empresa::query()->create([
+            'id' => 'financeiro-sem-ltda',
+            'automacao_id' => 1489,
+            'nome' => 'A&E OLIVEIRA GESTAO PATRIMONIAL',
+            'setor' => 'Serviços',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        Empresa::query()->create([
+            'id' => 'financeiro-com-prefixo',
+            'automacao_id' => 1500,
+            'nome' => '27.109.976 PESSOA EXEMPLO',
+            'setor' => 'Serviços',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
 
         $this->autenticado()
             ->getJson('/api/financeiro/empresas')
@@ -448,6 +467,18 @@ class ApiTest extends TestCase
                 'codigo' => '8802',
                 'documento' => '33444555000172',
                 'documentoTipo' => 'CNPJ',
+            ])
+            ->assertJsonFragment([
+                'id' => 'financeiro-sem-ltda',
+                'codigo' => '1489',
+                'documento' => '55666777000190',
+                'documentoTipo' => 'CNPJ',
+            ])
+            ->assertJsonFragment([
+                'id' => 'financeiro-com-prefixo',
+                'codigo' => '1500',
+                'documento' => '12345678901',
+                'documentoTipo' => 'CPF',
             ]);
     }
 

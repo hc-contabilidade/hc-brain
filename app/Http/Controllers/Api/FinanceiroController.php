@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
+use App\Support\ChaveDeEmpresa;
 use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class FinanceiroController extends Controller
 {
@@ -235,11 +235,9 @@ class FinanceiroController extends Controller
         return $encontrado[1];
     }
 
-    /** Mesma empresa escrita com acento, caixa ou "(código)" no fim continua batendo. */
+    /** Mesma empresa com acento, LTDA ou um número na frente continua batendo. */
     private function nomeChave(string $nome): string
     {
-        $semCodigo = preg_replace('/\s*\(\d+\)\s*$/u', '', $nome) ?? $nome;
-
-        return Str::of($semCodigo)->ascii()->upper()->squish()->toString();
+        return ChaveDeEmpresa::nome($nome);
     }
 }

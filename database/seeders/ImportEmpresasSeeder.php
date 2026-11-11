@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Empresa;
+use App\Support\ChaveDeEmpresa;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -266,9 +267,7 @@ class ImportEmpresasSeeder extends Seeder
     /** Igual à chave usada na lista do financeiro, para o nome da planilha bater. */
     private function nomeChaveDaPlanilha(string $nome): string
     {
-        $semCodigo = preg_replace('/\s*\(\d+\)\s*$/u', '', $nome) ?? $nome;
-
-        return Str::of($semCodigo)->ascii()->upper()->squish()->toString();
+        return ChaveDeEmpresa::nome($nome);
     }
 
     /**
