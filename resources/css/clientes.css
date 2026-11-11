@@ -54,8 +54,9 @@
 }
 
 .empresa-doc {
-    color: var(--texto-suave);
-    font-size: var(--texto-sm);
+    color: var(--texto-forte);
+    font-size: var(--texto-base);
+    font-weight: var(--peso-forte);
     font-variant-numeric: tabular-nums;
 }
 
@@ -211,12 +212,12 @@
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
     .empresa-list-item {
-        grid-template-columns: 36px minmax(0, 1fr) auto;
+        grid-template-columns: 36px minmax(0, 1fr) minmax(120px, auto) auto;
         gap: var(--esp-3);
         padding: var(--esp-3);
     }
 
-    .empresa-list-info {
+    .empresa-list-info:not(.empresa-list-doc) {
         display: none;
     }
 }

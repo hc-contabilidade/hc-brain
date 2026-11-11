@@ -29,6 +29,18 @@ class Empresa extends Model
 
     protected $keyType = 'string';
 
+    /** CNPJ 00.000.000/0000-00, CPF 000.000.000-00, ou traço quando ainda não há documento. */
+    public function documentoFormatado(): string
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $this->documento) ?? '';
+
+        return match (strlen($digitos)) {
+            14 => preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $digitos) ?: '—',
+            11 => preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $digitos) ?: '—',
+            default => $digitos !== '' ? $digitos : '—',
+        };
+    }
+
     public function omieApp(): BelongsTo
     {
         return $this->belongsTo(OmieApp::class);

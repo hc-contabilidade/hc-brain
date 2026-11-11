@@ -35,11 +35,14 @@
                 <span class="tag gray" id="detailSetor"></span>
                 <span class="tag green" id="detailStatus"></span>
               </div>
-              <p class="empresa-doc" id="detailDocumento"></p>
             </div>
           </div>
 
           <dl class="empresa-quick-stats">
+            <div>
+              <dt id="detailDocumentoRotulo">{{ $empresa->documento_tipo ?? 'CNPJ' }}</dt>
+              <dd class="empresa-doc-valor" id="detailDocumento">{{ $empresa->documentoFormatado() }}</dd>
+            </div>
             <div>
               <dt>Reuniões</dt>
               <dd id="detailReunioesCount">0</dd>

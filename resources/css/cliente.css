@@ -57,11 +57,10 @@
     gap: var(--esp-2);
 }
 
-.empresa-header .empresa-doc {
-    margin-top: var(--esp-2);
-    color: var(--texto-suave);
-    font-size: var(--texto-sm);
+.empresa-quick-stats dd.empresa-doc-valor {
+    font-size: var(--texto-md);
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
 }
 
 /* Cada estatística é um par rótulo/valor empilhado: com rótulo e número lado

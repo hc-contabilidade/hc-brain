@@ -91,9 +91,9 @@ function renderEmpresaListItem(empresa: Empresa): string {
           <strong>${escapar(empresa.nome)}</strong>
           <span class="tag ${empresa.statusTag}">${escapar(empresa.status)}</span>
         </span>
-        <span class="empresa-list-sub">${escapar(empresa.setor)}${empresa.documento ? ` • ${escapar(cnpjDa(empresa))}` : ""} • ${escapar(empresa.socio.nome)} — ${escapar(empresa.socio.cargo)}</span>
+        <span class="empresa-list-sub">${escapar(empresa.setor)} • ${escapar(empresa.documentoTipo ?? "CNPJ")} ${escapar(cnpjDa(empresa))} • ${escapar(empresa.socio.nome)} — ${escapar(empresa.socio.cargo)}</span>
       </span>
-      <span class="empresa-list-info">
+      <span class="empresa-list-info empresa-list-doc">
         <strong>${escapar(cnpjDa(empresa))}</strong>
         ${escapar(empresa.documentoTipo ?? "CNPJ/CPF")}
       </span>

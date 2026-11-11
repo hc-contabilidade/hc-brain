@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Empresa;
 use App\Models\User;
 use App\Support\Telas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,6 +47,34 @@ class TelasTest extends TestCase
             ->get('/clientes/empresaX')
             ->assertOk()
             ->assertSee('Empresa X');
+    }
+
+    public function test_detalhe_do_cliente_mostra_o_cnpj_no_cabecalho(): void
+    {
+        $this->seed();
+        $this->withoutVite();
+
+        $this->actingAs(User::firstOrFail())
+            ->get('/clientes/empresaX')
+            ->assertOk()
+            ->assertSee('CNPJ');
+
+        Empresa::query()->whereKey('empresaX')->update([
+            'documento' => '11222333000181',
+            'documento_tipo' => 'CNPJ',
+        ]);
+
+        $this->actingAs(User::firstOrFail())
+            ->get('/clientes/empresaX')
+            ->assertOk()
+            ->assertSee('11.222.333/0001-81');
+
+        $empresa = Empresa::query()->findOrFail('empresaX');
+        $empresa->documento = '12345678901';
+        $this->assertSame('123.456.789-01', $empresa->documentoFormatado());
+
+        $empresa->documento = null;
+        $this->assertSame('—', $empresa->documentoFormatado());
     }
 
     public function test_cliente_inexistente_responde_404(): void

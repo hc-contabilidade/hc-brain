@@ -164,9 +164,8 @@ function renderCabecalho(empresa: EmpresaDetalhada, reunioes: Reuniao[]): void {
     porId("detailAvatar").textContent = iniciais(empresa.nome);
     porId("detailNome").textContent = empresa.nome;
     porId("detailSetor").textContent = empresa.setor;
-    porId("detailDocumento").textContent = empresa.documento
-        ? `${empresa.documentoTipo ?? "CNPJ"} ${documento(empresa.documento)}`
-        : "CNPJ não informado";
+    porId("detailDocumentoRotulo").textContent = empresa.documentoTipo ?? "CNPJ";
+    porId("detailDocumento").textContent = empresa.documento ? documento(empresa.documento) : "—";
 
     const status = porId("detailStatus");
     status.textContent = empresa.status;
@@ -186,6 +185,7 @@ function renderSocio(empresa: EmpresaDetalhada): void {
         <span>${escapar(empresa.socio.cargo)}</span>
       </div>
     </div>
+    <div class="socio-field"><span>${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(empresa.documento ? documento(empresa.documento) : "—")}</span></div>
     <div class="socio-field"><span>E-mail</span><span>${escapar(empresa.socio.email)}</span></div>
     <div class="socio-field"><span>Telefone</span><span>${escapar(empresa.socio.telefone)}</span></div>
     <div class="socio-field"><span>Participação</span><span>${escapar(empresa.socio.participacao)}</span></div>
