@@ -18,6 +18,8 @@ class FinanceiroController extends Controller
      */
     public function index(): JsonResponse
     {
+        $planilha = app(ImportEmpresasSeeder::class)->mapaDeDocumentos();
+
         $carteira = Empresa::with(['socio', 'financeiro'])
             ->whereNotNull('omie_app_id')
             ->whereNotNull('omie_codigo_cliente')
@@ -26,7 +28,7 @@ class FinanceiroController extends Controller
             ->get()
             ->map(fn (Empresa $empresa) => [
                 'id' => $empresa->id,
-                'nome' => $empresa->nome,
+                'nome' => $this->nomeExibido($empresa, $planilha),
                 'setor' => $empresa->setor,
                 'socio' => $empresa->socio->nome,
                 'regime' => $empresa->financeiro->regime,
@@ -135,7 +137,7 @@ class FinanceiroController extends Controller
      *
      * @param  array<string, list<Empresa>>  $porCodigo
      * @param  array<string, Empresa>  $porNome
-     * @param  array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}  $planilha
+     * @param  array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome?: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome?: string}>}  $planilha
      */
     private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome, array $planilha): void
     {
@@ -151,24 +153,51 @@ class FinanceiroController extends Controller
             $empresa->documento_tipo = $doador->documento_tipo;
         }
 
-        if (blank($empresa->documento)) {
-            $daPlanilha = $codigo !== null ? ($planilha['porCodigo'][$codigo] ?? null) : null;
+        $daPlanilha = $this->linhaDaPlanilha($empresa, $planilha, $codigo);
 
-            if (! is_array($daPlanilha)) {
-                $daPlanilha = $planilha['porNome'][$this->nomeChave($empresa->nome)] ?? null;
+        if (is_array($daPlanilha)) {
+            if (filled($daPlanilha['nome'] ?? null)) {
+                $empresa->nome = $daPlanilha['nome'];
             }
 
-            if (is_array($daPlanilha) && filled($daPlanilha['documento'] ?? null)) {
+            if (blank($empresa->documento) && filled($daPlanilha['documento'] ?? null)) {
                 $empresa->documento = $daPlanilha['documento'];
                 $empresa->documento_tipo = $daPlanilha['tipo'] ?? null;
+            }
 
-                if ($codigo === null) {
-                    $codigo = $this->codigoNormalizado($daPlanilha['codigo'] ?? null);
-                }
+            if ($codigo === null) {
+                $codigo = $this->codigoNormalizado($daPlanilha['codigo'] ?? null);
             }
         }
 
         $empresa->codigo = $codigo;
+    }
+
+    /**
+     * @param  array{porCodigo?: array<string, array{documento?: ?string, tipo?: ?string, codigo?: string, nome?: string}>, porNome?: array<string, array{documento?: ?string, tipo?: ?string, codigo?: string, nome?: string}>}  $planilha
+     */
+    private function nomeExibido(Empresa $empresa, array $planilha): string
+    {
+        $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
+        $linha = $this->linhaDaPlanilha($empresa, $planilha, $codigo);
+        $nome = is_array($linha) ? ($linha['nome'] ?? null) : null;
+
+        return filled($nome) ? $nome : $empresa->nome;
+    }
+
+    /**
+     * @param  array{porCodigo?: array<string, array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}>, porNome?: array<string, array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}>}  $planilha
+     * @return array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}|null
+     */
+    private function linhaDaPlanilha(Empresa $empresa, array $planilha, ?string $codigo): ?array
+    {
+        if ($codigo !== null && is_array($planilha['porCodigo'][$codigo] ?? null)) {
+            return $planilha['porCodigo'][$codigo];
+        }
+
+        $peloNome = $planilha['porNome'][$this->nomeChave($empresa->nome)] ?? null;
+
+        return is_array($peloNome) ? $peloNome : null;
     }
 
     /**

@@ -172,10 +172,10 @@ class ImportEmpresasSeeder extends Seeder
     }
 
     /**
-     * CNPJ/CPF da planilha, pelo código da empresa e pela razão social.
-     * O financeiro usa este mapa quando a linha da automação ainda não tem documento.
+     * Código, CNPJ/CPF e razão social da planilha. O financeiro usa a razão
+     * social daqui para o nome ficar igual ao da planilha.
      *
-     * @return array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}
+     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
      */
     public function mapaDeDocumentos(): array
     {
@@ -192,7 +192,7 @@ class ImportEmpresasSeeder extends Seeder
         }
 
         try {
-            $chave = 'hc.mapa-cnpj.'.filemtime($caminho).'.'.filesize($caminho);
+            $chave = 'hc.mapa-empresa.v2.'.filemtime($caminho).'.'.filesize($caminho);
 
             return Cache::remember($chave, 86400, fn () => $this->lerMapaDeDocumentos($caminho));
         } catch (\Throwable) {
@@ -201,7 +201,7 @@ class ImportEmpresasSeeder extends Seeder
     }
 
     /**
-     * @return array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}
+     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
      */
     private function lerMapaDeDocumentos(string $caminho): array
     {
@@ -220,29 +220,34 @@ class ImportEmpresasSeeder extends Seeder
             }
 
             $documento = $this->documentoDe($cnpj);
-
-            if ($documento === null) {
-                continue;
-            }
-
             $item = [
                 'documento' => $documento,
                 'tipo' => $this->documentoTipoDe($documento),
                 'codigo' => $codigo ?? '',
+                'nome' => $razaoSocial,
             ];
 
-            if ($codigo !== null && ! isset($porCodigo[$codigo])) {
+            if ($codigo !== null && $this->itemDaPlanilhaMelhor($porCodigo[$codigo] ?? null, $item)) {
                 $porCodigo[$codigo] = $item;
             }
 
             $nome = $this->nomeChaveDaPlanilha($razaoSocial);
 
-            if ($nome !== '' && ! isset($porNome[$nome])) {
+            if ($nome !== '' && $this->itemDaPlanilhaMelhor($porNome[$nome] ?? null, $item)) {
                 $porNome[$nome] = $item;
             }
         }
 
         return ['porCodigo' => $porCodigo, 'porNome' => $porNome];
+    }
+
+    /**
+     * @param  array{documento: ?string, tipo: ?string, codigo: string, nome: string}|null  $atual
+     * @param  array{documento: ?string, tipo: ?string, codigo: string, nome: string}  $novo
+     */
+    private function itemDaPlanilhaMelhor(?array $atual, array $novo): bool
+    {
+        return $atual === null || (blank($atual['documento']) && filled($novo['documento']));
     }
 
     private function codigoDaPlanilha(mixed $codigo): ?string

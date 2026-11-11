@@ -408,12 +408,12 @@ class ApiTest extends TestCase
             {
                 return [
                     'porCodigo' => [
-                        '8801' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '8801'],
+                        '8801' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '8801', 'nome' => 'EMPRESA 8801 DA PLANILHA LTDA'],
                     ],
                     'porNome' => [
-                        ChaveDeEmpresa::nome('Clínica Exemplo LTDA') => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '8802'],
-                        ChaveDeEmpresa::nome('A&E OLIVEIRA GESTAO PATRIMONIAL LTDA') => ['documento' => '55666777000190', 'tipo' => 'CNPJ', 'codigo' => '1489'],
-                        ChaveDeEmpresa::nome('PESSOA EXEMPLO') => ['documento' => '12345678901', 'tipo' => 'CPF', 'codigo' => '1500'],
+                        ChaveDeEmpresa::nome('Clínica Exemplo LTDA') => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '8802', 'nome' => 'CLÍNICA EXEMPLO LTDA'],
+                        ChaveDeEmpresa::nome('A&E OLIVEIRA GESTAO PATRIMONIAL LTDA') => ['documento' => '55666777000190', 'tipo' => 'CNPJ', 'codigo' => '1489', 'nome' => 'A&E OLIVEIRA GESTAO PATRIMONIAL LTDA'],
+                        ChaveDeEmpresa::nome('PESSOA EXEMPLO') => ['documento' => '12345678901', 'tipo' => 'CPF', 'codigo' => '1500', 'nome' => 'PESSOA EXEMPLO'],
                     ],
                 ];
             }
@@ -458,24 +458,28 @@ class ApiTest extends TestCase
             ->assertOk()
             ->assertJsonFragment([
                 'id' => 'financeiro-com-codigo',
+                'nome' => 'EMPRESA 8801 DA PLANILHA LTDA',
                 'codigo' => '8801',
                 'documento' => '11222333000181',
                 'documentoTipo' => 'CNPJ',
             ])
             ->assertJsonFragment([
                 'id' => 'financeiro-pelo-nome',
+                'nome' => 'CLÍNICA EXEMPLO LTDA',
                 'codigo' => '8802',
                 'documento' => '33444555000172',
                 'documentoTipo' => 'CNPJ',
             ])
             ->assertJsonFragment([
                 'id' => 'financeiro-sem-ltda',
+                'nome' => 'A&E OLIVEIRA GESTAO PATRIMONIAL LTDA',
                 'codigo' => '1489',
                 'documento' => '55666777000190',
                 'documentoTipo' => 'CNPJ',
             ])
             ->assertJsonFragment([
                 'id' => 'financeiro-com-prefixo',
+                'nome' => 'PESSOA EXEMPLO',
                 'codigo' => '1500',
                 'documento' => '12345678901',
                 'documentoTipo' => 'CPF',
