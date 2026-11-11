@@ -23,7 +23,7 @@
       <div class="document-search">
         <span class="search-icon"><i data-lucide="search"></i></span>
         <label class="sr-only" for="empresaSearch">Pesquisar empresa</label>
-        <input id="empresaSearch" autocomplete="off" placeholder="Pesquisar empresa ou sócio..." />
+        <input id="empresaSearch" autocomplete="off" placeholder="Pesquisar empresa, sócio ou CNPJ..." />
       </div>
 
       <div class="view-toggle" id="empresaViewToggle">

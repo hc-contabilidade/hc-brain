@@ -19,7 +19,7 @@ import {
     obterSecao,
     type VisualizacaoLista,
 } from "../comum/estado.ts";
-import { escapar, iniciais, numero } from "../comum/formato.ts";
+import { documento, escapar, iniciais, numero } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
@@ -37,7 +37,7 @@ const LOTE = 60;
 const empresas = (await carregarEmpresas()).map((empresa) => ({
     empresa,
     texto: textoDeBusca(
-        `${empresa.nome} ${empresa.setor} ${empresa.socio.nome} ${empresa.status}`,
+        `${empresa.nome} ${empresa.setor} ${empresa.documento ?? ""} ${empresa.socio.nome} ${empresa.status}`,
     ),
 }));
 
@@ -52,6 +52,10 @@ function empresasFiltradas(): Empresa[] {
         .map(({ empresa }) => empresa);
 }
 
+function cnpjDa(empresa: Empresa): string {
+    return empresa.documento ? documento(empresa.documento) : "—";
+}
+
 function renderEmpresaCard(empresa: Empresa): string {
     return `
     <a class="empresa-card" href="${caminhoDaPagina("cliente", { id: empresa.id })}">
@@ -62,6 +66,7 @@ function renderEmpresaCard(empresa: Empresa): string {
 
       <h3>${escapar(empresa.nome)}</h3>
       <span class="empresa-setor">${escapar(empresa.setor)}</span>
+      <span class="empresa-doc">${escapar(empresa.documentoTipo ?? "CNPJ")} ${escapar(cnpjDa(empresa))}</span>
 
       <div class="empresa-socio-line">
         <strong>${escapar(empresa.socio.nome)}</strong>
@@ -86,7 +91,11 @@ function renderEmpresaListItem(empresa: Empresa): string {
           <strong>${escapar(empresa.nome)}</strong>
           <span class="tag ${empresa.statusTag}">${escapar(empresa.status)}</span>
         </span>
-        <span class="empresa-list-sub">${escapar(empresa.setor)} • ${escapar(empresa.socio.nome)} — ${escapar(empresa.socio.cargo)}</span>
+        <span class="empresa-list-sub">${escapar(empresa.setor)}${empresa.documento ? ` • ${escapar(cnpjDa(empresa))}` : ""} • ${escapar(empresa.socio.nome)} — ${escapar(empresa.socio.cargo)}</span>
+      </span>
+      <span class="empresa-list-info">
+        <strong>${escapar(cnpjDa(empresa))}</strong>
+        ${escapar(empresa.documentoTipo ?? "CNPJ/CPF")}
       </span>
       <span class="empresa-list-info">
         <strong>${empresa.totalReunioes}</strong>

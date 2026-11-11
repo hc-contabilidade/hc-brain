@@ -23,6 +23,8 @@ class EmpresaResource extends JsonResource
             'id' => $this->id,
             'nome' => $this->nome,
             'setor' => $this->setor,
+            'documento' => $this->documento,
+            'documentoTipo' => $this->documento_tipo,
             'status' => $this->status,
             'statusTag' => $this->status_tag,
             'omieAppId' => $this->omie_app_id,

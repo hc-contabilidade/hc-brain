@@ -48,6 +48,8 @@ export interface Empresa {
     id: string;
     nome: string;
     setor: string;
+    documento: string | null;
+    documentoTipo: "CNPJ" | "CPF" | null;
     status: string;
     statusTag: CorTag;
     /** App Omie + código do cliente; null se ainda não vinculado. */

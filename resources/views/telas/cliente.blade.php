@@ -35,6 +35,7 @@
                 <span class="tag gray" id="detailSetor"></span>
                 <span class="tag green" id="detailStatus"></span>
               </div>
+              <p class="empresa-doc" id="detailDocumento"></p>
             </div>
           </div>
 

@@ -22,7 +22,7 @@ import { tagDoStatus, tagDoTipoDeReuniao, type Reuniao } from "../dados/reunioes
 import { aparenciaPorTipo, type ConteudoTreinamento } from "../dados/treinamentos.ts";
 import { campo, dado, porId, porSeletor, selecao, talvez, todos } from "../comum/dom.ts";
 import { atualizarSecao } from "../comum/estado.ts";
-import { duracaoEmMeses, escapar, iniciais, moeda } from "../comum/formato.ts";
+import { documento, duracaoEmMeses, escapar, iniciais, moeda } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { openMeetingModal, showModal } from "../comum/modal.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
@@ -164,6 +164,9 @@ function renderCabecalho(empresa: EmpresaDetalhada, reunioes: Reuniao[]): void {
     porId("detailAvatar").textContent = iniciais(empresa.nome);
     porId("detailNome").textContent = empresa.nome;
     porId("detailSetor").textContent = empresa.setor;
+    porId("detailDocumento").textContent = empresa.documento
+        ? `${empresa.documentoTipo ?? "CNPJ"} ${documento(empresa.documento)}`
+        : "CNPJ não informado";
 
     const status = porId("detailStatus");
     status.textContent = empresa.status;

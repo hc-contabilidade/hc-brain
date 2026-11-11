@@ -54,7 +54,7 @@ class ApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(5, 'data')
             ->assertJsonStructure([
-                'data' => [['id', 'nome', 'setor', 'statusTag', 'socio', 'totalReunioes']],
+                'data' => [['id', 'nome', 'setor', 'documento', 'documentoTipo', 'statusTag', 'socio', 'totalReunioes']],
             ]);
     }
 

@@ -53,6 +53,12 @@
     font-size: var(--texto-base);
 }
 
+.empresa-doc {
+    color: var(--texto-suave);
+    font-size: var(--texto-sm);
+    font-variant-numeric: tabular-nums;
+}
+
 .empresa-socio-line {
     padding-top: var(--esp-3);
     margin-top: var(--esp-2);
@@ -99,8 +105,8 @@
 .empresa-list-item {
     display: grid;
     grid-template-columns:
-        36px minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(140px, 0.8fr)
-        auto;
+        36px minmax(220px, 1.5fr) minmax(150px, 0.9fr) minmax(110px, 0.7fr)
+        minmax(140px, 0.8fr) auto;
     align-items: center;
     gap: var(--esp-4);
     min-height: 72px;
