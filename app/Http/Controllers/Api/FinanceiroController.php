@@ -51,13 +51,14 @@ class FinanceiroController extends Controller
                 $query->whereNotNull('codigo')->orWhereNotNull('documento');
             })
             ->get(['id', 'nome', 'codigo', 'documento', 'documento_tipo']);
+        [$porCodigo, $porNome] = $this->indiceDeCadastros($cadastros);
 
         $empresas = Empresa::query()
             ->whereNotNull('automacao_id')
             ->with('financeiro:id,empresa_id,regime,desde,primeiro,atual,total')
             ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
-            ->map(function (Empresa $empresa) use ($cadastros) {
-                $this->completarCodigoEDocumento($empresa, $cadastros);
+            ->map(function (Empresa $empresa) use ($porCodigo, $porNome) {
+                $this->completarCodigoEDocumento($empresa, $porCodigo, $porNome);
 
                 return $empresa;
             })
@@ -82,18 +83,61 @@ class FinanceiroController extends Controller
     }
 
     /**
+     * Uma passada só. Sem isso a lista comparava cada empresa com a carteira
+     * inteira e o financeiro passava do tempo de resposta.
+     *
+     * @param  Collection<int, Empresa>  $cadastros
+     * @return array{0: array<string, list<Empresa>>, 1: array<string, Empresa>}
+     */
+    private function indiceDeCadastros(Collection $cadastros): array
+    {
+        $porCodigo = [];
+        $porNome = [];
+
+        foreach ($cadastros as $cadastro) {
+            $codigo = $this->codigoNormalizado($cadastro->codigo);
+
+            if ($codigo !== null && filled($cadastro->documento)) {
+                $porCodigo[$codigo][] = $cadastro;
+            }
+
+            $nome = $this->nomeChave($cadastro->nome);
+
+            if ($nome === '') {
+                continue;
+            }
+
+            $porNome[$nome] = $this->cadastroMaisCompleto($porNome[$nome] ?? null, $cadastro);
+        }
+
+        return [$porCodigo, $porNome];
+    }
+
+    private function cadastroMaisCompleto(?Empresa $atual, Empresa $cadastro): Empresa
+    {
+        if (! $atual instanceof Empresa) {
+            return $cadastro;
+        }
+
+        $pontos = fn (Empresa $empresa): int => (filled($empresa->codigo) ? 1 : 0) + (filled($empresa->documento) ? 2 : 0);
+
+        return $pontos($cadastro) > $pontos($atual) ? $cadastro : $atual;
+    }
+
+    /**
      * O código e o CNPJ nascem na lista de empresas (planilha ou automação).
      * A cópia que entrou pelo automacao às vezes fica sem um dos dois: o
      * código some do nome fantasia e o CNPJ fica na outra linha, a da razão
      * social. Aqui os dois se encontram de novo, pelo código e, se ele
      * também faltar, pelo nome.
      *
-     * @param  Collection<int, Empresa>  $cadastros
+     * @param  array<string, list<Empresa>>  $porCodigo
+     * @param  array<string, Empresa>  $porNome
      */
-    private function completarCodigoEDocumento(Empresa $empresa, Collection $cadastros): void
+    private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome): void
     {
         $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
-        $doador = $this->doador($empresa, $cadastros, $codigo);
+        $doador = $this->doador($empresa, $porCodigo, $porNome, $codigo);
 
         if ($codigo === null && $doador !== null) {
             $codigo = $this->codigoNormalizado($doador->codigo);
@@ -108,45 +152,39 @@ class FinanceiroController extends Controller
     }
 
     /**
-     * @param  Collection<int, Empresa>  $cadastros
+     * @param  array<string, list<Empresa>>  $porCodigo
+     * @param  array<string, Empresa>  $porNome
      */
-    private function doador(Empresa $empresa, Collection $cadastros, ?string $codigo): ?Empresa
+    private function doador(Empresa $empresa, array $porCodigo, array $porNome, ?string $codigo): ?Empresa
     {
-        $doador = null;
-
         if ($codigo !== null) {
-            foreach ($cadastros as $candidato) {
-                if ($candidato->id === $empresa->id || $this->codigoNormalizado($candidato->codigo) !== $codigo) {
+            $doador = null;
+            $nome = $this->nomeChave($empresa->nome);
+
+            foreach ($porCodigo[$codigo] ?? [] as $candidato) {
+                if ($candidato->id === $empresa->id) {
                     continue;
                 }
 
-                if (blank($candidato->documento)) {
-                    continue;
-                }
+                $doador = $candidato;
 
-                $mesmoNome = $this->nomeChave($candidato->nome) === $this->nomeChave($empresa->nome);
-
-                if ($doador === null || $mesmoNome) {
-                    $doador = $candidato;
-                }
-
-                if ($mesmoNome) {
+                if ($this->nomeChave($candidato->nome) === $nome) {
                     return $candidato;
                 }
             }
+
+            if ($doador !== null) {
+                return $doador;
+            }
         }
 
-        if ($doador !== null) {
-            return $doador;
+        $peloNome = $porNome[$this->nomeChave($empresa->nome)] ?? null;
+
+        if ($peloNome instanceof Empresa && $peloNome->id !== $empresa->id) {
+            return $peloNome;
         }
 
-        $peloNome = $cadastros->first(function (Empresa $candidato) use ($empresa) {
-            return $candidato->id !== $empresa->id
-                && $this->nomeChave($candidato->nome) === $this->nomeChave($empresa->nome)
-                && (filled($candidato->codigo) || filled($candidato->documento));
-        });
-
-        return $peloNome instanceof Empresa ? $peloNome : null;
+        return null;
     }
 
     private function codigoNormalizado(mixed $codigo): ?string
