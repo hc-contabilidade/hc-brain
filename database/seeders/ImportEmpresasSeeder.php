@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Empresa;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -167,6 +168,107 @@ class ImportEmpresasSeeder extends Seeder
                 DB::table('empresas')->where('id', $atualizacao['id'])->update($atualizacao['dados']);
             }
         });
+    }
+
+    /**
+     * CNPJ/CPF da planilha, pelo código da empresa e pela razão social.
+     * O financeiro usa este mapa quando a linha da automação ainda não tem documento.
+     *
+     * @return array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}
+     */
+    public function mapaDeDocumentos(): array
+    {
+        $vazio = ['porCodigo' => [], 'porNome' => []];
+
+        if (! config('hc.completar_cnpj_planilha')) {
+            return $vazio;
+        }
+
+        $caminho = storage_path('app/empresas.xlsx');
+
+        if (! is_file($caminho) || ! class_exists(IOFactory::class)) {
+            return $vazio;
+        }
+
+        try {
+            $chave = 'hc.mapa-cnpj.'.filemtime($caminho).'.'.filesize($caminho);
+
+            return Cache::remember($chave, 86400, fn () => $this->lerMapaDeDocumentos($caminho));
+        } catch (\Throwable) {
+            return $vazio;
+        }
+    }
+
+    /**
+     * @return array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}
+     */
+    private function lerMapaDeDocumentos(string $caminho): array
+    {
+        $reader = IOFactory::createReaderForFile($caminho);
+        $reader->setReadDataOnly(true);
+        $planilha = $reader->load($caminho);
+        $porCodigo = [];
+        $porNome = [];
+
+        foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, $cnpj, $razaoSocial]) {
+            $razaoSocial = trim((string) $razaoSocial);
+            $codigo = $this->codigoDaPlanilha($codigo);
+
+            if ($razaoSocial === '' || $razaoSocial === self::RASCUNHO) {
+                continue;
+            }
+
+            $documento = $this->documentoDe($cnpj);
+
+            if ($documento === null) {
+                continue;
+            }
+
+            $item = [
+                'documento' => $documento,
+                'tipo' => $this->documentoTipoDe($documento),
+                'codigo' => $codigo ?? '',
+            ];
+
+            if ($codigo !== null && ! isset($porCodigo[$codigo])) {
+                $porCodigo[$codigo] = $item;
+            }
+
+            $nome = $this->nomeChaveDaPlanilha($razaoSocial);
+
+            if ($nome !== '' && ! isset($porNome[$nome])) {
+                $porNome[$nome] = $item;
+            }
+        }
+
+        return ['porCodigo' => $porCodigo, 'porNome' => $porNome];
+    }
+
+    private function codigoDaPlanilha(mixed $codigo): ?string
+    {
+        if (is_int($codigo) || is_float($codigo)) {
+            $codigo = sprintf('%.0f', (float) $codigo);
+        }
+
+        $codigo = trim((string) $codigo);
+
+        if ($codigo === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d+\.0+$/', $codigo) === 1) {
+            return (string) (int) $codigo;
+        }
+
+        return $codigo;
+    }
+
+    /** Igual à chave usada na lista do financeiro, para o nome da planilha bater. */
+    private function nomeChaveDaPlanilha(string $nome): string
+    {
+        $semCodigo = preg_replace('/\s*\(\d+\)\s*$/u', '', $nome) ?? $nome;
+
+        return Str::of($semCodigo)->ascii()->upper()->squish()->toString();
     }
 
     /**

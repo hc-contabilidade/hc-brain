@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
+use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -52,13 +53,14 @@ class FinanceiroController extends Controller
             })
             ->get(['id', 'nome', 'codigo', 'documento', 'documento_tipo']);
         [$porCodigo, $porNome] = $this->indiceDeCadastros($cadastros);
+        $planilha = app(ImportEmpresasSeeder::class)->mapaDeDocumentos();
 
         $empresas = Empresa::query()
             ->whereNotNull('automacao_id')
             ->with('financeiro:id,empresa_id,regime,desde,primeiro,atual,total')
             ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
-            ->map(function (Empresa $empresa) use ($porCodigo, $porNome) {
-                $this->completarCodigoEDocumento($empresa, $porCodigo, $porNome);
+            ->map(function (Empresa $empresa) use ($porCodigo, $porNome, $planilha) {
+                $this->completarCodigoEDocumento($empresa, $porCodigo, $porNome, $planilha);
 
                 return $empresa;
             })
@@ -133,8 +135,9 @@ class FinanceiroController extends Controller
      *
      * @param  array<string, list<Empresa>>  $porCodigo
      * @param  array<string, Empresa>  $porNome
+     * @param  array{porCodigo: array<string, array{documento: string, tipo: ?string, codigo: string}>, porNome: array<string, array{documento: string, tipo: ?string, codigo: string}>}  $planilha
      */
-    private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome): void
+    private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome, array $planilha): void
     {
         $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
         $doador = $this->doador($empresa, $porCodigo, $porNome, $codigo);
@@ -146,6 +149,23 @@ class FinanceiroController extends Controller
         if (blank($empresa->documento) && $doador !== null && filled($doador->documento)) {
             $empresa->documento = $doador->documento;
             $empresa->documento_tipo = $doador->documento_tipo;
+        }
+
+        if (blank($empresa->documento)) {
+            $daPlanilha = $codigo !== null ? ($planilha['porCodigo'][$codigo] ?? null) : null;
+
+            if (! is_array($daPlanilha)) {
+                $daPlanilha = $planilha['porNome'][$this->nomeChave($empresa->nome)] ?? null;
+            }
+
+            if (is_array($daPlanilha) && filled($daPlanilha['documento'] ?? null)) {
+                $empresa->documento = $daPlanilha['documento'];
+                $empresa->documento_tipo = $daPlanilha['tipo'] ?? null;
+
+                if ($codigo === null) {
+                    $codigo = $this->codigoNormalizado($daPlanilha['codigo'] ?? null);
+                }
+            }
         }
 
         $empresa->codigo = $codigo;

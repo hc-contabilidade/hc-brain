@@ -9,6 +9,7 @@ use App\Models\Pasta;
 use App\Models\Reuniao;
 use App\Models\User;
 use App\Support\GoogleAgenda;
+use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +26,8 @@ class ApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        config(['hc.completar_cnpj_planilha' => false]);
 
         $this->seed();
     }
@@ -392,6 +395,60 @@ class ApiTest extends TestCase
             ->assertJsonPath('0.id', 'ruegg')
             ->assertJsonPath('0.status', 'Inativo')
             ->assertJsonPath('0.statusTag', 'gray');
+    }
+
+    public function test_lista_do_financeiro_usa_o_cnpj_da_planilha_pelo_codigo(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(): array
+            {
+                return [
+                    'porCodigo' => [
+                        '8801' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '8801'],
+                    ],
+                    'porNome' => [
+                        'CLINICA EXEMPLO LTDA' => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '8802'],
+                    ],
+                ];
+            }
+        });
+
+        Empresa::query()->create([
+            'id' => 'financeiro-com-codigo',
+            'automacao_id' => 8801,
+            'codigo' => '8801',
+            'nome' => 'Empresa do financeiro',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        Empresa::query()->create([
+            'id' => 'financeiro-pelo-nome',
+            'automacao_id' => 8802,
+            'nome' => 'Clínica Exemplo LTDA',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'financeiro-com-codigo',
+                'codigo' => '8801',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ])
+            ->assertJsonFragment([
+                'id' => 'financeiro-pelo-nome',
+                'codigo' => '8802',
+                'documento' => '33444555000172',
+                'documentoTipo' => 'CNPJ',
+            ]);
     }
 
     public function test_lista_do_financeiro_completa_cnpj_pelo_codigo_da_empresa(): void
