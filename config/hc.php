@@ -20,6 +20,13 @@ return [
     'senha_semeada' => env('HC_SENHA_SEMEADA') ?: '123456',
 
     /*
+    | A planilha da carteira guarda o CNPJ que o usuário de leitura da
+    | automação não consegue ver. A sincronização completa o que ficou vazio.
+    | Os testes da automação desligam isto para não depender da planilha real.
+    */
+    'completar_cnpj_planilha' => true,
+
+    /*
     | O acesso que abre um ambiente recém-publicado. Lá o seeder dá senhas
     | aleatórias de propósito, e num servidor sem terminal — o Render é um —
     | o ambiente é o único caminho para a primeira entrada. Enquanto estas

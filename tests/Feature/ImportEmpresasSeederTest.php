@@ -146,4 +146,24 @@ class ImportEmpresasSeederTest extends TestCase
         $this->assertSame('CNPJ', $cadastrada->documento_tipo);
         $this->assertDatabaseCount('socios', 2);
     }
+
+    public function test_preenche_cnpj_pelo_codigo_quando_o_nome_da_automacao_difere(): void
+    {
+        Empresa::query()->create([
+            'id' => 'shefa',
+            'automacao_id' => 10,
+            'nome' => 'SHEFA CLINICA (952)',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+        $this->planilha([[952, 'CLINICA VIDA LTDA', 'Ativo']]);
+
+        $this->seed(ImportEmpresasSeeder::class);
+
+        $empresa = Empresa::query()->find('shefa');
+        $this->assertSame('952', $empresa->codigo);
+        $this->assertSame('00000000000100', $empresa->documento);
+        $this->assertSame('CNPJ', $empresa->documento_tipo);
+    }
 }

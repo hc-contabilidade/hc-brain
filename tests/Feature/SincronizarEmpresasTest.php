@@ -24,7 +24,10 @@ class SincronizarEmpresasTest extends TestCase
     {
         parent::setUp();
 
-        config(['database.connections.automacao' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]);
+        config([
+            'database.connections.automacao' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
+            'hc.completar_cnpj_planilha' => false,
+        ]);
         DB::purge('automacao');
 
         $schema = Schema::connection('automacao');
@@ -217,6 +220,37 @@ class SincronizarEmpresasTest extends TestCase
         $this->assertNull($empresa->documento);
         $this->assertSame('Inativo', $empresa->status);
         $this->assertSame('gray', $empresa->status_tag);
+    }
+
+    public function test_sem_colunas_de_documento_nao_apaga_cnpj_gravado(): void
+    {
+        Schema::connection('automacao')->table('companies', function (Blueprint $table) {
+            $table->dropColumn(['document_number', 'document_type']);
+        });
+
+        $companyId = $this->company([
+            'code' => '25',
+            'trade_name' => 'Clínica Vida',
+            'status' => 'ACTIVE',
+        ]);
+        Empresa::query()->create([
+            'id' => 'clinica-vida',
+            'automacao_id' => $companyId,
+            'codigo' => '25',
+            'nome' => 'Clínica Vida',
+            'documento' => '36359902000166',
+            'documento_tipo' => 'CNPJ',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->artisan('hc:sincronizar-empresas')->assertSuccessful();
+
+        $empresa = Empresa::query()->find('clinica-vida');
+        $this->assertSame('36359902000166', $empresa->documento);
+        $this->assertSame('CNPJ', $empresa->documento_tipo);
+        $this->assertSame('Ativo', $empresa->status);
     }
 
     public function test_falha_sem_gravar_nada_quando_o_banco_da_automacao_nao_responde(): void

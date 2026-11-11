@@ -129,6 +129,47 @@ class ImportEmpresasSeeder extends Seeder
     }
 
     /**
+     * Preenche CNPJ/CPF vazio pelo código da planilha, mesmo quando o nome
+     * no Brain é o fantasia da automação e não a razão social.
+     */
+    public function completarDocumentos(): void
+    {
+        $filePath = storage_path('app/empresas.xlsx');
+
+        if (! is_file($filePath)) {
+            return;
+        }
+
+        $reader = IOFactory::createReaderForFile($filePath);
+        $reader->setReadDataOnly(true);
+        $planilha = $reader->load($filePath);
+        $documentosPorNome = [];
+
+        foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, $cnpj, $razaoSocial]) {
+            $razaoSocial = trim((string) $razaoSocial);
+            $codigo = trim((string) $codigo);
+
+            if ($razaoSocial === '' || $razaoSocial === self::RASCUNHO) {
+                continue;
+            }
+
+            $documento = $this->documentoDe($cnpj);
+            $this->lembrarDocumento($documentosPorNome, $razaoSocial, $codigo, $documento);
+            if ($codigo !== '') {
+                $this->lembrarDocumento($documentosPorNome, "{$razaoSocial} ({$codigo})", $codigo, $documento);
+            }
+        }
+
+        $atualizacoes = $this->documentosEmFalta($documentosPorNome, now());
+
+        DB::transaction(function () use ($atualizacoes) {
+            foreach ($atualizacoes as $atualizacao) {
+                DB::table('empresas')->where('id', $atualizacao['id'])->update($atualizacao['dados']);
+            }
+        });
+    }
+
+    /**
      * Só as colunas usadas, sem formatação nem fórmulas: é o que mantém a
      * leitura rápida mesmo com a carteira inteira na planilha.
      *
@@ -259,19 +300,32 @@ class ImportEmpresasSeeder extends Seeder
             return [];
         }
 
+        $porCodigo = [];
+        foreach ($documentosPorNome as $linha) {
+            if ($linha['codigo'] !== '' && $linha['documento'] !== null && ! isset($porCodigo[$linha['codigo']])) {
+                $porCodigo[$linha['codigo']] = $linha['documento'];
+            }
+        }
+
         $atualizacoes = [];
 
-        foreach (Empresa::query()->whereIn('nome', array_keys($documentosPorNome))->get(['id', 'nome', 'codigo', 'documento']) as $empresa) {
-            $linha = $documentosPorNome[$empresa->nome];
+        foreach (Empresa::query()->get(['id', 'nome', 'codigo', 'documento']) as $empresa) {
+            $codigo = filled($empresa->codigo) ? trim((string) $empresa->codigo) : $this->codigoNoNome($empresa->nome);
+            $linha = $documentosPorNome[$empresa->nome] ?? null;
+            $documento = is_array($linha) ? $linha['documento'] : null;
+            if ($documento === null && $codigo !== null) {
+                $documento = $porCodigo[$codigo] ?? null;
+            }
+            $codigoPlanilha = is_array($linha) ? $linha['codigo'] : $codigo;
             $dados = [];
 
-            if (blank($empresa->codigo) && $linha['codigo'] !== '') {
-                $dados['codigo'] = $linha['codigo'];
+            if (blank($empresa->codigo) && filled($codigoPlanilha)) {
+                $dados['codigo'] = $codigoPlanilha;
             }
 
-            if (blank($empresa->documento) && $linha['documento'] !== null) {
-                $dados['documento'] = $linha['documento'];
-                $dados['documento_tipo'] = $this->documentoTipoDe($linha['documento']);
+            if (blank($empresa->documento) && $documento !== null) {
+                $dados['documento'] = $documento;
+                $dados['documento_tipo'] = $this->documentoTipoDe($documento);
             }
 
             if ($dados === []) {
@@ -283,6 +337,15 @@ class ImportEmpresasSeeder extends Seeder
         }
 
         return $atualizacoes;
+    }
+
+    private function codigoNoNome(string $nome): ?string
+    {
+        if (preg_match('/\((\d+)\)\s*$/', $nome, $encontrado) !== 1) {
+            return null;
+        }
+
+        return $encontrado[1];
     }
 
     private function documentoDe(mixed $valor): ?string

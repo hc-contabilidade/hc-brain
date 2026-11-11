@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Empresa;
 use App\Models\Socio;
+use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
@@ -90,9 +91,18 @@ class SincronizarEmpresas extends Command
         }
 
         DB::transaction(function () use ($empresas, $linhasSocio) {
-            foreach (array_chunk($empresas, 500) as $lote) {
+            [$comDocumento, $semDocumento] = $this->separarPorDocumento($empresas);
+
+            foreach (array_chunk($comDocumento, 500) as $lote) {
                 Empresa::upsert($lote, ['id'], [
                     'automacao_id', 'codigo', 'documento', 'documento_tipo',
+                    'nome', 'setor', 'status', 'status_tag',
+                ]);
+            }
+
+            foreach (array_chunk($semDocumento, 500) as $lote) {
+                Empresa::upsert($lote, ['id'], [
+                    'automacao_id', 'codigo',
                     'nome', 'setor', 'status', 'status_tag',
                 ]);
             }
@@ -102,10 +112,41 @@ class SincronizarEmpresas extends Command
             }
         });
 
+        if (config('hc.completar_cnpj_planilha')) {
+            app(ImportEmpresasSeeder::class)->completarDocumentos();
+        }
+
         $atualizadas = count($empresas) - $novas;
         $this->components->info(count($empresas)." empresas sincronizadas: {$novas} novas e {$atualizadas} atualizadas.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Documento vazio não entra na atualização. Sem isso, a leitura do CNPJ
+     * que o usuário da automação não enxerga gravaria nulo por cima do
+     * número que a planilha já tinha preenchido.
+     *
+     * @param  list<array<string, mixed>>  $empresas
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function separarPorDocumento(array $empresas): array
+    {
+        $comDocumento = [];
+        $semDocumento = [];
+
+        foreach ($empresas as $empresa) {
+            if (filled($empresa['documento'])) {
+                $comDocumento[] = $empresa;
+
+                continue;
+            }
+
+            unset($empresa['documento'], $empresa['documento_tipo']);
+            $semDocumento[] = $empresa;
+        }
+
+        return [$comDocumento, $semDocumento];
     }
 
     /**
