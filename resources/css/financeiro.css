@@ -502,11 +502,33 @@
 }
 .finance-regime {
     display: inline-block;
-    padding: 3px 6px;
+    padding: 4px 10px;
     border-radius: 99px;
     background: var(--cinza-fundo);
     color: var(--texto-suave);
     font-size: var(--texto-xs);
+    font-weight: var(--peso-medio);
+    white-space: nowrap;
+}
+
+.finance-regime-presumido {
+    background: #ece6ff;
+    color: #5c4db8;
+}
+
+.finance-regime-mei {
+    background: #fff3c4;
+    color: #8a6100;
+}
+
+.finance-regime-simples {
+    background: #d8f6e8;
+    color: #0d7a5a;
+}
+
+.finance-regime-fisica {
+    background: #e4eefc;
+    color: #2a5fad;
 }
 .finance-empty {
     padding: 28px 15px;

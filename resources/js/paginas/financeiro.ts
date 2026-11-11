@@ -248,6 +248,20 @@ function empresasDaLista(): EmpresaDaLista[] {
     );
 }
 
+/** Pastel de cada regime na coluna da lista. Regime fora do mapa fica neutro. */
+const CLASSE_DO_REGIME: Record<string, string> = {
+    "Lucro Presumido": "presumido",
+    MEI: "mei",
+    "Simples Nacional": "simples",
+    "Pessoa Física": "fisica",
+};
+
+function classeDoRegime(regime: string): string {
+    const variante = CLASSE_DO_REGIME[regime];
+
+    return variante ? `finance-regime finance-regime-${variante}` : "finance-regime";
+}
+
 function renderTabela(): void {
     const dados = empresasDaLista();
     porId("financeCount").textContent = plural(dados.length, "empresa", "empresas");
@@ -260,7 +274,7 @@ function renderTabela(): void {
                       ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(documento(empresa.documento))}</span>`
                       : "—";
                   const regimeHtml = empresa.regime
-                      ? `<span class="finance-regime">${escapar(empresa.regime)}</span>`
+                      ? `<span class="${classeDoRegime(empresa.regime)}">${escapar(empresa.regime)}</span>`
                       : "—";
 
                   return `
