@@ -22,7 +22,7 @@ import {
 } from "../dados/empresas.ts";
 import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
-import { atualizarSecao, observarEstado, obterSecao } from "../comum/estado.ts";
+import { atualizarSecao, observarEstado, obterSecao, type OrdemFinanceiro } from "../comum/estado.ts";
 import { documento, duracaoEmMeses, escapar, moeda, plural } from "../comum/formato.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
@@ -33,6 +33,16 @@ iniciarPagina("financeiro");
 
 const busca = campo("financeEmpresaSearch");
 const regime = selecao("financeRegimeFilter");
+const ordem = selecao("financeOrdem");
+
+const ORDENS: readonly OrdemFinanceiro[] = [
+    "nome-asc",
+    "nome-desc",
+    "codigo-asc",
+    "codigo-desc",
+    "ltv-desc",
+    "honorario-desc",
+];
 
 const carteira = await carregarCarteira();
 const empresas = await carregarEmpresasDaLista();
@@ -237,18 +247,93 @@ function renderInsights(dados: LinhaCarteira[]): void {
   `;
 }
 
+function ordemDaLista(valor: string): OrdemFinanceiro {
+    return ORDENS.includes(valor as OrdemFinanceiro) ? (valor as OrdemFinanceiro) : "nome-asc";
+}
+
+function codigoNumerico(codigo: string | null): number | null {
+    const texto = codigo?.trim() ?? "";
+
+    return /^\d+$/.test(texto) ? Number(texto) : null;
+}
+
+function compararNome(a: EmpresaDaLista, b: EmpresaDaLista): number {
+    return a.nome.localeCompare(b.nome, "pt-BR");
+}
+
+/** Sem código vai para o fim, nas duas direções. */
+function compararCodigo(a: EmpresaDaLista, b: EmpresaDaLista, direcao: 1 | -1): number {
+    const codigoA = codigoNumerico(a.codigo);
+    const codigoB = codigoNumerico(b.codigo);
+
+    if (codigoA === null && codigoB === null) {
+        return compararNome(a, b);
+    }
+
+    if (codigoA === null) {
+        return 1;
+    }
+
+    if (codigoB === null) {
+        return -1;
+    }
+
+    return (codigoA - codigoB) * direcao || compararNome(a, b);
+}
+
+function compararValor(
+    a: EmpresaDaLista,
+    b: EmpresaDaLista,
+    valor: (empresa: EmpresaDaLista) => number | null,
+): number {
+    const valorA = valor(a);
+    const valorB = valor(b);
+
+    if (valorA === null && valorB === null) {
+        return compararNome(a, b);
+    }
+
+    if (valorA === null) {
+        return 1;
+    }
+
+    if (valorB === null) {
+        return -1;
+    }
+
+    return valorB - valorA || compararNome(a, b);
+}
+
+function compararEmpresas(a: EmpresaDaLista, b: EmpresaDaLista, escolha: OrdemFinanceiro): number {
+    switch (escolha) {
+        case "nome-desc":
+            return compararNome(b, a);
+        case "codigo-asc":
+            return compararCodigo(a, b, 1);
+        case "codigo-desc":
+            return compararCodigo(a, b, -1);
+        case "ltv-desc":
+            return compararValor(a, b, (empresa) => empresa.total);
+        case "honorario-desc":
+            return compararValor(a, b, (empresa) => empresa.atual);
+        default:
+            return compararNome(a, b);
+    }
+}
+
 function empresasDaLista(): EmpresaDaLista[] {
-    const palavras = termoDeBusca(obterSecao("financeiro").busca);
+    const estado = obterSecao("financeiro");
+    const palavras = termoDeBusca(estado.busca);
 
-    const regime = obterSecao("financeiro").regime;
-
-    return empresas.filter(
-        (empresa) =>
-            combina(
-                `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status} ${empresa.regime ?? ""}`,
-                palavras,
-            ) && regimeSelecionado(regime, empresa.regime ?? ""),
-    );
+    return empresas
+        .filter(
+            (empresa) =>
+                combina(
+                    `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status} ${empresa.regime ?? ""}`,
+                    palavras,
+                ) && regimeSelecionado(estado.regime, empresa.regime ?? ""),
+        )
+        .sort((a, b) => compararEmpresas(a, b, ordemDaLista(estado.ordem)));
 }
 
 /** Pastel de cada regime na coluna da lista. Regime fora do mapa fica neutro. */
@@ -326,6 +411,7 @@ function renderFinanceiro(): void {
 
     if (busca.value !== estado.busca) busca.value = estado.busca;
     regime.value = regimeDoFiltro(estado.regime);
+    ordem.value = ordemDaLista(estado.ordem);
 }
 
 busca.addEventListener("input", () =>
@@ -334,8 +420,11 @@ busca.addEventListener("input", () =>
 regime.addEventListener("change", () =>
     atualizarSecao("financeiro", { regime: regime.value }),
 );
+ordem.addEventListener("change", () =>
+    atualizarSecao("financeiro", { ordem: ordemDaLista(ordem.value) }),
+);
 porId("clearFinanceFilters").addEventListener("click", () => {
-    atualizarSecao("financeiro", { busca: "", regime: "Todos" });
+    atualizarSecao("financeiro", { busca: "", regime: "Todos", ordem: "nome-asc" });
 });
 
 observarEstado(["financeiro"], renderFinanceiro);

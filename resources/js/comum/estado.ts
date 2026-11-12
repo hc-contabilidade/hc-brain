@@ -87,9 +87,18 @@ export interface EstadoTreinamentos {
     nivel: string;
 }
 
+export type OrdemFinanceiro =
+    | "nome-asc"
+    | "nome-desc"
+    | "codigo-asc"
+    | "codigo-desc"
+    | "ltv-desc"
+    | "honorario-desc";
+
 export interface EstadoFinanceiro {
     busca: string;
     regime: string;
+    ordem: OrdemFinanceiro;
 }
 
 export interface EstadoComercial {
@@ -169,7 +178,7 @@ const ESTADO_PADRAO: Estado = {
         pagina: 1,
     },
     treinamentos: { busca: "", tipo: "Todos", nivel: "Todos" },
-    financeiro: { busca: "", regime: "Todos" },
+    financeiro: { busca: "", regime: "Todos", ordem: "nome-asc" },
     // Em branco, a tela de Comercial abre no mês mais recente que a base tem.
     comercial: { periodo: "" },
     sofia: {

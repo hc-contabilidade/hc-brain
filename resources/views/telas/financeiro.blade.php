@@ -73,6 +73,17 @@
           <option value="Pessoa Física">Pessoa Física</option>
         </select>
       </div>
+      <div class="finance-field">
+        <label for="financeOrdem">Ordenar</label>
+        <select id="financeOrdem">
+          <option value="nome-asc">Nome (A–Z)</option>
+          <option value="nome-desc">Nome (Z–A)</option>
+          <option value="codigo-asc">Código crescente</option>
+          <option value="codigo-desc">Código decrescente</option>
+          <option value="ltv-desc">Maior LTV</option>
+          <option value="honorario-desc">Maior honorário</option>
+        </select>
+      </div>
       <button class="finance-clear" id="clearFinanceFilters">Limpar filtros</button>
     </div>
 
