@@ -2,10 +2,6 @@
    FINANCEIRO GERAL — visão consolidada
    Adicionado sem alterar os estilos existentes.
    ========================================================= */
-.finance-page {
-    max-width: 1500px;
-}
-
 .finance-head {
     display: flex;
     align-items: flex-end;

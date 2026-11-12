@@ -133,10 +133,6 @@
 
     --transicao: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Largura máxima do conteúdo: sem ela, uma tabela numa tela ultrawide
-     vira uma linha de dois metros e ninguém consegue ler. */
-    --largura-conteudo: 1440px;
-
     --anel-foco: 0 0 0 2px var(--bg), 0 0 0 4px var(--roxo);
 }
 
