@@ -372,36 +372,36 @@ class ApiTest extends TestCase
             'status_tag' => 'green',
         ]);
 
-        $this->autenticado()
+        $lista = $this->autenticado()
             ->getJson('/api/financeiro/empresas')
             ->assertOk()
             ->assertJsonCount(3)
-            ->assertJsonPath('0.codigo', '1')
-            ->assertJsonPath('0.status', 'Ativo')
-            ->assertJsonPath('0.documento', '33152744000180')
-            ->assertJsonPath('0.documentoTipo', 'CNPJ')
-            ->assertJsonPath('0.regime', 'MEI')
-            ->assertJsonPath('0.meses', 34)
-            ->assertJsonPath('0.primeiro', 1000)
-            ->assertJsonPath('0.atual', 1500)
-            ->assertJsonPath('0.total', 8000)
-            ->assertJsonPath('1.codigo', '3')
-            ->assertJsonPath('1.regime', null)
-            ->assertJsonPath('1.meses', null)
-            ->assertJsonPath('1.primeiro', null)
-            ->assertJsonPath('1.status', 'Inativo')
-            ->assertJsonPath('2.codigo', '1389')
-            ->assertJsonPath('2.documento', null)
-            ->assertJsonMissing(['id' => 'empresaX']);
+            ->assertJsonMissing(['id' => 'empresaX'])
+            ->json();
+        $porId = collect($lista)->keyBy('id');
+
+        $this->assertSame('1', $porId['ruegg']['codigo']);
+        $this->assertSame('Ativo', $porId['ruegg']['status']);
+        $this->assertSame('33152744000180', $porId['ruegg']['documento']);
+        $this->assertSame('CNPJ', $porId['ruegg']['documentoTipo']);
+        $this->assertSame('MEI', $porId['ruegg']['regime']);
+        $this->assertSame(34, $porId['ruegg']['meses']);
+        $this->assertSame(1000, $porId['ruegg']['primeiro']);
+        $this->assertSame(1500, $porId['ruegg']['atual']);
+        $this->assertSame(8000, $porId['ruegg']['total']);
+        $this->assertSame('3', $porId['margem']['codigo']);
+        $this->assertNull($porId['margem']['regime']);
+        $this->assertNull($porId['margem']['meses']);
+        $this->assertNull($porId['margem']['primeiro']);
+        $this->assertSame('Inativo', $porId['margem']['status']);
+        $this->assertSame('1389', $porId['sieg']['codigo']);
+        $this->assertNull($porId['sieg']['documento']);
 
         Empresa::query()->whereKey('ruegg')->update(['status' => 'Inativo', 'status_tag' => 'gray']);
 
-        $this->autenticado()
-            ->getJson('/api/financeiro/empresas')
-            ->assertOk()
-            ->assertJsonPath('0.id', 'ruegg')
-            ->assertJsonPath('0.status', 'Inativo')
-            ->assertJsonPath('0.statusTag', 'gray');
+        $atualizada = collect($this->autenticado()->getJson('/api/financeiro/empresas')->assertOk()->json())->keyBy('id');
+        $this->assertSame('Inativo', $atualizada['ruegg']['status']);
+        $this->assertSame('gray', $atualizada['ruegg']['statusTag']);
     }
 
     public function test_lista_do_financeiro_usa_o_cnpj_da_planilha_pelo_codigo(): void
@@ -682,6 +682,48 @@ class ApiTest extends TestCase
                 'id' => 'nome-curto',
                 'nome' => 'AISSAR BURATO ASSISTENCIA MEDICA LTDA',
                 'codigo' => '1514',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_lista_do_financeiro_troca_o_numero_sequencial_pelo_codigo_da_planilha(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(?string $caminho = null): array
+            {
+                $chave = ChaveDeEmpresa::nome('AAF REPRESENTACOES COMERCIAIS LTDA');
+
+                return [
+                    'porCodigo' => [
+                        '2' => ['documento' => '99888777000166', 'tipo' => 'CNPJ', 'codigo' => '2', 'nome' => 'OUTRA EMPRESA DE CODIGO 2'],
+                    ],
+                    'porNome' => [
+                        $chave => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '1402', 'nome' => 'AAF REPRESENTACOES COMERCIAIS LTDA'],
+                    ],
+                    'porRaiz' => [],
+                ];
+            }
+        });
+        Empresa::query()->create([
+            'id' => 'codigo-sequencial',
+            'automacao_id' => 50,
+            'codigo' => '2',
+            'nome' => 'AAF REPRESENTACOES COMERCIAIS LTDA',
+            'setor' => 'Comércio',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'codigo-sequencial',
+                'nome' => 'AAF REPRESENTACOES COMERCIAIS LTDA',
+                'codigo' => '1402',
                 'documento' => '11222333000181',
                 'documentoTipo' => 'CNPJ',
             ]);

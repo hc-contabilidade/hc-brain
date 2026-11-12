@@ -73,7 +73,7 @@ class FinanceiroController extends Controller
 
                 return $empresa;
             })
-            ->sortBy(fn (Empresa $empresa) => sprintf('%010d-%s', (int) $empresa->codigo, $empresa->nome))
+            ->sortBy(fn (Empresa $empresa) => mb_strtoupper($empresa->nome))
             ->values()
             ->map(fn (Empresa $empresa) => [
                 'id' => $empresa->id,
@@ -188,8 +188,8 @@ class FinanceiroController extends Controller
                 $empresa->documento_tipo = $daPlanilha['tipo'] ?? null;
             }
 
-            if ($codigo === null) {
-                $codigo = $this->codigoNormalizado($daPlanilha['codigo'] ?? null);
+            if (filled($daPlanilha['codigo'] ?? null)) {
+                $codigo = $this->codigoNormalizado($daPlanilha['codigo']);
             }
         }
 

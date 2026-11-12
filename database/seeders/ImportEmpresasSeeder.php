@@ -156,7 +156,7 @@ class ImportEmpresasSeeder extends Seeder
 
             $dados = [];
 
-            if (blank($empresa->codigo) && filled($linha['codigo'] ?? null)) {
+            if (filled($linha['codigo'] ?? null) && trim((string) $empresa->codigo) !== (string) $linha['codigo']) {
                 $dados['codigo'] = $linha['codigo'];
             }
 

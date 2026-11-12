@@ -65,9 +65,10 @@ final class ChaveDeEmpresa
     }
 
     /**
-     * A linha da planilha desta empresa: pelo código, pelo nome igual, pelo
-     * nome fantasia que cabe no começo da razão social, ou pela raiz do CNPJ
-     * que vem na frente do nome.
+     * A linha da planilha desta empresa: pelo nome igual, pelo nome fantasia
+     * que cabe no começo da razão social, pela raiz do CNPJ que vem na frente
+     * do nome e, por último, pelo código. O código sozinho às vezes é 1, 2, 3
+     * e não o número da planilha.
      *
      * @param  array{porCodigo?: array<string, array<string, mixed>>, porNome?: array<string, array<string, mixed>>, porRaiz?: array<string, array<string, mixed>>}  $planilha
      * @param  array<string, list<array{0: string, 1: array<string, mixed>}>>  $indice
@@ -75,10 +76,6 @@ final class ChaveDeEmpresa
      */
     public static function linha(array $planilha, string $nome, ?string $codigo, array $indice): ?array
     {
-        if ($codigo !== null && $codigo !== '' && is_array($planilha['porCodigo'][$codigo] ?? null)) {
-            return $planilha['porCodigo'][$codigo];
-        }
-
         $chave = self::nome($nome);
 
         if ($chave !== '' && is_array($planilha['porNome'][$chave] ?? null)) {
@@ -95,6 +92,10 @@ final class ChaveDeEmpresa
 
         if ($raiz !== null && is_array($planilha['porRaiz'][$raiz] ?? null)) {
             return $planilha['porRaiz'][$raiz];
+        }
+
+        if ($codigo !== null && $codigo !== '' && is_array($planilha['porCodigo'][$codigo] ?? null)) {
+            return $planilha['porCodigo'][$codigo];
         }
 
         return null;
