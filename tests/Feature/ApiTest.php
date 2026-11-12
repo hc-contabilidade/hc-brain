@@ -11,8 +11,11 @@ use App\Models\User;
 use App\Support\ChaveDeEmpresa;
 use App\Support\GoogleAgenda;
 use Database\Seeders\ImportEmpresasSeeder;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -28,7 +31,10 @@ class ApiTest extends TestCase
     {
         parent::setUp();
 
-        config(['hc.completar_cnpj_planilha' => false]);
+        config([
+            'hc.completar_cnpj_planilha' => false,
+            'hc.completar_pela_automacao' => false,
+        ]);
 
         $this->seed();
     }
@@ -404,7 +410,7 @@ class ApiTest extends TestCase
 
         $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
         {
-            public function mapaDeDocumentos(): array
+            public function mapaDeDocumentos(?string $caminho = null): array
             {
                 return [
                     'porCodigo' => [
@@ -549,6 +555,256 @@ class ApiTest extends TestCase
                 'documento' => '33444555000172',
                 'documentoTipo' => 'CNPJ',
             ]);
+    }
+
+    public function test_lista_do_financeiro_completa_codigo_e_cnpj_pela_automacao(): void
+    {
+        config([
+            'hc.completar_pela_automacao' => true,
+            'database.connections.automacao' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
+        ]);
+        DB::purge('automacao');
+        Schema::connection('automacao')->create('companies', function (Blueprint $table) {
+            $table->id();
+            $table->boolean('draft')->default(false);
+            $table->string('code');
+            $table->string('document_number')->nullable();
+            $table->string('document_type')->nullable();
+        });
+        $id = DB::connection('automacao')->table('companies')->insertGetId([
+            'draft' => false,
+            'code' => '4401',
+            'document_number' => '11.222.333/0001-81',
+            'document_type' => 'CNPJ',
+        ]);
+        Empresa::query()->create([
+            'id' => 'sem-codigo-local',
+            'automacao_id' => $id,
+            'nome' => 'Empresa sem codigo local',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'sem-codigo-local',
+                'codigo' => '4401',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_lista_do_financeiro_usa_o_codigo_da_automacao_para_achar_o_cnpj_da_planilha(): void
+    {
+        config([
+            'hc.completar_pela_automacao' => true,
+            'hc.completar_cnpj_planilha' => true,
+            'database.connections.automacao' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
+        ]);
+        DB::purge('automacao');
+        Schema::connection('automacao')->create('companies', function (Blueprint $table) {
+            $table->id();
+            $table->boolean('draft')->default(false);
+            $table->string('code');
+        });
+        $id = DB::connection('automacao')->table('companies')->insertGetId([
+            'draft' => false,
+            'code' => '8801',
+        ]);
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(?string $caminho = null): array
+            {
+                return [
+                    'porCodigo' => [
+                        '8801' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '8801', 'nome' => 'EMPRESA 8801 DA PLANILHA LTDA'],
+                    ],
+                    'porNome' => [],
+                    'porRaiz' => [],
+                ];
+            }
+        });
+        Empresa::query()->create([
+            'id' => 'so-na-automacao',
+            'automacao_id' => $id,
+            'nome' => 'Nome fantasia diferente',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'so-na-automacao',
+                'nome' => 'EMPRESA 8801 DA PLANILHA LTDA',
+                'codigo' => '8801',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_lista_do_financeiro_acha_cnpj_quando_o_nome_fantasia_cabe_na_razao_social(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(?string $caminho = null): array
+            {
+                $chave = ChaveDeEmpresa::nome('AISSAR BURATO ASSISTENCIA MEDICA LTDA');
+
+                return [
+                    'porCodigo' => [],
+                    'porNome' => [
+                        $chave => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '1514', 'nome' => 'AISSAR BURATO ASSISTENCIA MEDICA LTDA'],
+                    ],
+                    'porRaiz' => [],
+                ];
+            }
+        });
+        Empresa::query()->create([
+            'id' => 'nome-curto',
+            'automacao_id' => 1514,
+            'nome' => 'AISSAR BURATO',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'nome-curto',
+                'nome' => 'AISSAR BURATO ASSISTENCIA MEDICA LTDA',
+                'codigo' => '1514',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_lista_do_financeiro_nao_chuta_cnpj_quando_o_nome_curto_cabe_em_duas_empresas(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(?string $caminho = null): array
+            {
+                return [
+                    'porCodigo' => [],
+                    'porNome' => [
+                        'CLINICA VIDA SAUDE' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '10', 'nome' => 'CLINICA VIDA SAUDE LTDA'],
+                        'CLINICA VIDA ODONTO' => ['documento' => '33444555000172', 'tipo' => 'CNPJ', 'codigo' => '11', 'nome' => 'CLINICA VIDA ODONTO LTDA'],
+                    ],
+                    'porRaiz' => [],
+                ];
+            }
+        });
+        Empresa::query()->create([
+            'id' => 'nome-ambiguo',
+            'automacao_id' => 77,
+            'nome' => 'CLINICA VIDA',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'nome-ambiguo',
+                'nome' => 'CLINICA VIDA',
+                'codigo' => null,
+                'documento' => null,
+            ]);
+    }
+
+    public function test_lista_do_financeiro_acha_o_cnpj_pela_raiz_no_comeco_do_nome(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+        $this->app->instance(ImportEmpresasSeeder::class, new class extends ImportEmpresasSeeder
+        {
+            public function mapaDeDocumentos(?string $caminho = null): array
+            {
+                return [
+                    'porCodigo' => [],
+                    'porNome' => [],
+                    'porRaiz' => [
+                        '11222333' => ['documento' => '11222333000181', 'tipo' => 'CNPJ', 'codigo' => '900', 'nome' => 'RAZAO SOCIAL DIFERENTE LTDA'],
+                    ],
+                ];
+            }
+        });
+        Empresa::query()->create([
+            'id' => 'pela-raiz',
+            'automacao_id' => 900,
+            'nome' => '11.222.333 PESSOA SEM RAZAO',
+            'setor' => 'Saúde',
+            'status' => 'Ativo',
+            'status_tag' => 'green',
+        ]);
+
+        $this->autenticado()
+            ->getJson('/api/financeiro/empresas')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'pela-raiz',
+                'nome' => 'RAZAO SOCIAL DIFERENTE LTDA',
+                'codigo' => '900',
+                'documento' => '11222333000181',
+                'documentoTipo' => 'CNPJ',
+            ]);
+    }
+
+    public function test_mapa_le_codigo_e_cnpj_do_xlsx(): void
+    {
+        config(['hc.completar_cnpj_planilha' => true]);
+        $caminho = storage_path('framework/testing/empresas-mini.xlsx');
+        $this->gravarPlanilhaMinima($caminho);
+
+        try {
+            $mapa = app(ImportEmpresasSeeder::class)->mapaDeDocumentos($caminho);
+        } finally {
+            @unlink($caminho);
+        }
+
+        $this->assertSame('4401', $mapa['porCodigo']['4401']['codigo']);
+        $this->assertSame('11222333000181', $mapa['porCodigo']['4401']['documento']);
+        $this->assertSame('CNPJ', $mapa['porCodigo']['4401']['tipo']);
+        $this->assertArrayHasKey(ChaveDeEmpresa::nome('AISSAR BURATO ASSISTENCIA MEDICA LTDA'), $mapa['porNome']);
+        $this->assertSame('11222333000181', $mapa['porRaiz']['11222333']['documento']);
+    }
+
+    private function gravarPlanilhaMinima(string $caminho): void
+    {
+        if (! is_dir(dirname($caminho))) {
+            mkdir(dirname($caminho), 0777, true);
+        }
+
+        $zip = new \ZipArchive;
+        $zip->open($caminho, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('xl/workbook.xml', <<<'XML'
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Empresas" sheetId="1" r:id="rId1"/></sheets></workbook>
+            XML);
+        $zip->addFromString('xl/_rels/workbook.xml.rels', <<<'XML'
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>
+            XML);
+        $zip->addFromString('xl/sharedStrings.xml', <<<'XML'
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>11222333000181</t></si><si><t>AISSAR BURATO ASSISTENCIA MEDICA LTDA</t></si></sst>
+            XML);
+        $zip->addFromString('xl/worksheets/sheet1.xml', <<<'XML'
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="2"><c r="A2"><v>4401</v></c><c r="B2" t="s"><v>0</v></c><c r="C2" t="s"><v>1</v></c></row></sheetData></worksheet>
+            XML);
+        $zip->close();
     }
 
     public function test_indice_de_pesquisa_vem_da_base_ao_vivo(): void

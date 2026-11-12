@@ -136,33 +136,42 @@ class ImportEmpresasSeeder extends Seeder
      */
     public function completarDocumentos(): void
     {
-        $filePath = storage_path('app/empresas.xlsx');
+        $planilha = $this->mapaDeDocumentos();
 
-        if (! is_file($filePath)) {
+        if (($planilha['porCodigo'] ?? []) === [] && ($planilha['porNome'] ?? []) === []) {
             return;
         }
 
-        $reader = IOFactory::createReaderForFile($filePath);
-        $reader->setReadDataOnly(true);
-        $planilha = $reader->load($filePath);
-        $documentosPorNome = [];
+        $indice = ChaveDeEmpresa::indice($planilha);
+        $agora = now();
+        $atualizacoes = [];
 
-        foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, $cnpj, $razaoSocial]) {
-            $razaoSocial = trim((string) $razaoSocial);
-            $codigo = trim((string) $codigo);
+        foreach (Empresa::query()->get(['id', 'nome', 'codigo', 'documento']) as $empresa) {
+            $codigo = filled($empresa->codigo) ? trim((string) $empresa->codigo) : $this->codigoNoNome($empresa->nome);
+            $linha = ChaveDeEmpresa::linha($planilha, $empresa->nome, $codigo, $indice);
 
-            if ($razaoSocial === '' || $razaoSocial === self::RASCUNHO) {
+            if (! is_array($linha)) {
                 continue;
             }
 
-            $documento = $this->documentoDe($cnpj);
-            $this->lembrarDocumento($documentosPorNome, $razaoSocial, $codigo, $documento);
-            if ($codigo !== '') {
-                $this->lembrarDocumento($documentosPorNome, "{$razaoSocial} ({$codigo})", $codigo, $documento);
-            }
-        }
+            $dados = [];
 
-        $atualizacoes = $this->documentosEmFalta($documentosPorNome, now());
+            if (blank($empresa->codigo) && filled($linha['codigo'] ?? null)) {
+                $dados['codigo'] = $linha['codigo'];
+            }
+
+            if (blank($empresa->documento) && filled($linha['documento'] ?? null)) {
+                $dados['documento'] = $linha['documento'];
+                $dados['documento_tipo'] = $linha['tipo'] ?? null;
+            }
+
+            if ($dados === []) {
+                continue;
+            }
+
+            $dados['updated_at'] = $agora;
+            $atualizacoes[] = ['id' => $empresa->id, 'dados' => $dados];
+        }
 
         DB::transaction(function () use ($atualizacoes) {
             foreach ($atualizacoes as $atualizacao) {
@@ -175,24 +184,24 @@ class ImportEmpresasSeeder extends Seeder
      * Código, CNPJ/CPF e razão social da planilha. O financeiro usa a razão
      * social daqui para o nome ficar igual ao da planilha.
      *
-     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
+     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porRaiz: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
      */
-    public function mapaDeDocumentos(): array
+    public function mapaDeDocumentos(?string $caminho = null): array
     {
-        $vazio = ['porCodigo' => [], 'porNome' => []];
+        $vazio = ['porCodigo' => [], 'porNome' => [], 'porRaiz' => []];
 
         if (! config('hc.completar_cnpj_planilha')) {
             return $vazio;
         }
 
-        $caminho = storage_path('app/empresas.xlsx');
+        $caminho ??= storage_path('app/empresas.xlsx');
 
-        if (! is_file($caminho) || ! class_exists(IOFactory::class)) {
+        if (! is_file($caminho)) {
             return $vazio;
         }
 
         try {
-            $chave = 'hc.mapa-empresa.v2.'.filemtime($caminho).'.'.filesize($caminho);
+            $chave = 'hc.mapa-empresa.v3.'.sha1($caminho).'.'.filemtime($caminho).'.'.filesize($caminho);
 
             return Cache::remember($chave, 86400, fn () => $this->lerMapaDeDocumentos($caminho));
         } catch (\Throwable) {
@@ -201,15 +210,22 @@ class ImportEmpresasSeeder extends Seeder
     }
 
     /**
-     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
+     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porRaiz: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
      */
     private function lerMapaDeDocumentos(string $caminho): array
     {
+        $peloZip = $this->lerMapaPeloZip($caminho);
+
+        if ($peloZip['porCodigo'] !== [] || $peloZip['porNome'] !== [] || ! class_exists(IOFactory::class)) {
+            return $peloZip;
+        }
+
         $reader = IOFactory::createReaderForFile($caminho);
         $reader->setReadDataOnly(true);
         $planilha = $reader->load($caminho);
         $porCodigo = [];
         $porNome = [];
+        $porRaiz = [];
 
         foreach ($this->linhas($planilha, 'Empresas', 'D') as [$codigo, $cnpj, $razaoSocial]) {
             $razaoSocial = trim((string) $razaoSocial);
@@ -219,26 +235,184 @@ class ImportEmpresasSeeder extends Seeder
                 continue;
             }
 
-            $documento = $this->documentoDe($cnpj);
-            $item = [
-                'documento' => $documento,
-                'tipo' => $this->documentoTipoDe($documento),
-                'codigo' => $codigo ?? '',
-                'nome' => $razaoSocial,
-            ];
-
-            if ($codigo !== null && $this->itemDaPlanilhaMelhor($porCodigo[$codigo] ?? null, $item)) {
-                $porCodigo[$codigo] = $item;
-            }
-
-            $nome = $this->nomeChaveDaPlanilha($razaoSocial);
-
-            if ($nome !== '' && $this->itemDaPlanilhaMelhor($porNome[$nome] ?? null, $item)) {
-                $porNome[$nome] = $item;
-            }
+            $this->guardarItemDaPlanilha($porCodigo, $porNome, $porRaiz, $codigo, $cnpj, $razaoSocial);
         }
 
-        return ['porCodigo' => $porCodigo, 'porNome' => $porNome];
+        return ['porCodigo' => $porCodigo, 'porNome' => $porNome, 'porRaiz' => $this->raizesUnicas($porRaiz)];
+    }
+
+    /**
+     * Lê só código, CNPJ e razão social. A planilha inteira no PhpSpreadsheet
+     * estoura a memória do pedido e a lista do financeiro ficava sem os dois.
+     *
+     * @return array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>, porRaiz: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>}
+     */
+    private function lerMapaPeloZip(string $caminho): array
+    {
+        $vazio = ['porCodigo' => [], 'porNome' => [], 'porRaiz' => []];
+        $zip = new \ZipArchive;
+
+        if ($zip->open($caminho) !== true) {
+            return $vazio;
+        }
+
+        $textos = $this->textosDoXlsx($zip->getFromName('xl/sharedStrings.xml'));
+        $folha = $this->folhaEmpresas($zip);
+        $zip->close();
+
+        if ($folha === null) {
+            return $vazio;
+        }
+
+        $porCodigo = [];
+        $porNome = [];
+        $porRaiz = [];
+
+        foreach ($this->linhasDoXlsx($folha, $textos) as [$codigo, $cnpj, $razaoSocial]) {
+            $this->guardarItemDaPlanilha($porCodigo, $porNome, $porRaiz, $codigo, $cnpj, trim((string) $razaoSocial));
+        }
+
+        return ['porCodigo' => $porCodigo, 'porNome' => $porNome, 'porRaiz' => $this->raizesUnicas($porRaiz)];
+    }
+
+    /**
+     * @param  array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>  $porCodigo
+     * @param  array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>  $porNome
+     * @param  array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}|null>  $porRaiz
+     */
+    private function guardarItemDaPlanilha(array &$porCodigo, array &$porNome, array &$porRaiz, mixed $codigo, mixed $cnpj, string $razaoSocial): void
+    {
+        $codigo = $this->codigoDaPlanilha($codigo);
+
+        if ($razaoSocial === '' || $razaoSocial === self::RASCUNHO) {
+            return;
+        }
+
+        $documento = $this->documentoDe($cnpj);
+        $item = [
+            'documento' => $documento,
+            'tipo' => $this->documentoTipoDe($documento),
+            'codigo' => $codigo ?? '',
+            'nome' => $razaoSocial,
+        ];
+
+        if ($codigo !== null && $this->itemDaPlanilhaMelhor($porCodigo[$codigo] ?? null, $item)) {
+            $porCodigo[$codigo] = $item;
+        }
+
+        $nome = $this->nomeChaveDaPlanilha($razaoSocial);
+
+        if ($nome !== '' && $this->itemDaPlanilhaMelhor($porNome[$nome] ?? null, $item)) {
+            $porNome[$nome] = $item;
+        }
+
+        if (strlen((string) $documento) !== 14) {
+            return;
+        }
+
+        $raiz = substr((string) $documento, 0, 8);
+
+        if (! array_key_exists($raiz, $porRaiz)) {
+            $porRaiz[$raiz] = $item;
+
+            return;
+        }
+
+        $porRaiz[$raiz] = null;
+    }
+
+    /**
+     * @param  array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}|null>  $porRaiz
+     * @return array<string, array{documento: ?string, tipo: ?string, codigo: string, nome: string}>
+     */
+    private function raizesUnicas(array $porRaiz): array
+    {
+        return array_filter($porRaiz);
+    }
+
+    /** @return array<int, string> */
+    private function textosDoXlsx(string|false $xml): array
+    {
+        if (! is_string($xml)) {
+            return [];
+        }
+
+        $textos = [];
+        preg_match_all('/<si>(.*?)<\/si>/s', $xml, $itens);
+
+        foreach ($itens[1] as $indice => $item) {
+            preg_match_all('/<t[^>]*>(.*?)<\/t>/s', $item, $partes);
+            $textos[$indice] = html_entity_decode(implode('', $partes[1] ?? []), ENT_QUOTES | ENT_XML1, 'UTF-8');
+        }
+
+        return $textos;
+    }
+
+    private function folhaEmpresas(\ZipArchive $zip): ?string
+    {
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+
+        if (! is_string($workbook) || ! is_string($rels)) {
+            $folha = $zip->getFromName('xl/worksheets/sheet1.xml');
+
+            return is_string($folha) ? $folha : null;
+        }
+
+        $id = null;
+
+        if (preg_match('/<sheet[^>]*name="Empresas"[^>]*r:id="([^"]+)"/', $workbook, $encontrado) === 1
+            || preg_match('/<sheet[^>]*r:id="([^"]+)"[^>]*name="Empresas"/', $workbook, $encontrado) === 1) {
+            $id = $encontrado[1];
+        }
+
+        if ($id === null || preg_match('/Id="'.preg_quote($id, '/').'"[^>]*Target="([^"]+)"/', $rels, $alvo) !== 1) {
+            $folha = $zip->getFromName('xl/worksheets/sheet1.xml');
+
+            return is_string($folha) ? $folha : null;
+        }
+
+        $caminho = str_starts_with($alvo[1], '/') ? ltrim($alvo[1], '/') : 'xl/'.ltrim($alvo[1], '/');
+        $folha = $zip->getFromName($caminho);
+
+        return is_string($folha) ? $folha : null;
+    }
+
+    /**
+     * @param  array<int, string>  $textos
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private function linhasDoXlsx(string $folha, array $textos): array
+    {
+        $linhas = [];
+        preg_match_all('/<row r="(\d+)"[^>]*>(.*?)<\/row>/s', $folha, $rows, PREG_SET_ORDER);
+
+        foreach ($rows as $row) {
+            if ((int) $row[1] === 1) {
+                continue;
+            }
+
+            preg_match_all('/<c r="([A-Z]+)\d+"(?:[^>]*t="([^"]*)")?[^>]*>\s*(?:<v>(.*?)<\/v>)?/s', $row[2], $celulas, PREG_SET_ORDER);
+            $colunas = [];
+
+            foreach ($celulas as $celula) {
+                $valor = $celula[3] ?? '';
+
+                if (($celula[2] ?? '') === 's') {
+                    $valor = $textos[(int) $valor] ?? '';
+                }
+
+                $colunas[$celula[1]] = $valor;
+            }
+
+            $linhas[] = [
+                (string) ($colunas['A'] ?? ''),
+                (string) ($colunas['B'] ?? ''),
+                (string) ($colunas['C'] ?? ''),
+            ];
+        }
+
+        return $linhas;
     }
 
     /**

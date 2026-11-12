@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Support\ChaveDeEmpresa;
 use Database\Seeders\ImportEmpresasSeeder;
+use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class FinanceiroController extends Controller
 {
@@ -19,6 +23,7 @@ class FinanceiroController extends Controller
     public function index(): JsonResponse
     {
         $planilha = app(ImportEmpresasSeeder::class)->mapaDeDocumentos();
+        $indice = ChaveDeEmpresa::indice($planilha);
 
         $carteira = Empresa::with(['socio', 'financeiro'])
             ->whereNotNull('omie_app_id')
@@ -28,7 +33,7 @@ class FinanceiroController extends Controller
             ->get()
             ->map(fn (Empresa $empresa) => [
                 'id' => $empresa->id,
-                'nome' => $this->nomeExibido($empresa, $planilha),
+                'nome' => $this->nomeExibido($empresa, $planilha, $indice),
                 'setor' => $empresa->setor,
                 'socio' => $empresa->socio->nome,
                 'regime' => $empresa->financeiro->regime,
@@ -56,13 +61,15 @@ class FinanceiroController extends Controller
             ->get(['id', 'nome', 'codigo', 'documento', 'documento_tipo']);
         [$porCodigo, $porNome] = $this->indiceDeCadastros($cadastros);
         $planilha = app(ImportEmpresasSeeder::class)->mapaDeDocumentos();
+        $indice = ChaveDeEmpresa::indice($planilha);
+        $automacao = $this->dadosDaAutomacao();
 
         $empresas = Empresa::query()
             ->whereNotNull('automacao_id')
             ->with('financeiro:id,empresa_id,regime,desde,primeiro,atual,total')
-            ->get(['id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
-            ->map(function (Empresa $empresa) use ($porCodigo, $porNome, $planilha) {
-                $this->completarCodigoEDocumento($empresa, $porCodigo, $porNome, $planilha);
+            ->get(['id', 'automacao_id', 'codigo', 'nome', 'documento', 'documento_tipo', 'status', 'status_tag'])
+            ->map(function (Empresa $empresa) use ($porCodigo, $porNome, $planilha, $indice, $automacao) {
+                $this->completarCodigoEDocumento($empresa, $porCodigo, $porNome, $planilha, $indice, $automacao);
 
                 return $empresa;
             })
@@ -137,10 +144,13 @@ class FinanceiroController extends Controller
      *
      * @param  array<string, list<Empresa>>  $porCodigo
      * @param  array<string, Empresa>  $porNome
-     * @param  array{porCodigo: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome?: string}>, porNome: array<string, array{documento: ?string, tipo: ?string, codigo: string, nome?: string}>}  $planilha
+     * @param  array{porCodigo?: array<string, array<string, mixed>>, porNome?: array<string, array<string, mixed>>, porRaiz?: array<string, array<string, mixed>>}  $planilha
+     * @param  array<string, list<array{0: string, 1: array<string, mixed>}>>  $indice
+     * @param  array<int, array{codigo: ?string, documento: ?string, tipo: ?string}>  $automacao
      */
-    private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome, array $planilha): void
+    private function completarCodigoEDocumento(Empresa $empresa, array $porCodigo, array $porNome, array $planilha, array $indice, array $automacao): void
     {
+        $nomeOriginal = $empresa->nome;
         $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
         $doador = $this->doador($empresa, $porCodigo, $porNome, $codigo);
 
@@ -153,7 +163,20 @@ class FinanceiroController extends Controller
             $empresa->documento_tipo = $doador->documento_tipo;
         }
 
-        $daPlanilha = $this->linhaDaPlanilha($empresa, $planilha, $codigo);
+        $daAutomacao = filled($empresa->automacao_id) ? ($automacao[(int) $empresa->automacao_id] ?? null) : null;
+
+        if (is_array($daAutomacao)) {
+            if ($codigo === null) {
+                $codigo = $this->codigoNormalizado($daAutomacao['codigo'] ?? null);
+            }
+
+            if (blank($empresa->documento) && filled($daAutomacao['documento'] ?? null)) {
+                $empresa->documento = $daAutomacao['documento'];
+                $empresa->documento_tipo = $this->tipoDoDocumento($daAutomacao['documento'], $daAutomacao['tipo'] ?? null);
+            }
+        }
+
+        $daPlanilha = ChaveDeEmpresa::linha($planilha, $nomeOriginal, $codigo, $indice);
 
         if (is_array($daPlanilha)) {
             if (filled($daPlanilha['nome'] ?? null)) {
@@ -170,34 +193,166 @@ class FinanceiroController extends Controller
             }
         }
 
+        if (blank($empresa->documento)) {
+            $noNome = $this->documentoNoNome($nomeOriginal);
+
+            if ($noNome !== null) {
+                $empresa->documento = $noNome;
+                $empresa->documento_tipo = $this->tipoDoDocumento($noNome, null);
+            }
+        }
+
         $empresa->codigo = $codigo;
     }
 
     /**
-     * @param  array{porCodigo?: array<string, array{documento?: ?string, tipo?: ?string, codigo?: string, nome?: string}>, porNome?: array<string, array{documento?: ?string, tipo?: ?string, codigo?: string, nome?: string}>}  $planilha
+     * Código e CNPJ ainda não copiados para o Brain. Uma leitura só, guardada
+     * por dez minutos: a lista não pode esperar a próxima sincronização.
+     *
+     * @return array<int, array{codigo: ?string, documento: ?string, tipo: ?string}>
      */
-    private function nomeExibido(Empresa $empresa, array $planilha): string
+    private function dadosDaAutomacao(): array
     {
-        $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
-        $linha = $this->linhaDaPlanilha($empresa, $planilha, $codigo);
-        $nome = is_array($linha) ? ($linha['nome'] ?? null) : null;
+        if (! config('hc.completar_pela_automacao')) {
+            return [];
+        }
 
-        return filled($nome) ? $nome : $empresa->nome;
+        if (app()->runningUnitTests()) {
+            return $this->lerDadosDaAutomacao() ?? [];
+        }
+
+        $guardado = Cache::get('hc.automacao.codigo-documento.v1');
+
+        if (is_array($guardado)) {
+            return $guardado;
+        }
+
+        $dados = $this->lerDadosDaAutomacao();
+
+        if ($dados === null) {
+            return [];
+        }
+
+        Cache::put('hc.automacao.codigo-documento.v1', $dados, 600);
+
+        return $dados;
     }
 
     /**
-     * @param  array{porCodigo?: array<string, array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}>, porNome?: array<string, array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}>}  $planilha
-     * @return array{nome?: string, documento?: ?string, tipo?: ?string, codigo?: string}|null
+     * Null quando a automação não respondeu, para não guardar esse vazio
+     * por dez minutos e esconder o código que voltaria na hora seguinte.
+     *
+     * @return array<int, array{codigo: ?string, documento: ?string, tipo: ?string}>|null
      */
-    private function linhaDaPlanilha(Empresa $empresa, array $planilha, ?string $codigo): ?array
+    private function lerDadosDaAutomacao(): ?array
     {
-        if ($codigo !== null && is_array($planilha['porCodigo'][$codigo] ?? null)) {
-            return $planilha['porCodigo'][$codigo];
+        try {
+            $origem = DB::connection('automacao');
+            $empresas = $origem->table('companies')
+                ->where('draft', false)
+                ->get(['id', 'code']);
+        } catch (\Throwable) {
+            return null;
         }
 
-        $peloNome = $planilha['porNome'][$this->nomeChave($empresa->nome)] ?? null;
+        $documentos = $this->documentosDaAutomacao($origem);
+        $mapa = [];
 
-        return is_array($peloNome) ? $peloNome : null;
+        foreach ($empresas as $empresa) {
+            $documento = $documentos[(int) $empresa->id] ?? null;
+            $codigo = trim((string) $empresa->code);
+            $mapa[(int) $empresa->id] = [
+                'codigo' => $codigo === '' ? null : $codigo,
+                'documento' => $documento['documento'] ?? null,
+                'tipo' => $documento['tipo'] ?? null,
+            ];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * @return array<int, array{documento: ?string, tipo: ?string}>
+     */
+    private function documentosDaAutomacao(ConnectionInterface $origem): array
+    {
+        foreach ([['id', 'document_number', 'document_type'], ['id', 'document_number']] as $colunas) {
+            try {
+                return $origem->table('companies')
+                    ->where('draft', false)
+                    ->get($colunas)
+                    ->mapWithKeys(function (object $empresa) {
+                        $documento = preg_replace('/\D+/', '', (string) ($empresa->document_number ?? '')) ?? '';
+
+                        return [(int) $empresa->id => [
+                            'documento' => $documento === '' ? null : $documento,
+                            'tipo' => $this->tipoDoDocumento($documento, $empresa->document_type ?? null),
+                        ]];
+                    })
+                    ->all();
+            } catch (QueryException) {
+                $this->limparConsultaFalhada($origem);
+            }
+        }
+
+        return [];
+    }
+
+    private function limparConsultaFalhada(ConnectionInterface $origem): void
+    {
+        try {
+            if ($origem->transactionLevel() > 0) {
+                $origem->rollBack();
+
+                return;
+            }
+
+            $origem->unprepared('ROLLBACK');
+        } catch (\Throwable) {
+            // Não havia transação aberta: a próxima leitura segue.
+        }
+    }
+
+    private function tipoDoDocumento(?string $documento, mixed $tipo): ?string
+    {
+        $tipo = strtoupper(trim((string) $tipo));
+
+        if (in_array($tipo, ['CNPJ', 'CPF'], true)) {
+            return $tipo;
+        }
+
+        return match (strlen((string) $documento)) {
+            14 => 'CNPJ',
+            11 => 'CPF',
+            default => null,
+        };
+    }
+
+    /** CNPJ ou CPF escrito no próprio nome, quando a coluna de documento não veio. */
+    private function documentoNoNome(string $nome): ?string
+    {
+        if (preg_match('/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/', $nome, $encontrado) === 1) {
+            return preg_replace('/\D+/', '', $encontrado[0]) ?: null;
+        }
+
+        if (preg_match('/\d{3}\.\d{3}\.\d{3}-\d{2}/', $nome, $encontrado) === 1) {
+            return preg_replace('/\D+/', '', $encontrado[0]) ?: null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{porCodigo?: array<string, array<string, mixed>>, porNome?: array<string, array<string, mixed>>, porRaiz?: array<string, array<string, mixed>>}  $planilha
+     * @param  array<string, list<array{0: string, 1: array<string, mixed>}>>  $indice
+     */
+    private function nomeExibido(Empresa $empresa, array $planilha, array $indice): string
+    {
+        $codigo = $this->codigoNormalizado($empresa->codigo) ?? $this->codigoNoNome($empresa->nome);
+        $linha = ChaveDeEmpresa::linha($planilha, $empresa->nome, $codigo, $indice);
+        $nome = is_array($linha) ? ($linha['nome'] ?? null) : null;
+
+        return filled($nome) ? $nome : $empresa->nome;
     }
 
     /**

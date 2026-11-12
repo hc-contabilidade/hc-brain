@@ -222,6 +222,26 @@ class SincronizarEmpresasTest extends TestCase
         $this->assertSame('gray', $empresa->status_tag);
     }
 
+    public function test_sem_a_coluna_de_tipo_ainda_grava_o_cnpj(): void
+    {
+        Schema::connection('automacao')->table('companies', function (Blueprint $table) {
+            $table->dropColumn('document_type');
+        });
+
+        $this->company([
+            'code' => '25',
+            'trade_name' => 'Clínica Vida',
+            'document_number' => '36.359.902/0001-66',
+        ]);
+
+        $this->artisan('hc:sincronizar-empresas')->assertSuccessful();
+
+        $empresa = Empresa::sole();
+        $this->assertSame('25', $empresa->codigo);
+        $this->assertSame('36359902000166', $empresa->documento);
+        $this->assertSame('CNPJ', $empresa->documento_tipo);
+    }
+
     public function test_sem_colunas_de_documento_nao_apaga_cnpj_gravado(): void
     {
         Schema::connection('automacao')->table('companies', function (Blueprint $table) {

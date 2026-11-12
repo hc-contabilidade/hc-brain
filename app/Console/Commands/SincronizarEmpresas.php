@@ -183,18 +183,24 @@ class SincronizarEmpresas extends Command
      */
     private function documentosPorCompany(ConnectionInterface $origem): array
     {
-        try {
-            return $origem->table('companies')
-                ->where('draft', false)
-                ->get(['id', 'document_number', 'document_type'])
-                ->keyBy('id')
-                ->all();
-        } catch (QueryException $erro) {
-            $this->limparConsultaFalhada($origem);
-            $this->components->warn('CNPJ/CPF da automação não foi lido: '.$erro->getMessage());
+        $ultimo = null;
 
-            return [];
+        foreach ([['id', 'document_number', 'document_type'], ['id', 'document_number']] as $colunas) {
+            try {
+                return $origem->table('companies')
+                    ->where('draft', false)
+                    ->get($colunas)
+                    ->keyBy('id')
+                    ->all();
+            } catch (QueryException $erro) {
+                $this->limparConsultaFalhada($origem);
+                $ultimo = $erro;
+            }
         }
+
+        $this->components->warn('CNPJ/CPF da automação não foi lido: '.($ultimo?->getMessage() ?? 'consulta recusada'));
+
+        return [];
     }
 
     /**
@@ -277,9 +283,19 @@ class SincronizarEmpresas extends Command
     /** @return 'CNPJ'|'CPF'|null */
     private function documentoTipoDe(object $company): ?string
     {
-        $tipo = strtoupper(trim((string) $company->document_type));
+        $tipo = strtoupper(trim((string) ($company->document_type ?? '')));
 
-        return in_array($tipo, ['CNPJ', 'CPF'], true) ? $tipo : null;
+        if (in_array($tipo, ['CNPJ', 'CPF'], true)) {
+            return $tipo;
+        }
+
+        $digitos = preg_replace('/\D+/', '', (string) ($company->document_number ?? '')) ?? '';
+
+        return match (strlen($digitos)) {
+            14 => 'CNPJ',
+            11 => 'CPF',
+            default => null,
+        };
     }
 
     /**
