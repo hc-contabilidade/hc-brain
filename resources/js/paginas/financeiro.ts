@@ -270,6 +270,7 @@ function renderTabela(): void {
         ? dados
               .map((empresa) => {
                   const inativa = empresa.status === "Inativo";
+                  const tagStatus = inativa ? "red" : empresa.statusTag;
                   const documentoHtml = empresa.documento
                       ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(documento(empresa.documento))}</span>`
                       : "—";
@@ -278,10 +279,10 @@ function renderTabela(): void {
                       : "—";
 
                   return `
-            <tr class="${inativa ? "is-inativa" : ""}">
+            <tr>
               <td class="finance-codigo">${escapar(empresa.codigo ?? "—")}</td>
               <td><a class="finance-cliente" href="${caminhoDaPagina("cliente", { id: empresa.id })}">${escapar(empresa.nome)}</a></td>
-              <td><span class="tag ${empresa.statusTag}">${escapar(empresa.status)}</span></td>
+              <td><span class="tag ${tagStatus}">${escapar(empresa.status)}</span></td>
               <td><div class="finance-doc">${documentoHtml}</div></td>
               <td>${regimeHtml}</td>
               <td>${empresa.meses === null ? "—" : duracaoEmMeses(empresa.meses)}</td>

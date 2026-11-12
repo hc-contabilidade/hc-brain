@@ -469,9 +469,6 @@
 .finance-table tr:hover td {
     background: var(--surface-hover);
 }
-.finance-table tr.is-inativa td {
-    color: var(--texto-suave);
-}
 .finance-codigo {
     width: 88px;
     font-variant-numeric: tabular-nums;
