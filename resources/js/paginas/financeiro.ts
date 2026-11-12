@@ -156,6 +156,9 @@ function renderDonut(dados: LinhaCarteira[]): void {
               )
               .join("")
         : `<div class="finance-empty">Sem dados.</div>`;
+
+    document.getElementById("financeDonutCarregando")?.remove();
+    porId("financeDonutWrap").hidden = false;
 }
 
 function renderHonorarios(dados: LinhaCarteira[]): void {
@@ -264,7 +267,9 @@ function classeDoRegime(regime: string): string {
 
 function renderTabela(): void {
     const dados = empresasDaLista();
-    porId("financeCount").textContent = plural(dados.length, "empresa", "empresas");
+    const contagem = porId("financeCount");
+    contagem.hidden = false;
+    contagem.textContent = plural(dados.length, "empresa", "empresas");
 
     porId("financeTableBody").innerHTML = dados.length
         ? dados

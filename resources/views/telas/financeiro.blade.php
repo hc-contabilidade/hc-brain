@@ -80,7 +80,9 @@
       <span class="dot"></span><span>Todos os clientes</span>
     </div>
 
-    <div class="finance-kpis" id="financeKpis"></div>
+    <div class="finance-kpis" id="financeKpis">
+      <div class="estado-carregando">Carregando…</div>
+    </div>
 
     <div class="finance-main-grid">
       <div class="finance-panel">
@@ -90,7 +92,9 @@
             <p>Quanto cada grupo de empresas já deixou, em média.</p>
           </div>
         </div>
-        <div class="finance-panel-body" id="financeLtvChart"></div>
+        <div class="finance-panel-body" id="financeLtvChart">
+          <div class="estado-carregando">Carregando…</div>
+        </div>
       </div>
 
       <div class="finance-panel">
@@ -101,10 +105,11 @@
           </div>
         </div>
         <div class="finance-panel-body">
-          <div class="finance-donut-wrap">
+          <div class="estado-carregando" id="financeDonutCarregando">Carregando…</div>
+          <div class="finance-donut-wrap" id="financeDonutWrap" hidden>
             <div class="finance-donut" id="financeDonut">
               <div class="finance-donut-center">
-                <strong id="financeDonutTotal">R$ 0</strong><span>carteira</span>
+                <strong id="financeDonutTotal"></strong><span>carteira</span>
               </div>
             </div>
             <div class="finance-legend" id="financeLegend"></div>
@@ -121,7 +126,9 @@
             <p>Comparação entre o primeiro valor e o honorário atual.</p>
           </div>
         </div>
-        <div class="finance-panel-body" id="financeHonorariumChart"></div>
+        <div class="finance-panel-body" id="financeHonorariumChart">
+          <div class="estado-carregando">Carregando…</div>
+        </div>
       </div>
 
       <div class="finance-panel">
@@ -131,7 +138,9 @@
             <p>Empresas que representam maior valor arrecadado no grupo.</p>
           </div>
         </div>
-        <div class="finance-panel-body" id="financeTopClients"></div>
+        <div class="finance-panel-body" id="financeTopClients">
+          <div class="estado-carregando">Carregando…</div>
+        </div>
       </div>
     </div>
 
@@ -143,7 +152,7 @@
           <h2>Empresas</h2>
           <span class="muted">Ativas e inativas, como na automação. O status acompanha a sincronização.</span>
         </div>
-        <span class="finance-count" id="financeCount">0 empresas</span>
+        <span class="finance-count" id="financeCount" hidden></span>
       </div>
       <div class="finance-table-wrap">
         <table class="finance-table">
