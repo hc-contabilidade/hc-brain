@@ -54,6 +54,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/clientes/{empresa}', [TelaController::class, 'cliente'])->name('cliente');
     Route::get('/usuarios', [TelaController::class, 'usuarios'])->name('usuarios');
     Route::get('/comercial', [TelaController::class, 'comercial'])->name('comercial');
+    Route::get('/marketing', [TelaController::class, 'marketing'])->name('marketing');
     Route::get('/reunioes', [TelaController::class, 'reunioes'])->name('reunioes');
     Route::get('/financeiro', [TelaController::class, 'financeiro'])->name('financeiro');
     Route::get('/projetos', [TelaController::class, 'projetos'])->name('projetos');
@@ -68,6 +69,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/inicio', [Api\InicioController::class, 'index']);
         Route::get('/comercial', [Api\ComercialController::class, 'index']);
         Route::get('/comercial/{periodo}', [Api\ComercialController::class, 'show']);
+        Route::get('/marketing/periodos', [Api\MarketingController::class, 'periodos']);
+        Route::get('/marketing/ideias', [Api\MarketingController::class, 'ideias']);
+        Route::post('/marketing/ideias', [Api\MarketingController::class, 'storeIdeia']);
+        Route::put('/marketing/ideias/{ideia}', [Api\MarketingController::class, 'updateIdeia']);
+        Route::delete('/marketing/ideias/{ideia}', [Api\MarketingController::class, 'destroyIdeia']);
+        Route::get('/marketing/{periodo}', [Api\MarketingController::class, 'show']);
         Route::get('/financeiro', [Api\FinanceiroController::class, 'index']);
         Route::get('/financeiro/empresas', [Api\FinanceiroController::class, 'empresas']);
         Route::get('/omie-apps', [Api\OmieAppController::class, 'index']);

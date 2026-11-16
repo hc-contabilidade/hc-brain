@@ -113,7 +113,9 @@ final class AutomacaoComercialSync
             'monthly' => self::serieMensal($periodo, $leads),
             'origins' => self::contagemRotulada($entrados, 'origin'),
             'sources' => self::contagemRotulada($entrados, 'source'),
-            'funnel' => self::funil($entrados->isEmpty() ? $leads : $entrados),
+            // Só o funil dos leads que entraram no período — senão um mês
+            // sem entrada (ex.: nov/2026) parece ter 281 fechados.
+            'funnel' => self::funil($entrados),
             'losses' => self::perdas($perdidos),
             'sales' => self::vendas($fechados, $usuarios),
             'team' => self::equipe($entrados, $fechados, $usuarios),

@@ -81,6 +81,11 @@ class TelaController extends Controller
         return view('telas.comercial');
     }
 
+    public function marketing(): View
+    {
+        return view('telas.marketing');
+    }
+
     public function reunioes(): View
     {
         return view('telas.reunioes');
