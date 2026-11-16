@@ -23,7 +23,7 @@ import {
 import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
 import { atualizarSecao, observarEstado, obterSecao, type OrdemFinanceiro } from "../comum/estado.ts";
-import { documento, duracaoEmMeses, escapar, moeda, plural } from "../comum/formato.ts";
+import { documento, duracaoEmMeses, escapar, moeda, moedaCurta, plural } from "../comum/formato.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
@@ -139,7 +139,7 @@ function renderDonut(dados: LinhaCarteira[]): void {
     ]);
     const total = totais.reduce((soma, [, valor]) => soma + valor, 0);
 
-    porId("financeDonutTotal").textContent = moeda(total);
+    porId("financeDonutTotal").textContent = moedaCurta(total);
 
     let acumulado = 0;
     const paradas = totais.map(([nome, valor]) => {

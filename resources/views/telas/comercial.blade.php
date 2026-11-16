@@ -1,19 +1,19 @@
 @extends('layouts.app', [
     'tela' => 'comercial',
     'titulo' => 'Comercial',
-    'descricao' => 'Painel comercial da HC: leads, conversão, vendas fechadas e motivos de perda.',
+    'descricao' => 'Painel comercial da HC: leads, reuniões, vendas fechadas e motivos de perda.',
 ])
 
 @section('conteudo')
-  {{-- Painel gerencial da operação comercial. --}}
+  {{-- Painel gerencial espelhando o Painel de Vendas do Automacao. --}}
   <section class="page commercial-page active" id="comercial">
     <div class="commercial-head">
       <div>
         <span class="page-overline">GESTÃO COMERCIAL • VISÃO GERENCIAL</span>
         <h1>Painel Comercial</h1>
         <p class="muted">
-          Acompanhe a entrada de leads, conversão, vendas fechadas e os principais
-          motivos de perda da carteira.
+          Indicadores do CRM Automacao: leads, reuniões, vendas (abertura e transferência)
+          e motivos de perda.
         </p>
       </div>
       <div class="commercial-period">
@@ -29,8 +29,8 @@
       <div class="commercial-pipeline-card">
         <div class="commercial-card-head">
           <div>
-            <h2>Funil comercial</h2>
-            <p>Veja onde os leads estão sendo convertidos ou perdidos.</p>
+            <h2>Funil no período</h2>
+            <p>Distribuição dos leads pelas etapas do CRM.</p>
           </div>
           <span class="commercial-badge">mês selecionado</span>
         </div>
@@ -63,7 +63,7 @@
         <div class="commercial-card-head">
           <div>
             <h2>Origem dos leads</h2>
-            <p>De onde está vindo a geração de oportunidades.</p>
+            <p>Orgânico, ativo ou pago.</p>
           </div>
         </div>
         <div class="commercial-origin-layout">
@@ -79,6 +79,16 @@
     </div>
 
     <div class="commercial-grid-2">
+      <div class="commercial-panel">
+        <div class="commercial-card-head">
+          <div>
+            <h2>Fonte dos leads</h2>
+            <p>Indicação, redes sociais, evento e demais canais de aquisição.</p>
+          </div>
+        </div>
+        <div class="commercial-legend" id="commercialSourceLegend"></div>
+      </div>
+
       <div class="commercial-panel loss-panel">
         <div class="commercial-card-head">
           <div>
@@ -89,45 +99,46 @@
         </div>
         <div class="commercial-loss-list" id="commercialLossReasons"></div>
       </div>
+    </div>
 
+    <div class="commercial-grid-2">
       <div class="commercial-panel">
         <div class="commercial-card-head">
           <div>
             <h2>Vendas fechadas</h2>
-            <p>Empresas com fechamento registrado no período.</p>
+            <p>Fechamentos do período por abertura ou transferência.</p>
           </div>
         </div>
         <div class="commercial-sales-list" id="commercialSalesList"></div>
       </div>
-    </div>
 
-    <div class="commercial-panel commercial-team-panel">
-      <div class="commercial-card-head">
-        <div>
-          <h2>Desempenho do time</h2>
-          <p>Ranking por quantidade de vendas fechadas no período.</p>
+      <div class="commercial-panel commercial-team-panel">
+        <div class="commercial-card-head">
+          <div>
+            <h2>Desempenho do time</h2>
+            <p>Ranking por quantidade de vendas fechadas no período.</p>
+          </div>
         </div>
-      </div>
-      <div class="commercial-team-table-wrap">
-        <table class="commercial-team-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Responsável</th>
-              <th>Leads</th>
-              <th>Vendas</th>
-              <th>Conversão</th>
-              <th>Receita fechada</th>
-            </tr>
-          </thead>
-          <tbody id="commercialTeamBody">
-            <tr>
-              <td colspan="6">
-                <div class="estado-carregando">Carregando período…</div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="commercial-team-table-wrap">
+          <table class="commercial-team-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Responsável</th>
+                <th>Leads</th>
+                <th>Vendas</th>
+                <th>Conversão</th>
+              </tr>
+            </thead>
+            <tbody id="commercialTeamBody">
+              <tr>
+                <td colspan="5">
+                  <div class="estado-carregando">Carregando período…</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>

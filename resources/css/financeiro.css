@@ -250,7 +250,10 @@
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1;
+    max-width: 100%;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-variant-numeric: tabular-nums;
 }
 .finance-donut-center span {

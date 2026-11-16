@@ -22,8 +22,9 @@ use Throwable;
  * ?tarefa=empresas   → hc:sincronizar-empresas
  * ?tarefa=vinculos   → hc:sincronizar-omie-vinculos
  * ?tarefa=honorarios → hc:sincronizar-honorarios
+ * ?tarefa=comercial  → hc:sincronizar-comercial
  * ?tarefa=omie       → hc:sincronizar-omie
- * ?tarefa=tudo       → empresas + vínculos + honorários
+ * ?tarefa=tudo       → empresas + vínculos + honorários + comercial
  * ?tarefa=status     → resultado da última sync em segundo plano
  * ?tarefa=ip         → IP de saída do Render (Trusted Sources no DigitalOcean)
  */
@@ -39,11 +40,13 @@ class AgendarController extends Controller
         'empresas' => ['hc:sincronizar-empresas'],
         'vinculos' => ['hc:sincronizar-omie-vinculos'],
         'honorarios' => ['hc:sincronizar-honorarios'],
+        'comercial' => ['hc:sincronizar-comercial'],
         'omie' => ['hc:sincronizar-omie'],
         'tudo' => [
             'hc:sincronizar-empresas',
             'hc:sincronizar-omie-vinculos',
             'hc:sincronizar-honorarios',
+            'hc:sincronizar-comercial',
         ],
     ];
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Documento;
+use App\Models\IndicadorComercial;
 use App\Models\Pasta;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -519,10 +520,32 @@ class EscritaTest extends TestCase
 
     public function test_periodos_comerciais_saem_da_base(): void
     {
+        IndicadorComercial::query()->updateOrCreate(['periodo' => '2026-10'], [
+            'leads' => 11,
+            'qualified' => 7,
+            'meetings' => 64,
+            'meetings_done' => 3,
+            'proposals' => 0,
+            'closed' => 4,
+            'abertura' => 3,
+            'transferencia' => 1,
+            'rebotes' => 4,
+            'revenue' => 0,
+            'average_ticket' => 0,
+            'in_process' => 255,
+            'monthly' => [['Out', 11]],
+            'origins' => [['Orgânico', 11, '#6178ef']],
+            'sources' => [['Indicação', 11, '#6178ef']],
+            'funnel' => [['Fechado', 4]],
+            'losses' => [],
+            'sales' => [],
+            'team' => [],
+        ]);
+
         $this->autenticado()
             ->getJson('/api/comercial')
             ->assertOk()
-            ->assertJsonPath('0.id', '2026-09')
-            ->assertJsonPath('0.rotulo', 'Setembro 2026');
+            ->assertJsonPath('0.id', '2026-10')
+            ->assertJsonPath('0.rotulo', 'Outubro 2026');
     }
 }

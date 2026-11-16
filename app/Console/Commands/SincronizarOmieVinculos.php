@@ -47,9 +47,17 @@ class SincronizarOmieVinculos extends Command
             count($appIdPorBase).' apps Omie, '.$ligadas.' empresas com vínculo e '.$limpas.' sem vínculo Omie.'
         );
 
-        if (! filled(config('hc.omie.automacao_app_key'))) {
+        // Só avisa se ainda houver app sem secret útil. Quem já cadastrou o
+        // secret na mão (ou já importou antes) não precisa de AUTOMACAO_APP_KEY.
+        $semSecret = OmieApp::query()
+            ->whereIn('id', array_values($appIdPorBase))
+            ->get()
+            ->filter(fn (OmieApp $app) => ! $app->estaPronta())
+            ->count();
+
+        if ($semSecret > 0 && ! filled(config('hc.omie.automacao_app_key'))) {
             $this->components->warn(
-                'AUTOMACAO_APP_KEY não configurada: secrets não foram importados. Apps novos ficam inativos até a chave ou o cadastro manual do secret.'
+                "AUTOMACAO_APP_KEY não configurada: {$semSecret} app(s) Omie sem secret ativo. Cadastre o secret ou defina a chave para importar do automacao."
             );
         }
 

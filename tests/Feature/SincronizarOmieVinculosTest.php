@@ -113,7 +113,9 @@ class SincronizarOmieVinculosTest extends TestCase
             'status_tag' => 'green',
         ]);
 
-        $this->artisan('hc:sincronizar-omie-vinculos')->assertSuccessful();
+        $this->artisan('hc:sincronizar-omie-vinculos')
+            ->expectsOutputToContain('AUTOMACAO_APP_KEY')
+            ->assertSuccessful();
 
         $app = OmieApp::query()->sole();
         $this->assertFalse($app->ativo);
@@ -122,6 +124,33 @@ class SincronizarOmieVinculosTest extends TestCase
         $empresa = Empresa::query()->sole();
         $this->assertSame($app->id, $empresa->omie_app_id);
         $this->assertSame(815719361, $empresa->omie_codigo_cliente);
+    }
+
+    public function test_sem_chave_nao_avisa_quando_apps_ja_tem_secret(): void
+    {
+        config(['hc.omie.automacao_app_key' => null]);
+
+        $baseId = DB::connection('automacao')->table('omie_bases')->insertGetId([
+            'name' => 'HC MORUMBI',
+            'app_key' => '1850677815987',
+            'app_secret' => 'cipher-qualquer',
+        ]);
+
+        OmieApp::query()->create([
+            'automacao_id' => $baseId,
+            'nome' => 'HC MORUMBI',
+            'app_key' => '1850677815987',
+            'app_secret' => 'segredo-ja-cadastrado',
+            'ativo' => true,
+        ]);
+
+        $this->artisan('hc:sincronizar-omie-vinculos')
+            ->doesntExpectOutputToContain('AUTOMACAO_APP_KEY')
+            ->assertSuccessful();
+
+        $app = OmieApp::query()->sole();
+        $this->assertTrue($app->ativo);
+        $this->assertSame('segredo-ja-cadastrado', $app->app_secret);
     }
 
     public function test_empresa_sem_vinculo_no_automacao_limpa_omie(): void

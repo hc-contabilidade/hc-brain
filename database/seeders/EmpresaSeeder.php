@@ -6,8 +6,8 @@ use App\Models\Empresa;
 use Illuminate\Database\Seeder;
 
 /**
- * Empresas da carteira, cada uma com o sócio responsável, as fontes vinculadas
- * diretamente a ela e o relacionamento financeiro com a HC.
+ * Empresas de demonstração (Empresa X, Y…). Sócio e fontes ficam para as
+ * outras telas; o financeiro real vem do automacao/Omie, não do seeder.
  */
 class EmpresaSeeder extends Seeder
 {
@@ -29,18 +29,10 @@ class EmpresaSeeder extends Seeder
                 $empresa->fontes()->create([...$fonte, 'ordem' => $ordem]);
             }
 
-            $empresa->financeiro()->delete();
-            $empresa->financeiro()->create($dados['financeiro']);
-
-            $empresa->receitasMensais()->delete();
-            foreach (array_values($dados['receita_mensal']) as $ordem => [$mes, $valor]) {
-                $empresa->receitasMensais()->create(['mes' => $mes, 'valor' => $valor, 'ordem' => $ordem]);
-            }
-
+            // Limpa qualquer financeiro antigo dessas empresas fictícias.
             $empresa->transacoes()->delete();
-            foreach (array_values($dados['transacoes']) as $ordem => $transacao) {
-                $empresa->transacoes()->create([...$transacao, 'ordem' => $ordem]);
-            }
+            $empresa->receitasMensais()->delete();
+            $empresa->financeiro()->delete();
         }
     }
 
