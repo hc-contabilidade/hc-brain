@@ -2,9 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Models\MarketingMetrica;
 use App\Models\User;
+use Database\Seeders\MarketingSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Deixa a base pronta logo depois do `migrate`, sem ninguém olhando.
@@ -24,12 +27,25 @@ class PrepararBase extends Command
         if (User::count() === 0) {
             $this->components->info('Base vazia: semeando os dados iniciais.');
             $this->call('db:seed', ['--force' => true]);
+        } elseif ($this->precisaSemeiarMarketing()) {
+            // Base já em uso (ex.: Render free sem Shell): só completa o rascunho Marketing.
+            $this->components->info('Marketing vazio: semeando métricas e ideias de rascunho.');
+            $this->call('db:seed', ['--class' => MarketingSeeder::class, '--force' => true]);
         }
 
         // Idempotente: garante links do Academy mesmo em bases já semeadas.
         $this->call('hc:sincronizar-academy');
 
         return $this->acessoInicial();
+    }
+
+    private function precisaSemeiarMarketing(): bool
+    {
+        if (! Schema::hasTable('marketing_metricas')) {
+            return false;
+        }
+
+        return MarketingMetrica::query()->count() === 0;
     }
 
     private function acessoInicial(): int
