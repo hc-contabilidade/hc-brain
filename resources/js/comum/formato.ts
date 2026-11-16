@@ -36,6 +36,23 @@ export function moeda(valor: number | null | undefined): string {
     return MOEDA.format(Number(valor ?? 0));
 }
 
+/** Versão curta para furos de donut e espaços apertados (ex.: R$ 5,8 mi). */
+export function moedaCurta(valor: number | null | undefined): string {
+    const n = Number(valor ?? 0);
+    const abs = Math.abs(n);
+
+    if (abs >= 1_000_000) {
+        const mi = (n / 1_000_000).toFixed(1).replace(".", ",");
+        return `R$ ${mi} mi`;
+    }
+
+    if (abs >= 100_000) {
+        return `R$ ${Math.round(n / 1_000)} mil`;
+    }
+
+    return moeda(n);
+}
+
 export function numero(valor: number | null | undefined): string {
     return NUMERO.format(Number(valor ?? 0));
 }

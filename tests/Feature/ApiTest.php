@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Documento;
+use App\Models\IndicadorComercial;
 use App\Models\Pasta;
 use App\Models\Reuniao;
 use App\Models\User;
@@ -29,6 +30,32 @@ class ApiTest extends TestCase
     private function autenticado(): static
     {
         return $this->actingAs(User::firstOrFail());
+    }
+
+    /** @param  list<array{0: string, 1: int, 2: string}>|null  $origins */
+    private function indicadorComercial(string $periodo, int $leads = 0, ?array $origins = null): void
+    {
+        IndicadorComercial::query()->updateOrCreate(['periodo' => $periodo], [
+            'leads' => $leads,
+            'qualified' => max(0, $leads - 1),
+            'meetings' => 0,
+            'meetings_done' => 0,
+            'proposals' => 0,
+            'closed' => 0,
+            'abertura' => 0,
+            'transferencia' => 0,
+            'rebotes' => 0,
+            'revenue' => 0,
+            'average_ticket' => 0,
+            'in_process' => 0,
+            'monthly' => [['Out', $leads]],
+            'origins' => $origins ?? [['Orgânico', $leads, '#6178ef']],
+            'sources' => [['Indicação', $leads, '#6178ef']],
+            'funnel' => [['Novo', $leads]],
+            'losses' => [],
+            'sales' => [],
+            'team' => [],
+        ]);
     }
 
     public function test_api_exige_sessao(): void
@@ -76,10 +103,8 @@ class ApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('empresa.nome', 'Empresa X')
             ->assertJsonPath('empresa.socio.nome', 'Flávia Silva')
-            ->assertJsonStructure([
-                'empresa', 'reunioes', 'treinamentos',
-                'financeiro' => ['regime', 'meses', 'primeiro', 'atual', 'total', 'receitaMensal', 'transacoes'],
-            ]);
+            ->assertJsonPath('financeiro', null)
+            ->assertJsonStructure(['empresa', 'reunioes', 'treinamentos', 'financeiro']);
     }
 
     public function test_empresa_inexistente_responde_404(): void
@@ -251,46 +276,54 @@ class ApiTest extends TestCase
 
     public function test_comercial_responde_por_periodo(): void
     {
+        $this->indicadorComercial('2026-08', leads: 10, origins: [['Orgânico', 10, '#6178ef']]);
+
         $this->autenticado()
             ->getJson('/api/comercial/2026-08')
             ->assertOk()
             ->assertJsonPath('periodo', '2026-08')
-            ->assertJsonStructure(['leads', 'closed', 'revenue', 'monthly', 'origins', 'losses', 'team']);
+            ->assertJsonStructure([
+                'leads', 'closed', 'abertura', 'transferencia', 'rebotes',
+                'revenue', 'monthly', 'origins', 'sources', 'funnel', 'losses', 'team',
+            ]);
     }
 
     public function test_origens_do_comercial_somam_os_leads_do_periodo(): void
     {
-        foreach (['2026-07', '2026-08', '2026-09'] as $periodo) {
-            $resposta = $this->autenticado()
-                ->getJson("/api/comercial/{$periodo}")
-                ->assertOk()
-                ->assertJsonPath('periodo', $periodo);
+        $this->indicadorComercial('2026-10', leads: 11, origins: [
+            ['Orgânico', 8, '#6178ef'],
+            ['Pago', 3, '#38aa86'],
+        ]);
 
-            $somaOrigens = collect($resposta->json('origins'))->sum(fn (array $origem) => $origem[1]);
-            $this->assertSame(
-                $resposta->json('leads'),
-                $somaOrigens,
-                "Origens de {$periodo} devem somar os leads do período.",
-            );
-        }
+        $resposta = $this->autenticado()
+            ->getJson('/api/comercial/2026-10')
+            ->assertOk()
+            ->assertJsonPath('periodo', '2026-10');
+
+        $somaOrigens = collect($resposta->json('origins'))->sum(fn (array $origem) => $origem[1]);
+        $this->assertSame($resposta->json('leads'), $somaOrigens);
     }
 
     /** O período vem de um <select>, então um valor desconhecido cai no mais recente. */
     public function test_periodo_comercial_desconhecido_cai_no_mais_recente(): void
     {
+        $this->indicadorComercial('2026-10', leads: 11);
+        $this->indicadorComercial('2026-09', leads: 57);
+
         $this->autenticado()
             ->getJson('/api/comercial/1999-01')
             ->assertOk()
-            ->assertJsonPath('periodo', '2026-09');
+            ->assertJsonPath('periodo', '2026-10');
     }
 
     public function test_carteira_financeira(): void
     {
+        // Sem vínculo real (automacao/Omie), as empresas fictícias do seeder
+        // não entram na carteira consolidada.
         $this->autenticado()
             ->getJson('/api/financeiro')
             ->assertOk()
-            ->assertJsonCount(5)
-            ->assertJsonStructure([['nome', 'setor', 'socio', 'regime', 'meses', 'primeiro', 'atual', 'total']]);
+            ->assertJsonCount(0);
     }
 
     public function test_indice_de_pesquisa_vem_da_base_ao_vivo(): void

@@ -44,6 +44,27 @@ class AgendarScheduleTest extends TestCase
         Mockery::close();
     }
 
+    public function test_tarefa_comercial_aceita_e_responde_na_hora(): void
+    {
+        config(['hc.schedule_token' => 'segredo-de-teste']);
+        Cache::flush();
+
+        Artisan::shouldReceive('call')
+            ->once()
+            ->with('hc:sincronizar-comercial')
+            ->andReturn(0);
+        Artisan::shouldReceive('output')
+            ->once()
+            ->andReturn("Comercial: 3 período(s) atualizado(s).\n");
+
+        $this->get('/interno/agendar/segredo-de-teste?tarefa=comercial')
+            ->assertOk()
+            ->assertSee('segundo plano')
+            ->assertSee('tarefa=status');
+
+        Mockery::close();
+    }
+
     public function test_tarefa_status_mostra_cache(): void
     {
         config(['hc.schedule_token' => 'segredo-de-teste']);

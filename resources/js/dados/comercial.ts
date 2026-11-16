@@ -1,5 +1,6 @@
 /* =========================================================
    COMERCIAL — indicadores gerenciais por período
+   (espelho do Painel de Vendas do Automacao)
    ========================================================= */
 
 import { obter } from "../comum/api.ts";
@@ -13,7 +14,7 @@ export interface PeriodoComercial {
 export type MesLeads = [rotulo: string, leads: number];
 export type OrigemLead = [nome: string, leads: number, cor: string];
 export type MotivoPerda = [motivo: string, ocorrencias: number];
-export type VendaFechada = [empresa: string, responsavel: string, valor: string];
+export type VendaFechada = [empresa: string, responsavel: string, tipo: string];
 export type LinhaEquipe = [
     pessoa: string,
     leads: number,
@@ -21,6 +22,7 @@ export type LinhaEquipe = [
     conversao: number,
     receita: number,
 ];
+export type EtapaFunil = [nome: string, quantidade: number];
 
 export interface IndicadoresComerciais {
     periodo: string;
@@ -29,13 +31,19 @@ export interface IndicadoresComerciais {
     leadsAnteriores: number | null;
     qualified: number;
     meetings: number;
+    meetingsDone: number;
     proposals: number;
     closed: number;
+    abertura: number;
+    transferencia: number;
+    rebotes: number;
     revenue: number;
     averageTicket: number;
     inProcess: number;
     monthly: MesLeads[];
     origins: OrigemLead[];
+    sources: OrigemLead[];
+    funnel: EtapaFunil[];
     losses: MotivoPerda[];
     sales: VendaFechada[];
     team: LinhaEquipe[];

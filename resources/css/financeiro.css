@@ -253,11 +253,13 @@
 }
 .finance-donut-center strong {
     color: var(--texto-forte);
-    font-size: var(--texto-xs);
+    font-size: 0.7rem;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.1;
     max-width: 100%;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .finance-donut-center span {
     color: var(--texto-fraco);

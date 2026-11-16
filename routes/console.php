@@ -15,6 +15,7 @@ Schedule::command('hc:sincronizar-empresas')->everyFifteenMinutes()->withoutOver
 // "Sincronizar agora", e sua trava expira em minutos, não em um dia.
 Schedule::command('hc:sincronizar-omie-vinculos')->everyFifteenMinutes()->withoutOverlapping(30);
 Schedule::command('hc:sincronizar-honorarios')->everyFifteenMinutes()->withoutOverlapping(30);
+Schedule::command('hc:sincronizar-comercial')->everyFifteenMinutes()->withoutOverlapping(30);
 Schedule::command('hc:sincronizar-agendas')->everyFiveMinutes()->withoutOverlapping();
 // Omie via API é pesado: fica de hora em hora (só no minuto 0).
 Schedule::command('hc:sincronizar-omie')->hourly()->withoutOverlapping(120);
