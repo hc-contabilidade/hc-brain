@@ -186,10 +186,27 @@ function renderComercial(dados: IndicadoresComerciais): void {
     filtroPeriodo.value = dados.periodo;
 }
 
+function renderSemPeriodos(): void {
+    const vazio = `<div class="empty-state">Nenhum período comercial na base ainda. Aguarde a sincronização com o Automacao ou rode hc:sincronizar-comercial.</div>`;
+
+    porId("commercialKpis").innerHTML = vazio;
+    porId("commercialFunnel").innerHTML = "";
+    porId("commercialRates").innerHTML = "";
+    porId("commercialMonthlyLeads").innerHTML = "";
+    porId("commercialOriginLegend").innerHTML = "";
+    porId("commercialOriginTotal").textContent = "0";
+    porId("commercialOriginDonut").style.background = "var(--surface-alto)";
+    porId("commercialSourceLegend").innerHTML = "";
+    porId("commercialLostTotal").textContent = "0 perdas";
+    porId("commercialLossReasons").innerHTML = "";
+    porId("commercialSalesList").innerHTML = "";
+    porId("commercialTeamBody").innerHTML =
+        `<tr><td colspan="5">${vazio}</td></tr>`;
+}
+
 async function carregarEExibir(): Promise<void> {
     if (!periodos.length) {
-        porId("commercialKpis").innerHTML =
-            `<div class="empty-state">Nenhum período comercial na base ainda. Rode hc:sincronizar-comercial.</div>`;
+        renderSemPeriodos();
         return;
     }
 
