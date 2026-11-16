@@ -53,6 +53,13 @@
     font-size: var(--texto-base);
 }
 
+.empresa-doc {
+    color: var(--texto-forte);
+    font-size: var(--texto-base);
+    font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+}
+
 .empresa-socio-line {
     padding-top: var(--esp-3);
     margin-top: var(--esp-2);
@@ -99,8 +106,8 @@
 .empresa-list-item {
     display: grid;
     grid-template-columns:
-        36px minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(140px, 0.8fr)
-        auto;
+        36px minmax(220px, 1.5fr) minmax(150px, 0.9fr) minmax(110px, 0.7fr)
+        minmax(140px, 0.8fr) auto;
     align-items: center;
     gap: var(--esp-4);
     min-height: 72px;
@@ -205,12 +212,12 @@
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
     .empresa-list-item {
-        grid-template-columns: 36px minmax(0, 1fr) auto;
+        grid-template-columns: 36px minmax(0, 1fr) minmax(120px, auto) auto;
         gap: var(--esp-3);
         padding: var(--esp-3);
     }
 
-    .empresa-list-info {
+    .empresa-list-info:not(.empresa-list-doc) {
         display: none;
     }
 }

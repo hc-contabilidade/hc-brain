@@ -2,10 +2,6 @@
    FINANCEIRO GERAL — visão consolidada
    Adicionado sem alterar os estilos existentes.
    ========================================================= */
-.finance-page {
-    max-width: 1500px;
-}
-
 .finance-head {
     display: flex;
     align-items: flex-end;
@@ -24,11 +20,11 @@
 
 .finance-toolbar {
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) 220px auto;
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, 220px) minmax(190px, 230px) auto;
     gap: 10px;
     align-items: end;
     padding: 12px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 12px;
     background: var(--surface);
     margin-bottom: 14px;
@@ -106,7 +102,7 @@
 .finance-kpi {
     min-height: 96px;
     padding: 14px 15px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 11px;
     background: var(--surface);
     box-sizing: border-box;
@@ -117,7 +113,6 @@
 }
 .finance-kpi:hover {
     transform: translateY(-2px);
-    border-color: var(--border-forte);
     background: var(--surface-hover);
 }
 .finance-kpi-label {
@@ -149,7 +144,7 @@
 }
 
 .finance-panel {
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 11px;
     background: var(--surface);
     overflow: hidden;
@@ -215,14 +210,14 @@
 
 .finance-donut-wrap {
     display: grid;
-    grid-template-columns: 150px 1fr;
+    grid-template-columns: 200px 1fr;
     gap: 18px;
     align-items: center;
-    min-height: 160px;
+    min-height: 200px;
 }
 .finance-donut {
-    width: 145px;
-    height: 145px;
+    width: 190px;
+    height: 190px;
     border-radius: 50%;
     position: relative;
     background: conic-gradient(var(--roxo) 0deg 360deg);
@@ -232,7 +227,7 @@
 .finance-donut::after {
     content: "";
     position: absolute;
-    inset: 34px;
+    inset: 36px;
     border-radius: 50%;
     background: var(--surface);
     box-shadow: 0 0 0 1px var(--border);
@@ -240,26 +235,26 @@
 .finance-donut-center {
     position: absolute;
     /* Mesmo inset do furo (::after), senão o valor invade o anel colorido. */
-    inset: 34px;
+    inset: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
     gap: 2px;
-    padding: 4px;
+    padding: 0;
     text-align: center;
-    overflow: hidden;
     z-index: 2;
 }
 .finance-donut-center strong {
     color: var(--texto-forte);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
 }
 .finance-donut-center span {
     color: var(--texto-fraco);
@@ -397,7 +392,7 @@
 }
 .finance-insight {
     padding: 12px 14px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 10px;
     background: var(--surface);
 }
@@ -422,7 +417,7 @@
 }
 
 .finance-table-panel {
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 11px;
     background: var(--surface);
     overflow: hidden;
@@ -452,7 +447,7 @@
 .finance-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 760px;
+    min-width: 1080px;
 }
 .finance-table th {
     position: sticky;
@@ -477,13 +472,59 @@
 .finance-table tr:hover td {
     background: var(--surface-hover);
 }
+.finance-codigo {
+    width: 88px;
+    font-variant-numeric: tabular-nums;
+}
+.finance-cliente {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+.finance-cliente:hover {
+    text-decoration: underline;
+}
+.finance-doc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.finance-doc-tipo {
+    color: var(--texto-fraco);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
 .finance-regime {
     display: inline-block;
-    padding: 3px 6px;
+    padding: 4px 10px;
     border-radius: 99px;
     background: var(--cinza-fundo);
     color: var(--texto-suave);
     font-size: var(--texto-xs);
+    font-weight: var(--peso-medio);
+    white-space: nowrap;
+}
+
+.finance-regime-presumido {
+    background: #ece6ff;
+    color: #5c4db8;
+}
+
+.finance-regime-mei {
+    background: #fff3c4;
+    color: #8a6100;
+}
+
+.finance-regime-simples {
+    background: #d8f6e8;
+    color: #0d7a5a;
+}
+
+.finance-regime-fisica {
+    background: #e4eefc;
+    color: #2a5fad;
 }
 .finance-empty {
     padding: 28px 15px;
@@ -519,6 +560,15 @@
     }
 }
 
+#omieAppsPanel .finance-panel-head {
+    border-bottom: 0;
+}
+#omieAppsPanel.is-aberto .finance-panel-head {
+    border-bottom: 1px solid var(--border);
+}
+#omieAppsToggle {
+    flex-shrink: 0;
+}
 .omie-apps-lista {
     display: flex;
     flex-direction: column;

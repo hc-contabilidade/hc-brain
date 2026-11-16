@@ -69,6 +69,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/comercial', [Api\ComercialController::class, 'index']);
         Route::get('/comercial/{periodo}', [Api\ComercialController::class, 'show']);
         Route::get('/financeiro', [Api\FinanceiroController::class, 'index']);
+        Route::get('/financeiro/empresas', [Api\FinanceiroController::class, 'empresas']);
         Route::get('/omie-apps', [Api\OmieAppController::class, 'index']);
         Route::post('/omie-apps', [Api\OmieAppController::class, 'store']);
         Route::put('/omie-apps/{omieApp}', [Api\OmieAppController::class, 'update']);

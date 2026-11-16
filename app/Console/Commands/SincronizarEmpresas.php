@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Empresa;
 use App\Models\Socio;
+use Database\Seeders\ImportEmpresasSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
@@ -11,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use stdClass;
 
 /**
  * Traz as empresas do automacao-2-hc para a carteira do HC Brain.
@@ -76,6 +78,9 @@ class SincronizarEmpresas extends Command
             $empresas[] = [
                 'id' => $id,
                 'automacao_id' => $company->id,
+                'codigo' => $this->codigoDe($company),
+                'documento' => $this->documentoDe($company),
+                'documento_tipo' => $this->documentoTipoDe($company),
                 'nome' => $nome,
                 'setor' => $this->setor($company),
                 'status' => $status,
@@ -86,8 +91,20 @@ class SincronizarEmpresas extends Command
         }
 
         DB::transaction(function () use ($empresas, $linhasSocio) {
-            foreach (array_chunk($empresas, 500) as $lote) {
-                Empresa::upsert($lote, ['id'], ['automacao_id', 'nome', 'setor', 'status', 'status_tag']);
+            [$comDocumento, $semDocumento] = $this->separarPorDocumento($empresas);
+
+            foreach (array_chunk($comDocumento, 500) as $lote) {
+                Empresa::upsert($lote, ['id'], [
+                    'automacao_id', 'codigo', 'documento', 'documento_tipo',
+                    'nome', 'setor', 'status', 'status_tag',
+                ]);
+            }
+
+            foreach (array_chunk($semDocumento, 500) as $lote) {
+                Empresa::upsert($lote, ['id'], [
+                    'automacao_id', 'codigo',
+                    'nome', 'setor', 'status', 'status_tag',
+                ]);
             }
 
             foreach (array_chunk($linhasSocio, 500) as $lote) {
@@ -95,10 +112,41 @@ class SincronizarEmpresas extends Command
             }
         });
 
+        if (config('hc.completar_cnpj_planilha')) {
+            app(ImportEmpresasSeeder::class)->completarDocumentos();
+        }
+
         $atualizadas = count($empresas) - $novas;
         $this->components->info(count($empresas)." empresas sincronizadas: {$novas} novas e {$atualizadas} atualizadas.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Documento vazio não entra na atualização. Sem isso, a leitura do CNPJ
+     * que o usuário da automação não enxerga gravaria nulo por cima do
+     * número que a planilha já tinha preenchido.
+     *
+     * @param  list<array<string, mixed>>  $empresas
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function separarPorDocumento(array $empresas): array
+    {
+        $comDocumento = [];
+        $semDocumento = [];
+
+        foreach ($empresas as $empresa) {
+            if (filled($empresa['documento'])) {
+                $comDocumento[] = $empresa;
+
+                continue;
+            }
+
+            unset($empresa['documento'], $empresa['documento_tipo']);
+            $semDocumento[] = $empresa;
+        }
+
+        return [$comDocumento, $semDocumento];
     }
 
     /**
@@ -110,10 +158,68 @@ class SincronizarEmpresas extends Command
      */
     private function companies(ConnectionInterface $origem): Collection
     {
-        return $origem->table('companies')
+        $companies = $origem->table('companies')
             ->where('draft', false)
             ->orderBy('id')
-            ->get(['id', 'code', 'name', 'trade_name', 'status', 'metier', 'segment_type', 'contract_start_date', 'deleted_at']);
+            ->get([
+                'id', 'code', 'name', 'trade_name', 'status', 'metier',
+                'segment_type', 'contract_start_date', 'deleted_at',
+            ]);
+
+        $documentos = $this->documentosPorCompany($origem);
+
+        return $companies->each(function (stdClass $company) use ($documentos): void {
+            $documento = $documentos[$company->id] ?? null;
+            $company->document_number = $documento->document_number ?? null;
+            $company->document_type = $documento->document_type ?? null;
+        });
+    }
+
+    /**
+     * CNPJ/CPF numa leitura à parte: se o usuário de leitura não puder ver
+     * essas colunas, código e status continuam sendo gravados.
+     *
+     * @return array<int, object>
+     */
+    private function documentosPorCompany(ConnectionInterface $origem): array
+    {
+        $ultimo = null;
+
+        foreach ([['id', 'document_number', 'document_type'], ['id', 'document_number']] as $colunas) {
+            try {
+                return $origem->table('companies')
+                    ->where('draft', false)
+                    ->get($colunas)
+                    ->keyBy('id')
+                    ->all();
+            } catch (QueryException $erro) {
+                $this->limparConsultaFalhada($origem);
+                $ultimo = $erro;
+            }
+        }
+
+        $this->components->warn('CNPJ/CPF da automação não foi lido: '.($ultimo?->getMessage() ?? 'consulta recusada'));
+
+        return [];
+    }
+
+    /**
+     * No Postgres, uma coluna sem permissão aborta a transação da conexão.
+     * Sem este rollback, a leitura seguinte de código e status também falha.
+     */
+    private function limparConsultaFalhada(ConnectionInterface $origem): void
+    {
+        try {
+            if ($origem->transactionLevel() > 0) {
+                $origem->rollBack();
+
+                return;
+            }
+
+            $origem->unprepared('ROLLBACK');
+        } catch (\Throwable) {
+            // Não havia transação aberta: a próxima leitura segue.
+        }
     }
 
     /**
@@ -158,6 +264,38 @@ class SincronizarEmpresas extends Command
     private function nomeDe(object $company): string
     {
         return trim((string) $company->trade_name) ?: trim((string) $company->name);
+    }
+
+    private function codigoDe(object $company): ?string
+    {
+        $codigo = trim((string) $company->code);
+
+        return $codigo === '' ? null : $codigo;
+    }
+
+    private function documentoDe(object $company): ?string
+    {
+        $documento = preg_replace('/\D+/', '', (string) $company->document_number) ?? '';
+
+        return $documento === '' ? null : $documento;
+    }
+
+    /** @return 'CNPJ'|'CPF'|null */
+    private function documentoTipoDe(object $company): ?string
+    {
+        $tipo = strtoupper(trim((string) ($company->document_type ?? '')));
+
+        if (in_array($tipo, ['CNPJ', 'CPF'], true)) {
+            return $tipo;
+        }
+
+        $digitos = preg_replace('/\D+/', '', (string) ($company->document_number ?? '')) ?? '';
+
+        return match (strlen($digitos)) {
+            14 => 'CNPJ',
+            11 => 'CPF',
+            default => null,
+        };
     }
 
     /**

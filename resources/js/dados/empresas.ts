@@ -48,6 +48,8 @@ export interface Empresa {
     id: string;
     nome: string;
     setor: string;
+    documento: string | null;
+    documentoTipo: "CNPJ" | "CPF" | null;
     status: string;
     statusTag: CorTag;
     /** App Omie + código do cliente; null se ainda não vinculado. */
@@ -79,7 +81,14 @@ export interface TransacaoEmpresa {
     status: string;
 }
 
-export type RegimeTributario = "Simples Nacional" | "Lucro Presumido" | "Lucro Real";
+export const REGIMES_TRIBUTARIOS = [
+    "Lucro Presumido",
+    "MEI",
+    "Simples Nacional",
+    "Pessoa Física",
+] as const;
+
+export type RegimeTributario = (typeof REGIMES_TRIBUTARIOS)[number];
 
 export interface FinanceiroEmpresa {
     regime: RegimeTributario;
@@ -124,10 +133,11 @@ export interface LinhaCarteira {
  * A cor de cada regime nos gráficos. São tokens, não hex soltos: mudar a
  * paleta em base.css muda o gráfico junto.
  */
-export const corDoRegime: Record<string, string> = {
-    "Simples Nacional": "var(--azul)",
+export const corDoRegime: Record<RegimeTributario, string> = {
     "Lucro Presumido": "var(--verde)",
-    "Lucro Real": "var(--roxo-claro)",
+    MEI: "var(--roxo-claro)",
+    "Simples Nacional": "var(--azul)",
+    "Pessoa Física": "var(--amarelo)",
 };
 
 /** Usada quando o regime não está no mapa acima. */
@@ -186,6 +196,26 @@ export function excluirEmpresa(id: string): Promise<void> {
 
 export function carregarCarteira(): Promise<LinhaCarteira[]> {
     return obter<LinhaCarteira[]>("/financeiro");
+}
+
+/** Empresa da lista de baixo do financeiro, no formato da automação. */
+export interface EmpresaDaLista {
+    id: string;
+    codigo: string | null;
+    nome: string;
+    documento: string | null;
+    documentoTipo: "CNPJ" | "CPF" | null;
+    status: string;
+    statusTag: CorTag;
+    regime: string | null;
+    meses: number | null;
+    primeiro: number | null;
+    atual: number | null;
+    total: number | null;
+}
+
+export function carregarEmpresasDaLista(): Promise<EmpresaDaLista[]> {
+    return obter<EmpresaDaLista[]>("/financeiro/empresas");
 }
 
 export async function salvarVinculoOmie(

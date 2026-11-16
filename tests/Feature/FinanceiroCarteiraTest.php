@@ -3,13 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Models\OmieApp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * A tela Financeiro consolidado só lista empresas com vínculo real
- * (automacao_id ou omie_codigo_cliente), nunca as fictícias do seeder.
+ * A carteira consolidada do Financeiro só lista empresas com Omie
+ * (app + código de cliente), nunca as fictícias do seeder.
  */
 class FinanceiroCarteiraTest extends TestCase
 {
@@ -31,11 +32,19 @@ class FinanceiroCarteiraTest extends TestCase
             ->assertExactJson([]);
     }
 
-    public function test_empresa_com_automacao_e_financeiro_aparece_na_carteira(): void
+    public function test_empresa_com_omie_e_financeiro_aparece_na_carteira(): void
     {
+        $app = OmieApp::query()->create([
+            'nome' => 'HC Contábil',
+            'app_key' => 'chave-teste',
+            'app_secret' => 'segredo-teste',
+            'ativo' => true,
+        ]);
         $empresa = Empresa::query()->create([
             'id' => 'cliente-real',
             'automacao_id' => 42,
+            'omie_app_id' => $app->id,
+            'omie_codigo_cliente' => 1001,
             'nome' => 'Cliente Real LTDA',
             'setor' => 'Serviços',
             'status' => 'Ativo',

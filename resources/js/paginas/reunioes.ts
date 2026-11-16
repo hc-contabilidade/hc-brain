@@ -137,6 +137,27 @@ function ordenarDoDia(reunioes: Reuniao[]): Reuniao[] {
     );
 }
 
+/** Da menor data para a maior; no mesmo dia, do horário mais cedo ao mais tarde. */
+function compararCronologico(a: Reuniao, b: Reuniao): number {
+    if (a.dataOrd !== b.dataOrd) {
+        return a.dataOrd < b.dataOrd ? -1 : 1;
+    }
+
+    return minutosDoHorario(a.horario) - minutosDoHorario(b.horario);
+}
+
+/**
+ * As duas pontas preenchidas ficam em ordem. Um início depois do fim
+ * não encontra reunião nenhuma e a lista parece que não carregou.
+ */
+function periodoEmOrdem(de: string, ate: string): { de: string; ate: string } {
+    if (de !== "" && ate !== "" && de > ate) {
+        return { de: ate, ate: de };
+    }
+
+    return { de, ate };
+}
+
 /**
  * Já começou (ou o dia já passou). Sem horário no dia de hoje ainda conta
  * como por vir — não dá para marcar o horário sem inventar um.
@@ -198,7 +219,7 @@ function recorte(): Reuniao[] {
                 palavras,
             ),
         )
-        .sort((a, b) => (a.dataOrd < b.dataOrd ? 1 : -1));
+        .sort(compararCronologico);
 }
 
 function reunioesFiltradas(): Reuniao[] {
@@ -212,7 +233,9 @@ function agruparPorDia(reunioes: Reuniao[]): [string, Reuniao[]][] {
         return mapa;
     }, {});
 
-    return Object.entries(grupos).map(([dia, doDia]) => [dia, ordenarDoDia(doDia)]);
+    return Object.entries(grupos)
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([dia, doDia]) => [dia, ordenarDoDia(doDia)]);
 }
 
 /* ---------------------------------------------------------
@@ -241,7 +264,7 @@ function montarResumo(base: Reuniao[]): CartaoResumo[] {
     const agendadas = porStatus("Agendada");
     const canceladas = porStatus("Cancelada");
     const futuras = agendadas.filter((reuniao) => reuniao.dataOrd >= hoje);
-    const proxima = futuras.at(-1);
+    const proxima = futuras[0];
     const fatia = (quantidade: number): number =>
         total ? (quantidade / total) * 100 : 0;
     const proporcao = (quantidade: number): string =>
@@ -306,7 +329,7 @@ function renderResumo(base: Reuniao[]): void {
 
     intervalo.textContent =
         estado.de || estado.ate
-            ? `${estado.de ? dataCurta(estado.de) : "início"} — ${estado.ate ? dataCurta(estado.ate) : "hoje"}`
+            ? `${estado.de ? dataCurta(estado.de) : "início"} — ${estado.ate ? dataCurta(estado.ate) : "em diante"}`
             : "Todo o histórico";
 
     stats.innerHTML = montarResumo(base)
@@ -998,7 +1021,10 @@ function renderReunioes(): void {
 /* ---------------------------------------------------------
    CONTROLES
    --------------------------------------------------------- */
-/** Os quatro atalhos de período traduzidos para o par de datas. */
+/**
+ * Os quatro atalhos de período. Hoje, 7 dias e este mês começam no dia
+ * de hoje: 7 dias cobre hoje e os seis seguintes.
+ */
 function intervaloDoAtalho(atalho: string): { de: string; ate: string } {
     const hoje = new Date();
 
@@ -1013,9 +1039,8 @@ function intervaloDoAtalho(atalho: string): { de: string; ate: string } {
     }
 
     if (atalho === "mes") {
-        const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
         const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-        return { de: paraIso(inicio), ate: paraIso(fim) };
+        return { de: paraIso(hoje), ate: paraIso(fim) };
     }
 
     return { de: "", ate: "" };
@@ -1030,6 +1055,8 @@ function aplicarEstadoNosControles(): void {
     responsavelFilter.value = estado.responsavel;
     if (deCampo.value !== estado.de) deCampo.value = estado.de;
     if (ateCampo.value !== estado.ate) ateCampo.value = estado.ate;
+    deCampo.max = estado.ate;
+    ateCampo.min = estado.de;
 
     todos("#agendaPeriodo button").forEach((botao) => {
         const alvo = intervaloDoAtalho(dado(botao, "periodo"));
@@ -1067,10 +1094,10 @@ responsavelFilter.addEventListener("change", () =>
     atualizarSecao("reunioes", { responsavel: responsavelFilter.value }),
 );
 deCampo.addEventListener("change", () =>
-    atualizarSecao("reunioes", { de: deCampo.value }),
+    atualizarSecao("reunioes", periodoEmOrdem(deCampo.value, obterSecao("reunioes").ate)),
 );
 ateCampo.addEventListener("change", () =>
-    atualizarSecao("reunioes", { ate: ateCampo.value }),
+    atualizarSecao("reunioes", periodoEmOrdem(obterSecao("reunioes").de, ateCampo.value)),
 );
 
 porId("agendaPeriodo").addEventListener("click", (evento) => {
@@ -1213,6 +1240,9 @@ function descartarFiltrosInvisiveis(): boolean {
     const dataValida = (valor: string): boolean =>
         valor === "" || /^\d{4}-\d{2}-\d{2}$/.test(valor);
 
+    const de = dataValida(estado.de) ? estado.de : "";
+    const ate = dataValida(estado.ate) ? estado.ate : "";
+    const periodo = periodoEmOrdem(de, ate);
     const correcoes: Partial<EstadoReunioes> = {
         ...(typeof estado.busca === "string" ? {} : { busca: SEM_FILTROS.busca }),
         ...(temOpcao(tipoFilter, estado.tipo) ? {} : { tipo: SEM_FILTROS.tipo }),
@@ -1223,8 +1253,8 @@ function descartarFiltrosInvisiveis(): boolean {
         ...(temOpcao(responsavelFilter, estado.responsavel)
             ? {}
             : { responsavel: SEM_FILTROS.responsavel }),
-        ...(dataValida(estado.de) ? {} : { de: "" }),
-        ...(dataValida(estado.ate) ? {} : { ate: "" }),
+        ...(periodo.de === estado.de ? {} : { de: periodo.de }),
+        ...(periodo.ate === estado.ate ? {} : { ate: periodo.ate }),
     };
 
     if (!Object.keys(correcoes).length) return false;

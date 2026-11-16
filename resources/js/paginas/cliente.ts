@@ -22,7 +22,7 @@ import { tagDoStatus, tagDoTipoDeReuniao, type Reuniao } from "../dados/reunioes
 import { aparenciaPorTipo, type ConteudoTreinamento } from "../dados/treinamentos.ts";
 import { campo, dado, porId, porSeletor, selecao, talvez, todos } from "../comum/dom.ts";
 import { atualizarSecao } from "../comum/estado.ts";
-import { duracaoEmMeses, escapar, iniciais, moeda } from "../comum/formato.ts";
+import { documento, duracaoEmMeses, escapar, iniciais, moeda } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
 import { openMeetingModal, showModal } from "../comum/modal.ts";
 import { caminhoDaPagina } from "../comum/paginas.ts";
@@ -164,6 +164,8 @@ function renderCabecalho(empresa: EmpresaDetalhada, reunioes: Reuniao[]): void {
     porId("detailAvatar").textContent = iniciais(empresa.nome);
     porId("detailNome").textContent = empresa.nome;
     porId("detailSetor").textContent = empresa.setor;
+    porId("detailDocumentoRotulo").textContent = empresa.documentoTipo ?? "CNPJ";
+    porId("detailDocumento").textContent = empresa.documento ? documento(empresa.documento) : "—";
 
     const status = porId("detailStatus");
     status.textContent = empresa.status;
@@ -183,6 +185,7 @@ function renderSocio(empresa: EmpresaDetalhada): void {
         <span>${escapar(empresa.socio.cargo)}</span>
       </div>
     </div>
+    <div class="socio-field"><span>${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(empresa.documento ? documento(empresa.documento) : "—")}</span></div>
     <div class="socio-field"><span>E-mail</span><span>${escapar(empresa.socio.email)}</span></div>
     <div class="socio-field"><span>Telefone</span><span>${escapar(empresa.socio.telefone)}</span></div>
     <div class="socio-field"><span>Participação</span><span>${escapar(empresa.socio.participacao)}</span></div>

@@ -40,6 +40,10 @@
 
           <dl class="empresa-quick-stats">
             <div>
+              <dt id="detailDocumentoRotulo">{{ $empresa->documento_tipo ?? 'CNPJ' }}</dt>
+              <dd class="empresa-doc-valor" id="detailDocumento">{{ $empresa->documentoFormatado() }}</dd>
+            </div>
+            <div>
               <dt>Reuniões</dt>
               <dd id="detailReunioesCount">0</dd>
             </div>

@@ -8,18 +8,23 @@
 import { ErroDeApi } from "../comum/api.ts";
 import {
     carregarCarteira,
+    carregarEmpresasDaLista,
     carregarOmieApps,
     excluirOmieApp,
     salvarOmieApp,
     COR_PADRAO_DO_GRAFICO,
     corDoRegime,
+    REGIMES_TRIBUTARIOS,
+    type EmpresaDaLista,
     type LinhaCarteira,
     type OmieAppResumo,
+    type RegimeTributario,
 } from "../dados/empresas.ts";
 import { combina, termoDeBusca } from "../comum/busca.ts";
 import { campo, porId, selecao, todos } from "../comum/dom.ts";
-import { atualizarSecao, observarEstado, obterSecao } from "../comum/estado.ts";
-import { escapar, duracaoEmMeses, moeda, moedaCurta, plural } from "../comum/formato.ts";
+import { atualizarSecao, observarEstado, obterSecao, type OrdemFinanceiro } from "../comum/estado.ts";
+import { documento, duracaoEmMeses, escapar, moeda, moedaCurta, plural } from "../comum/formato.ts";
+import { caminhoDaPagina } from "../comum/paginas.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
 type ValorFinanceiro = "primeiro" | "atual" | "total";
@@ -28,27 +33,48 @@ iniciarPagina("financeiro");
 
 const busca = campo("financeEmpresaSearch");
 const regime = selecao("financeRegimeFilter");
+const ordem = selecao("financeOrdem");
+
+const ORDENS: readonly OrdemFinanceiro[] = [
+    "nome-asc",
+    "nome-desc",
+    "codigo-asc",
+    "codigo-desc",
+    "ltv-desc",
+    "honorario-desc",
+];
 
 const carteira = await carregarCarteira();
+const empresas = await carregarEmpresasDaLista();
 
 function linhas(): LinhaCarteira[] {
     const estado = obterSecao("financeiro");
     const palavras = termoDeBusca(estado.busca);
 
     return carteira.filter((item) => {
-        const texto = `${item.nome} ${item.setor} ${item.socio}`;
-        return (
-            combina(texto, palavras) &&
-            (estado.regime === "Todos" || item.regime === estado.regime)
-        );
+        const texto = `${item.nome} ${item.setor} ${item.socio} ${item.regime}`;
+        return combina(texto, palavras) && regimeSelecionado(estado.regime, item.regime);
     });
 }
 
-function porRegime(dados: LinhaCarteira[]): Record<string, LinhaCarteira[]> {
-    return dados.reduce<Record<string, LinhaCarteira[]>>((grupos, item) => {
-        (grupos[item.regime] ||= []).push(item);
-        return grupos;
-    }, {});
+function regimeDoFiltro(valor: string): string {
+    return valor === "Todos" || (REGIMES_TRIBUTARIOS as readonly string[]).includes(valor)
+        ? valor
+        : "Todos";
+}
+
+function regimeSelecionado(filtro: string, regime: string): boolean {
+    const escolhido = regimeDoFiltro(filtro);
+
+    return escolhido === "Todos" || escolhido === regime;
+}
+
+/** Só os quatro regimes do filtro, na ordem em que aparecem no gráfico. */
+function porRegime(dados: LinhaCarteira[]): [RegimeTributario, LinhaCarteira[]][] {
+    return REGIMES_TRIBUTARIOS.flatMap((nome) => {
+        const lista = dados.filter((item) => item.regime === nome);
+        return lista.length ? [[nome, lista] as [RegimeTributario, LinhaCarteira[]]] : [];
+    });
 }
 
 function renderKpis(dados: LinhaCarteira[]): void {
@@ -85,8 +111,7 @@ function renderKpis(dados: LinhaCarteira[]): void {
 }
 
 function renderLtv(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const valores: [string, number][] = Object.entries(grupos).map(([nome, lista]) => [
+    const valores: [RegimeTributario, number][] = porRegime(dados).map(([nome, lista]) => [
         nome,
         lista.reduce((soma, item) => soma + item.total, 0) / lista.length,
     ]);
@@ -108,8 +133,7 @@ function renderLtv(dados: LinhaCarteira[]): void {
 }
 
 function renderDonut(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const totais: [string, number][] = Object.entries(grupos).map(([nome, lista]) => [
+    const totais: [RegimeTributario, number][] = porRegime(dados).map(([nome, lista]) => [
         nome,
         lista.reduce((soma, item) => soma + item.total, 0),
     ]);
@@ -142,11 +166,13 @@ function renderDonut(dados: LinhaCarteira[]): void {
               )
               .join("")
         : `<div class="finance-empty">Sem dados.</div>`;
+
+    document.getElementById("financeDonutCarregando")?.remove();
+    porId("financeDonutWrap").hidden = false;
 }
 
 function renderHonorarios(dados: LinhaCarteira[]): void {
-    const grupos = porRegime(dados);
-    const valores: [string, number, number][] = Object.entries(grupos).map(
+    const valores: [RegimeTributario, number, number][] = porRegime(dados).map(
         ([nome, lista]) => [
             nome,
             lista.reduce((soma, item) => soma + item.primeiro, 0) / lista.length,
@@ -221,26 +247,143 @@ function renderInsights(dados: LinhaCarteira[]): void {
   `;
 }
 
-function renderTabela(dados: LinhaCarteira[]): void {
-    porId("financeCount").textContent = plural(dados.length, "empresa", "empresas");
+function ordemDaLista(valor: string): OrdemFinanceiro {
+    return ORDENS.includes(valor as OrdemFinanceiro) ? (valor as OrdemFinanceiro) : "nome-asc";
+}
+
+function codigoNumerico(codigo: string | null): number | null {
+    const texto = codigo?.trim() ?? "";
+
+    return /^\d+$/.test(texto) ? Number(texto) : null;
+}
+
+function compararNome(a: EmpresaDaLista, b: EmpresaDaLista): number {
+    return a.nome.localeCompare(b.nome, "pt-BR");
+}
+
+/** Sem código vai para o fim, nas duas direções. */
+function compararCodigo(a: EmpresaDaLista, b: EmpresaDaLista, direcao: 1 | -1): number {
+    const codigoA = codigoNumerico(a.codigo);
+    const codigoB = codigoNumerico(b.codigo);
+
+    if (codigoA === null && codigoB === null) {
+        return compararNome(a, b);
+    }
+
+    if (codigoA === null) {
+        return 1;
+    }
+
+    if (codigoB === null) {
+        return -1;
+    }
+
+    return (codigoA - codigoB) * direcao || compararNome(a, b);
+}
+
+function compararValor(
+    a: EmpresaDaLista,
+    b: EmpresaDaLista,
+    valor: (empresa: EmpresaDaLista) => number | null,
+): number {
+    const valorA = valor(a);
+    const valorB = valor(b);
+
+    if (valorA === null && valorB === null) {
+        return compararNome(a, b);
+    }
+
+    if (valorA === null) {
+        return 1;
+    }
+
+    if (valorB === null) {
+        return -1;
+    }
+
+    return valorB - valorA || compararNome(a, b);
+}
+
+function compararEmpresas(a: EmpresaDaLista, b: EmpresaDaLista, escolha: OrdemFinanceiro): number {
+    switch (escolha) {
+        case "nome-desc":
+            return compararNome(b, a);
+        case "codigo-asc":
+            return compararCodigo(a, b, 1);
+        case "codigo-desc":
+            return compararCodigo(a, b, -1);
+        case "ltv-desc":
+            return compararValor(a, b, (empresa) => empresa.total);
+        case "honorario-desc":
+            return compararValor(a, b, (empresa) => empresa.atual);
+        default:
+            return compararNome(a, b);
+    }
+}
+
+function empresasDaLista(): EmpresaDaLista[] {
+    const estado = obterSecao("financeiro");
+    const palavras = termoDeBusca(estado.busca);
+
+    return empresas
+        .filter(
+            (empresa) =>
+                combina(
+                    `${empresa.codigo ?? ""} ${empresa.nome} ${empresa.documento ?? ""} ${empresa.status} ${empresa.regime ?? ""}`,
+                    palavras,
+                ) && regimeSelecionado(estado.regime, empresa.regime ?? ""),
+        )
+        .sort((a, b) => compararEmpresas(a, b, ordemDaLista(estado.ordem)));
+}
+
+/** Pastel de cada regime na coluna da lista. Regime fora do mapa fica neutro. */
+const CLASSE_DO_REGIME: Record<string, string> = {
+    "Lucro Presumido": "presumido",
+    MEI: "mei",
+    "Simples Nacional": "simples",
+    "Pessoa Física": "fisica",
+};
+
+function classeDoRegime(regime: string): string {
+    const variante = CLASSE_DO_REGIME[regime];
+
+    return variante ? `finance-regime finance-regime-${variante}` : "finance-regime";
+}
+
+function renderTabela(): void {
+    const dados = empresasDaLista();
+    const contagem = porId("financeCount");
+    contagem.hidden = false;
+    contagem.textContent = plural(dados.length, "empresa", "empresas");
 
     porId("financeTableBody").innerHTML = dados.length
-        ? [...dados]
-              .sort((a, b) => a.nome.localeCompare(b.nome))
-              .map(
-                  (item) => `
+        ? dados
+              .map((empresa) => {
+                  const inativa = empresa.status === "Inativo";
+                  const tagStatus = inativa ? "red" : empresa.statusTag;
+                  const documentoHtml = empresa.documento
+                      ? `<span class="finance-doc-tipo">${escapar(empresa.documentoTipo ?? "CNPJ")}</span><span>${escapar(documento(empresa.documento))}</span>`
+                      : "—";
+                  const regimeHtml = empresa.regime
+                      ? `<span class="${classeDoRegime(empresa.regime)}">${escapar(empresa.regime)}</span>`
+                      : "—";
+
+                  return `
             <tr>
-              <td><strong>${escapar(item.nome)}</strong></td>
-              <td><span class="finance-regime">${item.regime}</span></td>
-              <td>${duracaoEmMeses(item.meses)}</td>
-              <td>${moeda(item.primeiro)}</td>
-              <td>${moeda(item.atual)}</td>
-              <td><strong>${moeda(item.total)}</strong></td>
+              <td class="finance-codigo">${escapar(empresa.codigo ?? "—")}</td>
+              <td><a class="finance-cliente" href="${caminhoDaPagina("cliente", { id: empresa.id })}">${escapar(empresa.nome)}</a></td>
+              <td><span class="tag ${tagStatus}">${escapar(empresa.status)}</span></td>
+              <td><div class="finance-doc">${documentoHtml}</div></td>
+              <td>${regimeHtml}</td>
+              <td>${empresa.meses === null ? "—" : duracaoEmMeses(empresa.meses)}</td>
+              <td>${empresa.primeiro === null ? "—" : moeda(empresa.primeiro)}</td>
+              <td>${empresa.atual === null ? "—" : moeda(empresa.atual)}</td>
+              <td>${empresa.total === null ? "—" : `<strong>${moeda(empresa.total)}</strong>`}</td>
             </tr>
-          `,
-              )
+          `;
+              })
               .join("")
-        : `<tr><td colspan="6"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
+        : `<tr><td colspan="9"><div class="finance-empty">Nenhuma empresa encontrada com os filtros atuais.</div></td></tr>`;
 }
 
 function renderFinanceiro(): void {
@@ -254,7 +397,7 @@ function renderFinanceiro(): void {
             ? `${plural(dados.length, "empresa analisada", "empresas analisadas")}`
             : "Nenhuma empresa encontrada"
     }${estado.busca.trim() ? ` · busca: “${escapar(estado.busca.trim())}”` : ""}${
-        estado.regime !== "Todos" ? ` · ${estado.regime}` : ""
+        regimeDoFiltro(estado.regime) !== "Todos" ? ` · ${regimeDoFiltro(estado.regime)}` : ""
     }</span>
   `;
 
@@ -264,10 +407,11 @@ function renderFinanceiro(): void {
     renderHonorarios(dados);
     renderConcentracao(dados);
     renderInsights(dados);
-    renderTabela(dados);
+    renderTabela();
 
     if (busca.value !== estado.busca) busca.value = estado.busca;
-    regime.value = estado.regime;
+    regime.value = regimeDoFiltro(estado.regime);
+    ordem.value = ordemDaLista(estado.ordem);
 }
 
 busca.addEventListener("input", () =>
@@ -276,8 +420,11 @@ busca.addEventListener("input", () =>
 regime.addEventListener("change", () =>
     atualizarSecao("financeiro", { regime: regime.value }),
 );
+ordem.addEventListener("change", () =>
+    atualizarSecao("financeiro", { ordem: ordemDaLista(ordem.value) }),
+);
 porId("clearFinanceFilters").addEventListener("click", () => {
-    atualizarSecao("financeiro", { busca: "", regime: "Todos" });
+    atualizarSecao("financeiro", { busca: "", regime: "Todos", ordem: "nome-asc" });
 });
 
 observarEstado(["financeiro"], renderFinanceiro);
@@ -296,18 +443,30 @@ async function carregarPainelOmie(): Promise<void> {
     renderOmieApps();
 }
 
+function definirPainelOmie(aberto: boolean): void {
+    const corpo = porId("omieAppsCorpo");
+    const botao = porId("omieAppsToggle");
+
+    corpo.hidden = !aberto;
+    botao.setAttribute("aria-expanded", aberto ? "true" : "false");
+    botao.textContent = aberto ? "Ocultar" : "Mostrar";
+    porId("omieAppsPanel").classList.toggle("is-aberto", aberto);
+}
+
 function renderOmieApps(): void {
+    const painel = porId("omieAppsPanel");
     const lista = porId("omieAppsLista");
     const form = porId("omieAppsForm") as HTMLFormElement;
     const botaoNovo = porId("omieAppNovo") as HTMLButtonElement;
 
-    botaoNovo.hidden = !podeGerenciarOmie;
     if (!podeGerenciarOmie) {
+        painel.hidden = true;
         form.hidden = true;
-        lista.innerHTML =
-            `<div class="empty-state">Só administradores cadastram apps Omie. Há ${omieApps.length} app(s) na base.</div>`;
         return;
     }
+
+    painel.hidden = false;
+    botaoNovo.hidden = false;
 
     if (form.dataset.aberto !== "1") {
         form.hidden = true;
@@ -336,6 +495,7 @@ function renderOmieApps(): void {
             const app = omieApps.find((item) => item.id === Number(botao.getAttribute("data-omie-editar")));
             if (!app) return;
             editandoOmieId = app.id;
+            definirPainelOmie(true);
             form.dataset.aberto = "1";
             campo("omieAppNome").value = app.nome;
             campo("omieAppKey").value = app.appKey;
@@ -364,8 +524,13 @@ function renderOmieApps(): void {
     });
 }
 
+porId("omieAppsToggle").addEventListener("click", () => {
+    definirPainelOmie(porId("omieAppsCorpo").hidden);
+});
+
 porId("omieAppNovo").addEventListener("click", () => {
     editandoOmieId = null;
+    definirPainelOmie(true);
     const form = porId("omieAppsForm") as HTMLFormElement;
     form.dataset.aberto = "1";
     form.hidden = false;
