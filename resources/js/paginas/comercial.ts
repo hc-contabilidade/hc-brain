@@ -73,7 +73,7 @@ function renderComercial(dados: IndicadoresComerciais): void {
     <div class="commercial-kpi"><span class="commercial-kpi-label">Reuniões do mês</span><strong class="commercial-kpi-value">${dados.meetings}</strong><div class="commercial-kpi-foot"><span>Agendadas ${dados.meetings}</span><span>Realizadas ${dados.meetingsDone}</span></div></div>
     <div class="commercial-kpi"><span class="commercial-kpi-label">Leads do mês</span><strong class="commercial-kpi-value">${dados.leads}</strong><div class="commercial-kpi-foot"><span>Qualif. ${dados.qualified}</span><span>Rebotes ${dados.rebotes}</span></div></div>
     <div class="commercial-kpi"><span class="commercial-kpi-label">Conversão</span><strong class="commercial-kpi-value">${porcentagem(conversao)}</strong><div class="commercial-kpi-foot">${variacaoDeLeads(dados)}</div></div>
-    <div class="commercial-kpi"><span class="commercial-kpi-label">Em processo</span><strong class="commercial-kpi-value">${dados.inProcess}</strong><div class="commercial-kpi-foot"><span class="commercial-delta neutral">${dados.proposals}</span><span>propostas enviadas</span></div></div>
+    <div class="commercial-kpi"><span class="commercial-kpi-label">Em processo</span><strong class="commercial-kpi-value">${dados.inProcess}</strong><div class="commercial-kpi-foot"><span>pipeline atual</span><span>${dados.proposals} propostas no mês</span></div></div>
   `;
 
     const maximo = Math.max(...funil.map(([, valor]) => valor), 1);
