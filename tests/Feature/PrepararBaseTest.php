@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Models\MarketingIdeia;
+use App\Models\MarketingMetrica;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -32,6 +34,50 @@ class PrepararBaseTest extends TestCase
         $this->artisan('hc:preparar')->assertSuccessful();
 
         $this->assertDatabaseCount('empresas', $empresas);
+    }
+
+    public function test_semeia_marketing_quando_a_base_ja_existe_mas_falta_o_rascunho(): void
+    {
+        User::create([
+            'name' => 'Já Existe',
+            'email' => 'ja-existe@healthcare.com.br',
+            'password' => 'senha-de-teste',
+            'perfil' => 'Administrador',
+            'area' => 'Gestão',
+            'status' => 'Ativo',
+        ]);
+
+        $this->assertDatabaseCount('marketing_metricas', 0);
+
+        $this->artisan('hc:preparar')->assertSuccessful();
+
+        $this->assertGreaterThan(0, MarketingMetrica::query()->count());
+        $this->assertGreaterThan(0, MarketingIdeia::query()->count());
+    }
+
+    public function test_nao_resemeia_marketing_quando_ja_ha_metricas(): void
+    {
+        $this->seed();
+        $metricas = MarketingMetrica::query()->count();
+        $ideias = MarketingIdeia::query()->count();
+
+        MarketingIdeia::query()->create([
+            'titulo' => 'Ideia que não deve sumir no restart',
+            'descricao' => 'Proteção contra wipe no hc:preparar.',
+            'plataforma' => 'youtube',
+            'status' => 'rascunho',
+            'responsavel' => 'Beatriz',
+            'prioridade' => 'media',
+            'ordem' => 99,
+        ]);
+
+        $this->artisan('hc:preparar')->assertSuccessful();
+
+        $this->assertDatabaseCount('marketing_metricas', $metricas);
+        $this->assertDatabaseCount('marketing_ideias', $ideias + 1);
+        $this->assertDatabaseHas('marketing_ideias', [
+            'titulo' => 'Ideia que não deve sumir no restart',
+        ]);
     }
 
     public function test_cria_o_acesso_inicial_definido_no_ambiente(): void
