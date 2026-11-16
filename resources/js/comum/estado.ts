@@ -105,6 +105,10 @@ export interface EstadoComercial {
     periodo: string;
 }
 
+export interface EstadoMarketing {
+    periodo: string;
+}
+
 export interface EstadoSofia {
     modo: ModoSofia;
     /** Id do modelo de IA escolhido (ChatGPT, Gemini…). */
@@ -125,6 +129,7 @@ export interface Estado {
     treinamentos: EstadoTreinamentos;
     financeiro: EstadoFinanceiro;
     comercial: EstadoComercial;
+    marketing: EstadoMarketing;
     sofia: EstadoSofia;
 }
 
@@ -181,6 +186,7 @@ const ESTADO_PADRAO: Estado = {
     financeiro: { busca: "", regime: "Todos", ordem: "nome-asc" },
     // Em branco, a tela de Comercial abre no mês mais recente que a base tem.
     comercial: { periodo: "" },
+    marketing: { periodo: "" },
     sofia: {
         modo: "search",
         modelo: "",

@@ -23,6 +23,7 @@ use Throwable;
  * ?tarefa=vinculos   → hc:sincronizar-omie-vinculos
  * ?tarefa=honorarios → hc:sincronizar-honorarios
  * ?tarefa=comercial  → hc:sincronizar-comercial
+ * ?tarefa=marketing  → hc:sincronizar-marketing (stub YT/IG)
  * ?tarefa=omie       → hc:sincronizar-omie
  * ?tarefa=tudo       → empresas + vínculos + honorários + comercial
  * ?tarefa=status     → resultado da última sync em segundo plano
@@ -41,6 +42,7 @@ class AgendarController extends Controller
         'vinculos' => ['hc:sincronizar-omie-vinculos'],
         'honorarios' => ['hc:sincronizar-honorarios'],
         'comercial' => ['hc:sincronizar-comercial'],
+        'marketing' => ['hc:sincronizar-marketing'],
         'omie' => ['hc:sincronizar-omie'],
         'tudo' => [
             'hc:sincronizar-empresas',

@@ -24,6 +24,7 @@ final class Telas
         ['id' => 'clientes', 'titulo' => 'Empresas & clientes', 'icone' => 'building-2', 'grupo' => 'Banco de dados', 'rota' => '/clientes'],
         ['id' => 'usuarios', 'titulo' => 'Usuários', 'icone' => 'users', 'grupo' => 'Banco de dados', 'rota' => '/usuarios'],
         ['id' => 'comercial', 'titulo' => 'Comercial', 'icone' => 'layout-grid', 'grupo' => 'Banco de dados', 'rota' => '/comercial'],
+        ['id' => 'marketing', 'titulo' => 'Marketing', 'icone' => 'megaphone', 'grupo' => 'Banco de dados', 'rota' => '/marketing'],
         ['id' => 'reunioes', 'titulo' => 'Reuniões', 'icone' => 'calendar', 'grupo' => 'Banco de dados', 'rota' => '/reunioes', 'contador' => 'reunioes'],
         ['id' => 'financeiro', 'titulo' => 'Financeiro geral', 'icone' => 'circle-dollar-sign', 'grupo' => 'Banco de dados', 'rota' => '/financeiro'],
         ['id' => 'projetos', 'titulo' => 'Projetos', 'icone' => 'rocket', 'grupo' => 'Banco de dados', 'rota' => '/projetos'],

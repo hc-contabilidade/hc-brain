@@ -16,6 +16,7 @@ const TELAS = [
   "cliente",
   "usuarios",
   "comercial",
+  "marketing",
   "reunioes",
   "financeiro",
   "projetos",

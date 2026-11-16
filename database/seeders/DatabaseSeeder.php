@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             TreinamentoSeeder::class,
             ProjetoSeeder::class,
             ComercialSeeder::class,
+            MarketingSeeder::class,
             PesquisaSeeder::class,
         ]);
     }
