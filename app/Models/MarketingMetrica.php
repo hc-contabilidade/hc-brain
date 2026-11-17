@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'periodo', 'plataforma', 'views', 'likes', 'comentarios',
-    'compartilhamentos', 'inscritos_ou_alcance',
+    'compartilhamentos', 'inscritos_ou_alcance', 'seguidores',
 ])]
 class MarketingMetrica extends Model
 {

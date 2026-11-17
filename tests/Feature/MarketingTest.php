@@ -32,11 +32,18 @@ class MarketingTest extends TestCase
             ->getJson('/api/marketing/2026-10')
             ->assertOk()
             ->assertJsonPath('periodo', '2026-10')
-            ->assertJsonPath('youtube.views', 5100)
-            ->assertJsonPath('instagram.views', 11200)
+            ->assertJsonPath('youtube.views', 9100)
+            ->assertJsonPath('youtube.inscritosNovos', 145)
+            ->assertJsonPath('youtube.variacaoInscritos', 100)
+            ->assertJsonPath('instagram.views', 12800)
+            ->assertJsonPath('instagram.seguidores', 3680)
+            ->assertJsonPath('destaqueYoutube.titulo', 'Como ler o DAS sem medo')
+            ->assertJsonPath('destaqueYoutube.ganhoInscritos', 118)
+            ->assertJsonPath('canais.youtube', 'https://youtube.com/@healthcarecontabilidade/videos')
+            ->assertJsonPath('canais.instagram', 'https://instagram.com/healthcarecontabilidade/')
             ->assertJsonStructure([
-                'serieYoutube',
-                'serieInstagram',
+                'serieYoutube' => [['rotulo', 'views', 'ganho', 'audiencia']],
+                'serieInstagram' => [['rotulo', 'views', 'ganho', 'audiencia']],
                 'ideias' => [['id', 'titulo', 'plataforma', 'status']],
             ]);
     }

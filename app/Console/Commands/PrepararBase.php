@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\MarketingConteudo;
 use App\Models\MarketingMetrica;
 use App\Models\User;
 use Database\Seeders\MarketingSeeder;
@@ -28,8 +29,8 @@ class PrepararBase extends Command
             $this->components->info('Base vazia: semeando os dados iniciais.');
             $this->call('db:seed', ['--force' => true]);
         } elseif ($this->precisaSemeiarMarketing()) {
-            // Base já em uso (ex.: Render free sem Shell): só completa o rascunho Marketing.
-            $this->components->info('Marketing vazio: semeando métricas e ideias de rascunho.');
+            // Base já em uso (ex.: Render free sem Shell): completa/atualiza o rascunho Marketing.
+            $this->components->info('Marketing: atualizando métricas, conteúdos e ideias de rascunho.');
             $this->call('db:seed', ['--class' => MarketingSeeder::class, '--force' => true]);
         }
 
@@ -45,7 +46,16 @@ class PrepararBase extends Command
             return false;
         }
 
-        return MarketingMetrica::query()->count() === 0;
+        if (MarketingMetrica::query()->count() === 0) {
+            return true;
+        }
+
+        // Deploy no Render free: métricas antigas existem, mas faltam conteúdos/seguidores.
+        if (Schema::hasTable('marketing_conteudos') && MarketingConteudo::query()->count() === 0) {
+            return true;
+        }
+
+        return MarketingMetrica::query()->where('seguidores', '>', 0)->doesntExist();
     }
 
     private function acessoInicial(): int

@@ -72,6 +72,21 @@ return [
     */
     'schedule_token' => env('HC_SCHEDULE_TOKEN'),
 
+    /*
+    | Canais oficiais da HC nas redes. A tela Marketing só consulta e
+    | aponta para estes links; a produção do conteúdo fica fora do Brain.
+    */
+    'marketing' => [
+        'youtube_url' => env(
+            'HC_MARKETING_YOUTUBE_URL',
+            'https://youtube.com/@healthcarecontabilidade/videos',
+        ),
+        'instagram_url' => env(
+            'HC_MARKETING_INSTAGRAM_URL',
+            'https://instagram.com/healthcarecontabilidade/',
+        ),
+    ],
+
     'documentos' => [
 
         /*

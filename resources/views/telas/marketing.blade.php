@@ -8,12 +8,12 @@
   <section class="page marketing-page active" id="marketing">
     <div class="marketing-head">
       <div>
-        <span class="page-overline">MARKETING • RASCUNHO</span>
+        <span class="page-overline">MARKETING • ACOMPANHAMENTO</span>
         <h1>Painel Marketing</h1>
         <p class="muted">
-          Ideias para vídeo e leitura rápida dos gráficos de YouTube e Instagram.
-          Métricas reais entram quando a sync das redes estiver configurada.
+          Leitura das redes da HC: crescimento, conteúdo em destaque e ideias em fila.
         </p>
+        <div class="marketing-canais" id="marketingCanais"></div>
       </div>
       <div class="marketing-period">
         <label for="marketingMonthFilter">Período</label>
@@ -23,32 +23,37 @@
 
     <div class="marketing-kpis" id="marketingKpis"></div>
 
-    <div class="marketing-grid-2">
-      <div class="marketing-panel">
+    <div class="marketing-platforms">
+      <article class="marketing-panel marketing-panel-yt">
         <div class="marketing-card-head">
           <div>
-            <h2>YouTube — views</h2>
-            <p>Evolução dos últimos meses.</p>
+            <h2>YouTube</h2>
+            <p>Views, inscritos novos e o vídeo que mais puxou o canal.</p>
           </div>
+          <a class="marketing-canal-link" id="marketingLinkYoutube" href="https://youtube.com/@healthcarecontabilidade/videos" target="_blank" rel="noopener noreferrer">Abrir canal</a>
         </div>
         <div id="marketingYoutubeChart"></div>
-      </div>
-      <div class="marketing-panel">
+        <div id="marketingYoutubeInsight" class="marketing-insight"></div>
+      </article>
+
+      <article class="marketing-panel marketing-panel-ig">
         <div class="marketing-card-head">
           <div>
-            <h2>Instagram — views</h2>
-            <p>Evolução dos últimos meses.</p>
+            <h2>Instagram</h2>
+            <p>Views, alcance e evolução de seguidores.</p>
           </div>
+          <a class="marketing-canal-link" id="marketingLinkInstagram" href="https://instagram.com/healthcarecontabilidade/" target="_blank" rel="noopener noreferrer">Abrir perfil</a>
         </div>
         <div id="marketingInstagramChart"></div>
-      </div>
+        <div id="marketingInstagramInsight" class="marketing-insight"></div>
+      </article>
     </div>
 
     <div class="marketing-panel marketing-ideas-panel">
       <div class="marketing-card-head">
         <div>
           <h2>Ideias para vídeo</h2>
-          <p>Lista de rascunhos e ideias aprovadas para acompanhamento.</p>
+          <p>Fila de rascunhos e ideias aprovadas — só consulta.</p>
         </div>
       </div>
       <div class="marketing-ideas" id="marketingIdeas"></div>
