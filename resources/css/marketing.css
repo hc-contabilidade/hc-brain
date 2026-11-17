@@ -1,98 +1,114 @@
-/* MARKETING — ACOMPANHAMENTO DAS REDES */
+/* MARKETING — denso e quieto */
 .marketing-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 18px;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.marketing-head h1 {
+    margin: 2px 0 0;
+}
+.marketing-head-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 .marketing-canais {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
 }
 .marketing-canal-chip,
 .marketing-canal-link {
     display: inline-flex;
     align-items: center;
-    height: 32px;
-    padding: 0 12px;
+    height: 30px;
+    padding: 0 10px;
     border: 1px solid var(--border);
-    border-radius: var(--raio-sm, 7px);
-    background: var(--surface-alto);
-    color: var(--texto);
-    font-size: var(--texto-sm);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--texto-suave);
+    font-size: var(--texto-xs);
     font-weight: 500;
     text-decoration: none;
-    transition: var(--transicao, 0.15s ease);
 }
 .marketing-canal-chip:hover,
 .marketing-canal-link:hover {
     border-color: var(--border-forte);
-    background: var(--surface-hover);
     color: var(--texto-forte);
-}
-.marketing-period {
-    min-width: 160px;
+    background: var(--surface-alto);
 }
 .marketing-period label {
     display: block;
     color: var(--texto-suave);
-    font-size: var(--texto-xs);
+    font-size: 10px;
     text-transform: uppercase;
-    margin: 0 0 6px 2px;
+    margin: 0 0 4px 1px;
     letter-spacing: 0.04em;
 }
 .marketing-period select {
-    width: 100%;
-    min-height: 36px;
-    padding: 8px 10px;
+    min-width: 148px;
+    min-height: 30px;
+    padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 6px;
     background: var(--surface-alto);
     color: var(--texto);
     font-size: var(--texto-sm);
     outline: none;
 }
-.marketing-kpis {
+
+/* Snapshot: muita info, pouco chrome */
+.marketing-snapshot {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 14px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
 }
-.marketing-kpi {
-    min-height: 104px;
-    padding: 15px;
+.marketing-snap-group {
+    padding: 10px 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface-alto);
+    border-radius: 8px;
+    background: var(--surface);
 }
-.marketing-kpi-emphasis {
-    border-color: color-mix(in srgb, var(--roxo) 35%, var(--border));
-    background: linear-gradient(
-        160deg,
-        var(--surface-alto) 0%,
-        color-mix(in srgb, var(--roxo-fundo) 55%, var(--surface-alto)) 100%
-    );
-}
-.marketing-kpi-label {
+.marketing-snap-group > header {
+    margin-bottom: 8px;
     color: var(--texto-suave);
-    font-size: var(--texto-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.marketing-kpi-value {
-    display: block;
-    margin-top: 7px;
-    color: var(--texto-forte);
-    font-size: 24px;
+    font-size: 10px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
-.marketing-kpi-foot {
-    margin-top: 7px;
-    color: var(--texto-suave);
-    font-size: var(--texto-xs);
+.marketing-snap-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px 8px;
+}
+.marketing-cell {
+    min-width: 0;
+}
+.marketing-cell span {
+    display: block;
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.marketing-cell strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--texto-forte);
+    font-size: var(--texto-md);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.marketing-cell em {
+    display: block;
+    margin-top: 1px;
+    font-style: normal;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
 }
 .marketing-delta.up {
     color: var(--verde);
@@ -103,105 +119,89 @@
 .marketing-delta.neutral {
     color: var(--texto-suave);
 }
+
 .marketing-platforms {
     display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 14px;
-    margin-bottom: 14px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 .marketing-panel {
-    padding: 16px;
+    padding: 12px 14px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--surface);
-}
-.marketing-panel-yt {
-    border-color: color-mix(in srgb, var(--roxo) 28%, var(--border));
-}
-.marketing-panel-ig {
-    border-color: color-mix(in srgb, var(--texto-suave) 20%, var(--border));
 }
 .marketing-card-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 .marketing-card-head h2 {
-    margin: 0 0 4px;
-    font-size: var(--texto-lg);
-    color: var(--texto-forte);
-}
-.marketing-card-head p {
     margin: 0;
-    color: var(--texto-suave);
-    font-size: var(--texto-sm);
+    font-size: var(--texto-base);
+    color: var(--texto-forte);
+    font-weight: 600;
 }
-.marketing-chart-legend {
+.marketing-card-meta {
+    color: var(--texto-suave);
+    font-size: var(--texto-xs);
+}
+.marketing-statline {
     display: flex;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 6px 14px;
     margin-bottom: 10px;
     color: var(--texto-suave);
     font-size: var(--texto-xs);
 }
+.marketing-statline:empty {
+    display: none;
+}
+
+.marketing-chart-legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 6px;
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
+}
 .marketing-chart-legend span {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 .marketing-swatch {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
 }
 .marketing-swatch-views {
     background: var(--roxo);
 }
 .marketing-swatch-ganho {
-    background: color-mix(in srgb, var(--roxo-claro) 70%, #fff);
-}
-.marketing-chart[data-tom="ig"] .marketing-swatch-views,
-.marketing-chart[data-tom="ig"] .marketing-month-bar-views {
-    background: color-mix(in srgb, var(--texto-forte) 55%, var(--roxo));
-}
-.marketing-chart[data-tom="ig"] .marketing-swatch-ganho,
-.marketing-chart[data-tom="ig"] .marketing-month-bar-ganho {
-    background: color-mix(in srgb, var(--texto-suave) 40%, var(--roxo-claro));
+    background: color-mix(in srgb, var(--roxo-claro) 65%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--roxo-claro) 50%, var(--border));
 }
 .marketing-bars {
     display: flex;
     align-items: flex-end;
-    gap: 10px;
-    min-height: 150px;
-    padding-top: 4px;
+    gap: 6px;
+    min-height: 108px;
 }
 .marketing-month-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     min-width: 0;
-}
-.marketing-month-col.is-peak .marketing-month-label {
-    color: var(--texto-forte);
-    font-weight: 600;
-}
-.marketing-month-col.is-peak .marketing-month-ganho {
-    color: var(--verde);
-    font-weight: 600;
-}
-.marketing-month-value,
-.marketing-month-ganho,
-.marketing-month-label {
-    color: var(--texto-suave);
-    font-size: var(--texto-xs);
 }
 .marketing-month-bar-wrap {
     width: 100%;
-    height: 108px;
+    height: 84px;
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -209,124 +209,161 @@
 .marketing-month-pair {
     display: flex;
     align-items: flex-end;
-    gap: 3px;
-    width: 70%;
-    max-width: 36px;
+    gap: 2px;
+    width: 60%;
+    max-width: 28px;
     height: 100%;
 }
 .marketing-month-bar {
     flex: 1;
-    border-radius: 5px 5px 2px 2px;
-    min-height: 4px;
+    border-radius: 3px 3px 1px 1px;
+    min-height: 3px;
 }
 .marketing-month-bar-views {
     background: var(--roxo);
 }
 .marketing-month-bar-ganho {
-    background: color-mix(in srgb, var(--roxo-claro) 70%, #fff);
+    background: color-mix(in srgb, var(--roxo-claro) 55%, var(--surface-alto));
 }
 .marketing-month-label {
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
     text-transform: uppercase;
 }
+.marketing-month-peak {
+    color: var(--verde);
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.marketing-month-col.is-peak .marketing-month-label {
+    color: var(--texto);
+}
+
+/* Destaque em uma linha */
 .marketing-insight {
-    margin-top: 14px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
 }
 .marketing-insight:empty {
     display: none;
 }
-.marketing-insight-card {
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface-alto);
+.marketing-insight-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    text-decoration: none;
+    color: inherit;
 }
-.marketing-insight-eyebrow {
-    margin-bottom: 4px;
+.marketing-insight-tag {
+    grid-row: 1 / span 2;
+    align-self: center;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: var(--roxo-fundo);
     color: var(--roxo-claro);
-    font-size: var(--texto-xs);
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
 }
-.marketing-insight-card strong {
-    display: block;
+.marketing-insight-title {
     color: var(--texto-forte);
-    font-size: var(--texto-base);
+    font-size: var(--texto-sm);
+    font-weight: 600;
 }
-.marketing-insight-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
+.marketing-insight-nums {
     color: var(--texto-suave);
     font-size: var(--texto-xs);
+    font-variant-numeric: tabular-nums;
 }
-.marketing-insight-note {
-    margin: 8px 0 0;
-    color: var(--texto);
-    font-size: var(--texto-sm);
-    line-height: 1.4;
-}
-.marketing-insight-link {
-    display: inline-flex;
-    margin-top: 10px;
+.marketing-insight-row:hover .marketing-insight-title {
     color: var(--roxo-claro);
-    font-size: var(--texto-sm);
-    font-weight: 500;
 }
-.marketing-ideas {
+
+/* Ideias como tabela leve */
+.marketing-ideas-table {
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
+.marketing-ideas-head,
 .marketing-idea-row {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
+    grid-template-columns: minmax(0, 1.6fr) 64px 110px 88px;
+    gap: 10px;
     align-items: center;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface-alto);
+    padding: 8px 2px;
+}
+.marketing-ideas-head {
+    border-bottom: 1px solid var(--border);
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.marketing-idea-row {
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.marketing-idea-row:last-child {
+    border-bottom: 0;
 }
 .marketing-idea-main strong {
     display: block;
     color: var(--texto-forte);
-}
-.marketing-idea-main span {
-    color: var(--texto-suave);
     font-size: var(--texto-sm);
 }
-.marketing-idea-meta {
+.marketing-idea-main span {
+    display: block;
+    margin-top: 1px;
     color: var(--texto-suave);
     font-size: var(--texto-xs);
-    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.marketing-idea-row > span {
+    color: var(--texto-suave);
+    font-size: var(--texto-xs);
 }
 .marketing-idea-status {
-    display: inline-block;
-    padding: 4px 8px;
+    justify-self: start;
+    padding: 2px 7px;
     border-radius: 999px;
-    font-size: var(--texto-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     background: var(--roxo-fundo);
     color: var(--texto);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
+
 @media (max-width: 1100px) {
+    .marketing-snap-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .marketing-platforms {
         grid-template-columns: 1fr;
     }
 }
-@media (max-width: 960px) {
-    .marketing-kpis {
-        grid-template-columns: 1fr 1fr;
+@media (max-width: 800px) {
+    .marketing-snapshot {
+        grid-template-columns: 1fr;
     }
     .marketing-head {
         flex-direction: column;
         align-items: stretch;
     }
-}
-@media (max-width: 560px) {
-    .marketing-kpis {
-        grid-template-columns: 1fr;
+    .marketing-head-actions {
+        justify-content: space-between;
+    }
+    .marketing-ideas-head,
+    .marketing-idea-row {
+        grid-template-columns: 1fr 56px 72px;
+    }
+    .marketing-ideas-head span:nth-child(3),
+    .marketing-idea-row > span:nth-child(3) {
+        display: none;
     }
 }

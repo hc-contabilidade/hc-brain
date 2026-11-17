@@ -8,42 +8,37 @@
   <section class="page marketing-page active" id="marketing">
     <div class="marketing-head">
       <div>
-        <span class="page-overline">MARKETING • ACOMPANHAMENTO</span>
-        <h1>Painel Marketing</h1>
-        <p class="muted">
-          Leitura das redes da HC: crescimento, conteúdo em destaque e ideias em fila.
-        </p>
-        <div class="marketing-canais" id="marketingCanais"></div>
+        <span class="page-overline">MARKETING</span>
+        <h1>Redes HC</h1>
       </div>
-      <div class="marketing-period">
-        <label for="marketingMonthFilter">Período</label>
-        <select id="marketingMonthFilter"></select>
+      <div class="marketing-head-actions">
+        <div class="marketing-canais" id="marketingCanais"></div>
+        <div class="marketing-period">
+          <label for="marketingMonthFilter">Período</label>
+          <select id="marketingMonthFilter"></select>
+        </div>
       </div>
     </div>
 
-    <div class="marketing-kpis" id="marketingKpis"></div>
+    <div class="marketing-snapshot" id="marketingSnapshot"></div>
 
     <div class="marketing-platforms">
-      <article class="marketing-panel marketing-panel-yt">
+      <article class="marketing-panel">
         <div class="marketing-card-head">
-          <div>
-            <h2>YouTube</h2>
-            <p>Views, inscritos novos e o vídeo que mais puxou o canal.</p>
-          </div>
-          <a class="marketing-canal-link" id="marketingLinkYoutube" href="https://youtube.com/@healthcarecontabilidade/videos" target="_blank" rel="noopener noreferrer">Abrir canal</a>
+          <h2>YouTube</h2>
+          <a class="marketing-canal-link" id="marketingLinkYoutube" href="https://youtube.com/@healthcarecontabilidade/videos" target="_blank" rel="noopener noreferrer">Canal</a>
         </div>
+        <div class="marketing-statline" id="marketingYoutubeStats"></div>
         <div id="marketingYoutubeChart"></div>
         <div id="marketingYoutubeInsight" class="marketing-insight"></div>
       </article>
 
-      <article class="marketing-panel marketing-panel-ig">
+      <article class="marketing-panel">
         <div class="marketing-card-head">
-          <div>
-            <h2>Instagram</h2>
-            <p>Views, alcance e evolução de seguidores.</p>
-          </div>
-          <a class="marketing-canal-link" id="marketingLinkInstagram" href="https://instagram.com/healthcarecontabilidade/" target="_blank" rel="noopener noreferrer">Abrir perfil</a>
+          <h2>Instagram</h2>
+          <a class="marketing-canal-link" id="marketingLinkInstagram" href="https://instagram.com/healthcarecontabilidade/" target="_blank" rel="noopener noreferrer">Perfil</a>
         </div>
+        <div class="marketing-statline" id="marketingInstagramStats"></div>
         <div id="marketingInstagramChart"></div>
         <div id="marketingInstagramInsight" class="marketing-insight"></div>
       </article>
@@ -51,10 +46,8 @@
 
     <div class="marketing-panel marketing-ideas-panel">
       <div class="marketing-card-head">
-        <div>
-          <h2>Ideias para vídeo</h2>
-          <p>Fila de rascunhos e ideias aprovadas — só consulta.</p>
-        </div>
+        <h2>Ideias</h2>
+        <span class="marketing-card-meta" id="marketingIdeasCount"></span>
       </div>
       <div class="marketing-ideas" id="marketingIdeas"></div>
     </div>
