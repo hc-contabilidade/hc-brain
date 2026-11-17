@@ -85,6 +85,14 @@ return [
             'HC_MARKETING_INSTAGRAM_URL',
             'https://instagram.com/healthcarecontabilidade/',
         ),
+
+        /* YouTube Data API v3 — métricas públicas do canal. */
+        'youtube_api_key' => env('HC_YOUTUBE_API_KEY'),
+        'youtube_channel_id' => env('HC_YOUTUBE_CHANNEL_ID'),
+
+        /* Instagram Graph API — ainda depende de token Meta. */
+        'instagram_access_token' => env('HC_INSTAGRAM_ACCESS_TOKEN'),
+        'instagram_user_id' => env('HC_INSTAGRAM_USER_ID'),
     ],
 
     'documentos' => [
