@@ -1,6 +1,5 @@
 /* =========================================================
-   TELA MARKETING (rascunho)
-   Ideias + KPIs/gráficos YouTube e Instagram — só leitura.
+   TELA MARKETING — leitura densa, visual limpo
    ========================================================= */
 
 import {
@@ -31,12 +30,21 @@ function formatarNumero(valor: number): string {
     return new Intl.NumberFormat("pt-BR").format(valor);
 }
 
-function formatarDelta(valor: number, sufixo = ""): string {
-    if (valor === 0) {
-        return `estável${sufixo}`;
+function formatarCurto(valor: number): string {
+    if (Math.abs(valor) >= 1000) {
+        return new Intl.NumberFormat("pt-BR", {
+            notation: "compact",
+            maximumFractionDigits: 1,
+        }).format(valor);
     }
-    const sinal = valor > 0 ? "+" : "";
-    return `${sinal}${formatarNumero(valor)}${sufixo}`;
+    return formatarNumero(valor);
+}
+
+function formatarDelta(valor: number): string {
+    if (valor === 0) {
+        return "0";
+    }
+    return `${valor > 0 ? "+" : ""}${formatarNumero(valor)}`;
 }
 
 function classeDelta(valor: number): string {
@@ -50,7 +58,7 @@ function classeDelta(valor: number): string {
 }
 
 function rotuloPlataforma(valor: IdeiaVideo["plataforma"]): string {
-    return { youtube: "YouTube", instagram: "Instagram", ambos: "YouTube + Instagram" }[valor];
+    return { youtube: "YT", instagram: "IG", ambos: "YT+IG" }[valor];
 }
 
 function rotuloStatus(valor: IdeiaVideo["status"]): string {
@@ -62,39 +70,51 @@ function rotuloStatus(valor: IdeiaVideo["status"]): string {
     }[valor];
 }
 
+function celula(rotulo: string, valor: string, delta?: number): string {
+    const deltaHtml =
+        delta === undefined
+            ? ""
+            : `<em class="marketing-delta ${classeDelta(delta)}">${formatarDelta(delta)}</em>`;
+
+    return `<div class="marketing-cell">
+      <span>${escapar(rotulo)}</span>
+      <strong>${valor}</strong>
+      ${deltaHtml}
+    </div>`;
+}
+
 function renderSerie(
     alvo: string,
     serie: PontoSerie[],
-    opcoes: { ganhoLabel: string; tom: "yt" | "ig" },
+    opcoes: { ganhoLabel: string; audienciaLabel: string },
 ): void {
     const maxViews = Math.max(...serie.map((ponto) => ponto.views), 1);
     const maxGanho = Math.max(...serie.map((ponto) => ponto.ganho), 1);
 
     porId(alvo).innerHTML = serie.length
-        ? `<div class="marketing-chart" data-tom="${opcoes.tom}">
+        ? `<div class="marketing-chart">
             <div class="marketing-chart-legend">
-              <span><i class="marketing-swatch marketing-swatch-views"></i> Views</span>
-              <span><i class="marketing-swatch marketing-swatch-ganho"></i> ${escapar(opcoes.ganhoLabel)}</span>
+              <span><i class="marketing-swatch marketing-swatch-views"></i>Views</span>
+              <span><i class="marketing-swatch marketing-swatch-ganho"></i>${escapar(opcoes.ganhoLabel)}</span>
             </div>
             <div class="marketing-bars">${serie
                 .map((ponto) => {
-                    const salto = ponto.ganho === maxGanho && ponto.ganho > 0;
+                    const pico = ponto.ganho === maxGanho && ponto.ganho > 0;
                     return `
-              <div class="marketing-month-col${salto ? " is-peak" : ""}">
-                <span class="marketing-month-value">${formatarNumero(ponto.views)}</span>
+              <div class="marketing-month-col${pico ? " is-peak" : ""}" title="${escapar(ponto.rotulo)} · views ${formatarNumero(ponto.views)} · ${escapar(opcoes.ganhoLabel)} ${formatarNumero(ponto.ganho)} · ${escapar(opcoes.audienciaLabel)} ${formatarNumero(ponto.audiencia)}">
                 <div class="marketing-month-bar-wrap">
                   <div class="marketing-month-pair">
-                    <div class="marketing-month-bar marketing-month-bar-views" style="height:${Math.max(6, (ponto.views / maxViews) * 100)}%"></div>
-                    <div class="marketing-month-bar marketing-month-bar-ganho" style="height:${Math.max(6, (ponto.ganho / maxGanho) * 100)}%" title="${escapar(opcoes.ganhoLabel)}: ${formatarNumero(ponto.ganho)}"></div>
+                    <div class="marketing-month-bar marketing-month-bar-views" style="height:${Math.max(4, (ponto.views / maxViews) * 100)}%"></div>
+                    <div class="marketing-month-bar marketing-month-bar-ganho" style="height:${Math.max(4, (ponto.ganho / maxGanho) * 100)}%"></div>
                   </div>
                 </div>
-                <span class="marketing-month-ganho">${formatarNumero(ponto.ganho)}</span>
                 <span class="marketing-month-label">${escapar(ponto.rotulo)}</span>
+                ${pico ? `<span class="marketing-month-peak">${formatarCurto(ponto.ganho)}</span>` : ""}
               </div>`;
                 })
                 .join("")}</div>
           </div>`
-        : `<div class="empty-state">Sem métricas neste período.</div>`;
+        : `<div class="empty-state">Sem série neste período.</div>`;
 }
 
 function renderInsight(
@@ -110,52 +130,55 @@ function renderInsight(
 
     const ganho =
         tipo === "youtube"
-            ? `${formatarNumero(destaque.ganhoInscritos)} inscritos novos`
-            : `${formatarNumero(destaque.ganhoSeguidores)} seguidores novos`;
+            ? `+${formatarNumero(destaque.ganhoInscritos)} inscritos`
+            : `+${formatarNumero(destaque.ganhoSeguidores)} seguidores`;
 
-    const salto =
-        tipo === "youtube" && variacao >= 80
-            ? `<p class="marketing-insight-note">Salto de <strong>${formatarDelta(variacao)}</strong> inscritos no mês vs o anterior — este vídeo concentrou o crescimento.</p>`
-            : tipo === "instagram" && destaque.ganhoSeguidores > 0
-              ? `<p class="marketing-insight-note">Conteúdo que mais ajudou a base de seguidores no período.</p>`
-              : "";
+    const nota =
+        tipo === "youtube" && variacao > 0
+            ? ` · salto ${formatarDelta(variacao)} no mês`
+            : "";
 
-    const url = destaque.url
-        ? `<a class="marketing-insight-link" href="${escapar(destaque.url)}" target="_blank" rel="noopener noreferrer">Ver no canal</a>`
-        : "";
+    const href = destaque.url ?? "#";
 
     porId(alvo).innerHTML = `
-      <div class="marketing-insight-card">
-        <div class="marketing-insight-eyebrow">${tipo === "youtube" ? "Vídeo em destaque" : "Conteúdo em destaque"}</div>
-        <strong>${escapar(destaque.titulo)}</strong>
-        <div class="marketing-insight-metrics">
-          <span>${formatarNumero(destaque.views)} views</span>
-          <span>${formatarNumero(destaque.likes)} likes</span>
-          <span>${ganho}</span>
-        </div>
-        ${salto}
-        ${url}
-      </div>`;
+      <a class="marketing-insight-row" href="${escapar(href)}" target="_blank" rel="noopener noreferrer">
+        <span class="marketing-insight-tag">Destaque</span>
+        <span class="marketing-insight-title">${escapar(destaque.titulo)}</span>
+        <span class="marketing-insight-nums">
+          ${formatarCurto(destaque.views)} views · ${formatarCurto(destaque.likes)} likes · ${ganho}${nota}
+        </span>
+      </a>`;
 }
 
 function renderIdeias(ideias: IdeiaVideo[]): void {
+    porId("marketingIdeasCount").textContent = ideias.length
+        ? `${ideias.length} na fila`
+        : "";
+
     porId("marketingIdeas").innerHTML = ideias.length
-        ? ideias
-              .map(
-                  (ideia) => `
-        <div class="marketing-idea-row">
-          <div class="marketing-idea-main">
-            <strong>${escapar(ideia.titulo)}</strong>
-            <span>${escapar(ideia.descricao || "Sem descrição")} · ${rotuloPlataforma(ideia.plataforma)}</span>
-          </div>
-          <div class="marketing-idea-meta">
-            <span class="marketing-idea-status">${rotuloStatus(ideia.status)}</span>
-            <div>${escapar(ideia.responsavel || "—")} · ${ideia.prioridade}</div>
-          </div>
-        </div>`,
-              )
-              .join("")
-        : `<div class="empty-state">Nenhuma ideia em rascunho ou aprovada.</div>`;
+        ? `<div class="marketing-ideas-table">
+            <div class="marketing-ideas-head">
+              <span>Ideia</span>
+              <span>Canal</span>
+              <span>Resp.</span>
+              <span>Status</span>
+            </div>
+            ${ideias
+                .map(
+                    (ideia) => `
+              <div class="marketing-idea-row">
+                <div class="marketing-idea-main">
+                  <strong>${escapar(ideia.titulo)}</strong>
+                  <span>${escapar(ideia.descricao || "—")}</span>
+                </div>
+                <span>${rotuloPlataforma(ideia.plataforma)}</span>
+                <span>${escapar(ideia.responsavel || "—")}</span>
+                <span class="marketing-idea-status">${rotuloStatus(ideia.status)}</span>
+              </div>`,
+                )
+                .join("")}
+          </div>`
+        : `<div class="empty-state">Nenhuma ideia na fila.</div>`;
 }
 
 function renderMarketing(dados: ResumoMarketing): void {
@@ -164,41 +187,59 @@ function renderMarketing(dados: ResumoMarketing): void {
       <a class="marketing-canal-chip" href="${escapar(dados.canais.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>
     `;
 
-    const linkYt = porId("marketingLinkYoutube") as HTMLAnchorElement;
-    const linkIg = porId("marketingLinkInstagram") as HTMLAnchorElement;
-    linkYt.href = dados.canais.youtube;
-    linkIg.href = dados.canais.instagram;
+    (porId("marketingLinkYoutube") as HTMLAnchorElement).href = dados.canais.youtube;
+    (porId("marketingLinkInstagram") as HTMLAnchorElement).href = dados.canais.instagram;
 
-    porId("marketingKpis").innerHTML = `
-    <div class="marketing-kpi">
-      <span class="marketing-kpi-label">YT · views</span>
-      <strong class="marketing-kpi-value">${formatarNumero(dados.youtube.views)}</strong>
-      <div class="marketing-kpi-foot"><span class="marketing-delta ${classeDelta(dados.youtube.variacaoViews)}">${formatarDelta(dados.youtube.variacaoViews)}</span> vs mês ant.</div>
-    </div>
-    <div class="marketing-kpi marketing-kpi-emphasis">
-      <span class="marketing-kpi-label">YT · inscritos novos</span>
-      <strong class="marketing-kpi-value">${formatarNumero(dados.youtube.inscritosNovos)}</strong>
-      <div class="marketing-kpi-foot"><span class="marketing-delta ${classeDelta(dados.youtube.variacaoInscritos)}">${formatarDelta(dados.youtube.variacaoInscritos)}</span> · total ${formatarNumero(dados.youtube.inscritosTotal)}</div>
-    </div>
-    <div class="marketing-kpi">
-      <span class="marketing-kpi-label">IG · views</span>
-      <strong class="marketing-kpi-value">${formatarNumero(dados.instagram.views)}</strong>
-      <div class="marketing-kpi-foot"><span class="marketing-delta ${classeDelta(dados.instagram.variacaoViews)}">${formatarDelta(dados.instagram.variacaoViews)}</span> vs mês ant.</div>
-    </div>
-    <div class="marketing-kpi marketing-kpi-emphasis">
-      <span class="marketing-kpi-label">IG · seguidores</span>
-      <strong class="marketing-kpi-value">${formatarNumero(dados.instagram.seguidores)}</strong>
-      <div class="marketing-kpi-foot"><span class="marketing-delta ${classeDelta(dados.instagram.variacaoSeguidores)}">${formatarDelta(dados.instagram.variacaoSeguidores)}</span> · alcance ${formatarNumero(dados.instagram.alcance)}</div>
-    </div>
-  `;
+    porId("marketingSnapshot").innerHTML = `
+      <section class="marketing-snap-group">
+        <header>YouTube</header>
+        <div class="marketing-snap-grid">
+          ${celula("Views", formatarCurto(dados.youtube.views), dados.youtube.variacaoViews)}
+          ${celula("Likes", formatarCurto(dados.youtube.likes))}
+          ${celula("Coment.", formatarCurto(dados.youtube.comentarios))}
+          ${celula("Shares", formatarCurto(dados.youtube.compartilhamentos))}
+          ${celula("Novos", formatarCurto(dados.youtube.inscritosNovos), dados.youtube.variacaoInscritos)}
+          ${celula("Total", formatarCurto(dados.youtube.inscritosTotal))}
+        </div>
+      </section>
+      <section class="marketing-snap-group">
+        <header>Instagram</header>
+        <div class="marketing-snap-grid">
+          ${celula("Views", formatarCurto(dados.instagram.views), dados.instagram.variacaoViews)}
+          ${celula("Likes", formatarCurto(dados.instagram.likes))}
+          ${celula("Coment.", formatarCurto(dados.instagram.comentarios))}
+          ${celula("Shares", formatarCurto(dados.instagram.compartilhamentos))}
+          ${celula("Alcance", formatarCurto(dados.instagram.alcance), dados.instagram.variacaoAlcance)}
+          ${celula("Seguidores", formatarCurto(dados.instagram.seguidores), dados.instagram.variacaoSeguidores)}
+        </div>
+      </section>
+    `;
+
+    porId("marketingYoutubeStats").innerHTML = `
+      <span>Engajamento ${(
+          (dados.youtube.likes + dados.youtube.comentarios) /
+          Math.max(dados.youtube.views, 1)
+      ).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })}</span>
+      <span>Inscritos ${formatarNumero(dados.youtube.inscritosTotal)}</span>
+      <span class="marketing-delta ${classeDelta(dados.youtube.variacaoInscritos)}">${formatarDelta(dados.youtube.variacaoInscritos)} novos vs mês ant.</span>
+    `;
+
+    porId("marketingInstagramStats").innerHTML = `
+      <span>Engajamento ${(
+          (dados.instagram.likes + dados.instagram.comentarios) /
+          Math.max(dados.instagram.views, 1)
+      ).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })}</span>
+      <span>Seguidores ${formatarNumero(dados.instagram.seguidores)}</span>
+      <span class="marketing-delta ${classeDelta(dados.instagram.variacaoSeguidores)}">${formatarDelta(dados.instagram.variacaoSeguidores)} vs mês ant.</span>
+    `;
 
     renderSerie("marketingYoutubeChart", dados.serieYoutube, {
         ganhoLabel: "Inscritos novos",
-        tom: "yt",
+        audienciaLabel: "Inscritos totais",
     });
     renderSerie("marketingInstagramChart", dados.serieInstagram, {
         ganhoLabel: "Alcance",
-        tom: "ig",
+        audienciaLabel: "Seguidores",
     });
     renderInsight(
         "marketingYoutubeInsight",
@@ -218,13 +259,16 @@ function renderMarketing(dados: ResumoMarketing): void {
 
 async function carregarEExibir(): Promise<void> {
     if (!periodos.length) {
-        porId("marketingKpis").innerHTML =
+        porId("marketingSnapshot").innerHTML =
             `<div class="empty-state">Nenhuma métrica de marketing na base ainda.</div>`;
         porId("marketingYoutubeChart").innerHTML = "";
         porId("marketingInstagramChart").innerHTML = "";
         porId("marketingYoutubeInsight").innerHTML = "";
         porId("marketingInstagramInsight").innerHTML = "";
+        porId("marketingYoutubeStats").innerHTML = "";
+        porId("marketingInstagramStats").innerHTML = "";
         porId("marketingIdeas").innerHTML = "";
+        porId("marketingIdeasCount").textContent = "";
         return;
     }
 
