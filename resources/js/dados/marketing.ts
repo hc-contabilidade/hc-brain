@@ -9,14 +9,49 @@ export interface PeriodoMarketing {
     rotulo: string;
 }
 
-export type SerieMensal = [rotulo: string, valor: number];
+export interface PontoSerie {
+    rotulo: string;
+    views: number;
+    ganho: number;
+    audiencia: number;
+}
 
-export interface MetricaRede {
+export interface MetricaYoutube {
     views: number;
     likes: number;
     comentarios: number;
     compartilhamentos: number;
+    inscritosNovos: number;
+    inscritosTotal: number;
+    variacaoViews: number;
+    variacaoInscritos: number;
     inscritosOuAlcance: number;
+}
+
+export interface MetricaInstagram {
+    views: number;
+    likes: number;
+    comentarios: number;
+    compartilhamentos: number;
+    alcance: number;
+    seguidores: number;
+    variacaoViews: number;
+    variacaoAlcance: number;
+    variacaoSeguidores: number;
+    inscritosOuAlcance: number;
+}
+
+export interface ConteudoDestaque {
+    titulo: string;
+    periodo: string;
+    publicadoEm: string | null;
+    views: number;
+    likes: number;
+    comentarios: number;
+    ganhoInscritos: number;
+    ganhoSeguidores: number;
+    destaque: boolean;
+    url: string | null;
 }
 
 export interface IdeiaVideo {
@@ -31,10 +66,16 @@ export interface IdeiaVideo {
 
 export interface ResumoMarketing {
     periodo: string;
-    youtube: MetricaRede;
-    instagram: MetricaRede;
-    serieYoutube: SerieMensal[];
-    serieInstagram: SerieMensal[];
+    canais: {
+        youtube: string;
+        instagram: string;
+    };
+    youtube: MetricaYoutube;
+    instagram: MetricaInstagram;
+    serieYoutube: PontoSerie[];
+    serieInstagram: PontoSerie[];
+    destaqueYoutube: ConteudoDestaque | null;
+    destaqueInstagram: ConteudoDestaque | null;
     ideias: IdeiaVideo[];
 }
 

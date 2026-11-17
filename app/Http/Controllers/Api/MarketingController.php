@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SalvarMarketingIdeiaRequest;
+use App\Models\MarketingConteudo;
 use App\Models\MarketingIdeia;
 use App\Models\MarketingMetrica;
 use Illuminate\Http\JsonResponse;
@@ -31,13 +32,15 @@ class MarketingController extends Controller
     }
 
     /**
-     * Resumo do período: KPIs YouTube/Instagram, série de 6 meses e ideias abertas.
+     * Resumo do período: KPIs, séries, destaque de conteúdo e ideias abertas.
      */
     public function show(string $periodo): JsonResponse
     {
         $periodo = MarketingMetrica::query()->where('periodo', $periodo)->exists()
             ? $periodo
             : (MarketingMetrica::query()->orderByDesc('periodo')->value('periodo') ?? now()->format('Y-m'));
+
+        $anterior = Carbon::createFromFormat('Y-m', $periodo)->startOfMonth()->subMonth()->format('Y-m');
 
         $youtube = MarketingMetrica::query()
             ->where('periodo', $periodo)
@@ -47,13 +50,27 @@ class MarketingController extends Controller
             ->where('periodo', $periodo)
             ->where('plataforma', 'instagram')
             ->first();
+        $youtubeAnterior = MarketingMetrica::query()
+            ->where('periodo', $anterior)
+            ->where('plataforma', 'youtube')
+            ->first();
+        $instagramAnterior = MarketingMetrica::query()
+            ->where('periodo', $anterior)
+            ->where('plataforma', 'instagram')
+            ->first();
 
         return response()->json([
             'periodo' => $periodo,
-            'youtube' => self::metrica($youtube),
-            'instagram' => self::metrica($instagram),
+            'canais' => [
+                'youtube' => (string) config('hc.marketing.youtube_url'),
+                'instagram' => (string) config('hc.marketing.instagram_url'),
+            ],
+            'youtube' => self::metricaYoutube($youtube, $youtubeAnterior),
+            'instagram' => self::metricaInstagram($instagram, $instagramAnterior),
             'serieYoutube' => self::serie('youtube', $periodo),
             'serieInstagram' => self::serie('instagram', $periodo),
+            'destaqueYoutube' => self::destaque('youtube', $periodo),
+            'destaqueInstagram' => self::destaque('instagram', $periodo),
             'ideias' => MarketingIdeia::query()
                 ->whereIn('status', ['rascunho', 'aprovada'])
                 ->orderBy('ordem')
@@ -112,20 +129,54 @@ class MarketingController extends Controller
         return ucfirst($nome)." {$ano}";
     }
 
-    /** @return array<string, int> */
-    private static function metrica(?MarketingMetrica $metrica): array
+    /** @return array<string, mixed> */
+    private static function metricaYoutube(?MarketingMetrica $atual, ?MarketingMetrica $anterior): array
     {
+        $ganho = (int) ($atual?->inscritos_ou_alcance ?? 0);
+        $ganhoAnterior = (int) ($anterior?->inscritos_ou_alcance ?? 0);
+        $views = (int) ($atual?->views ?? 0);
+        $viewsAnterior = (int) ($anterior?->views ?? 0);
+
         return [
-            'views' => (int) ($metrica?->views ?? 0),
-            'likes' => (int) ($metrica?->likes ?? 0),
-            'comentarios' => (int) ($metrica?->comentarios ?? 0),
-            'compartilhamentos' => (int) ($metrica?->compartilhamentos ?? 0),
-            'inscritosOuAlcance' => (int) ($metrica?->inscritos_ou_alcance ?? 0),
+            'views' => $views,
+            'likes' => (int) ($atual?->likes ?? 0),
+            'comentarios' => (int) ($atual?->comentarios ?? 0),
+            'compartilhamentos' => (int) ($atual?->compartilhamentos ?? 0),
+            'inscritosNovos' => $ganho,
+            'inscritosTotal' => (int) ($atual?->seguidores ?? 0),
+            'variacaoViews' => $views - $viewsAnterior,
+            'variacaoInscritos' => $ganho - $ganhoAnterior,
+            // Compatível com o contrato antigo da tela.
+            'inscritosOuAlcance' => $ganho,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function metricaInstagram(?MarketingMetrica $atual, ?MarketingMetrica $anterior): array
+    {
+        $alcance = (int) ($atual?->inscritos_ou_alcance ?? 0);
+        $alcanceAnterior = (int) ($anterior?->inscritos_ou_alcance ?? 0);
+        $seguidores = (int) ($atual?->seguidores ?? 0);
+        $seguidoresAnterior = (int) ($anterior?->seguidores ?? 0);
+        $views = (int) ($atual?->views ?? 0);
+        $viewsAnterior = (int) ($anterior?->views ?? 0);
+
+        return [
+            'views' => $views,
+            'likes' => (int) ($atual?->likes ?? 0),
+            'comentarios' => (int) ($atual?->comentarios ?? 0),
+            'compartilhamentos' => (int) ($atual?->compartilhamentos ?? 0),
+            'alcance' => $alcance,
+            'seguidores' => $seguidores,
+            'variacaoViews' => $views - $viewsAnterior,
+            'variacaoAlcance' => $alcance - $alcanceAnterior,
+            'variacaoSeguidores' => $seguidores - $seguidoresAnterior,
+            'inscritosOuAlcance' => $alcance,
         ];
     }
 
     /**
-     * @return list<array{0: string, 1: int}>
+     * @return list<array{rotulo: string, views: int, ganho: int, audiencia: int}>
      */
     private static function serie(string $plataforma, string $periodo): array
     {
@@ -135,18 +186,58 @@ class MarketingController extends Controller
         for ($i = 5; $i >= 0; $i--) {
             $mes = $fim->copy()->subMonths($i);
             $chave = $mes->format('Y-m');
-            $valor = (int) (MarketingMetrica::query()
+            $linha = MarketingMetrica::query()
                 ->where('periodo', $chave)
                 ->where('plataforma', $plataforma)
-                ->value('views') ?? 0);
+                ->first();
 
             $meses[] = [
-                $mes->locale('pt_BR')->translatedFormat('M'),
-                $valor,
+                'rotulo' => $mes->locale('pt_BR')->translatedFormat('M'),
+                'views' => (int) ($linha?->views ?? 0),
+                'ganho' => (int) ($linha?->inscritos_ou_alcance ?? 0),
+                'audiencia' => (int) ($linha?->seguidores ?? 0),
             ];
         }
 
         return $meses;
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function destaque(string $plataforma, string $periodo): ?array
+    {
+        $conteudo = MarketingConteudo::query()
+            ->where('plataforma', $plataforma)
+            ->where('periodo', $periodo)
+            ->orderByDesc('destaque')
+            ->orderByDesc($plataforma === 'youtube' ? 'ganho_inscritos' : 'ganho_seguidores')
+            ->orderByDesc('views')
+            ->first();
+
+        if ($conteudo === null) {
+            $conteudo = MarketingConteudo::query()
+                ->where('plataforma', $plataforma)
+                ->orderByDesc('destaque')
+                ->orderByDesc($plataforma === 'youtube' ? 'ganho_inscritos' : 'ganho_seguidores')
+                ->orderByDesc('views')
+                ->first();
+        }
+
+        if ($conteudo === null) {
+            return null;
+        }
+
+        return [
+            'titulo' => $conteudo->titulo,
+            'periodo' => $conteudo->periodo,
+            'publicadoEm' => $conteudo->publicado_em?->format('Y-m-d'),
+            'views' => (int) $conteudo->views,
+            'likes' => (int) $conteudo->likes,
+            'comentarios' => (int) $conteudo->comentarios,
+            'ganhoInscritos' => (int) $conteudo->ganho_inscritos,
+            'ganhoSeguidores' => (int) $conteudo->ganho_seguidores,
+            'destaque' => (bool) $conteudo->destaque,
+            'url' => $conteudo->url,
+        ];
     }
 
     /** @return array<string, mixed> */
