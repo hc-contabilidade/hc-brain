@@ -1,14 +1,12 @@
 /* =========================================================
    TELA MARKETING (rascunho)
    Ideias de vídeo + KPIs/gráficos YouTube e Instagram.
+   Somente leitura: o Brain acompanha; a produção fica fora.
    ========================================================= */
 
 import {
-    atualizarIdeia,
     carregarMarketing,
     carregarPeriodosMarketing,
-    criarIdeia,
-    excluirIdeia,
     type IdeiaVideo,
     type ResumoMarketing,
     type SerieMensal,
@@ -21,7 +19,6 @@ import { iniciarPagina } from "../comum/shell.ts";
 iniciarPagina("marketing");
 
 const filtroPeriodo = selecao("marketingMonthFilter");
-const botaoNova = porId("marketingNovaIdeia");
 
 const periodos = await carregarPeriodosMarketing();
 
@@ -68,7 +65,7 @@ function renderIdeias(ideias: IdeiaVideo[]): void {
         ? ideias
               .map(
                   (ideia) => `
-        <div class="marketing-idea-row" data-id="${ideia.id}">
+        <div class="marketing-idea-row">
           <div class="marketing-idea-main">
             <strong>${escapar(ideia.titulo)}</strong>
             <span>${escapar(ideia.descricao || "Sem descrição")} · ${rotuloPlataforma(ideia.plataforma)}</span>
@@ -76,10 +73,6 @@ function renderIdeias(ideias: IdeiaVideo[]): void {
           <div class="marketing-idea-meta">
             <span class="marketing-idea-status">${rotuloStatus(ideia.status)}</span>
             <div>${escapar(ideia.responsavel || "—")} · ${ideia.prioridade}</div>
-          </div>
-          <div>
-            <button type="button" class="btn-secundario" data-acao="aprovar">Avançar status</button>
-            <button type="button" class="btn-secundario" data-acao="excluir">Excluir</button>
           </div>
         </div>`,
               )
@@ -113,67 +106,6 @@ async function carregarEExibir(): Promise<void> {
 
     renderMarketing(await carregarMarketing(obterSecao("marketing").periodo));
 }
-
-const PROXIMO_STATUS: Record<IdeiaVideo["status"], IdeiaVideo["status"]> = {
-    rascunho: "aprovada",
-    aprovada: "publicada",
-    publicada: "arquivada",
-    arquivada: "rascunho",
-};
-
-porId("marketingIdeas").addEventListener("click", async (evento) => {
-    const botao = (evento.target as HTMLElement).closest<HTMLButtonElement>("button[data-acao]");
-    const linha = (evento.target as HTMLElement).closest<HTMLElement>(".marketing-idea-row");
-    if (!botao || !linha) {
-        return;
-    }
-
-    const id = Number(linha.dataset.id);
-    const acao = botao.dataset.acao;
-    const dados = await carregarMarketing(obterSecao("marketing").periodo || filtroPeriodo.value);
-    const ideia = dados.ideias.find((item) => item.id === id);
-    if (!ideia) {
-        return;
-    }
-
-    if (acao === "excluir") {
-        if (!confirm(`Excluir a ideia "${ideia.titulo}"?`)) {
-            return;
-        }
-        await excluirIdeia(id);
-        await carregarEExibir();
-        return;
-    }
-
-    if (acao === "aprovar") {
-        await atualizarIdeia(id, {
-            titulo: ideia.titulo,
-            descricao: ideia.descricao,
-            plataforma: ideia.plataforma,
-            status: PROXIMO_STATUS[ideia.status],
-            responsavel: ideia.responsavel,
-            prioridade: ideia.prioridade,
-        });
-        await carregarEExibir();
-    }
-});
-
-botaoNova.addEventListener("click", async () => {
-    const titulo = prompt("Título da ideia de vídeo:");
-    if (!titulo?.trim()) {
-        return;
-    }
-
-    await criarIdeia({
-        titulo: titulo.trim(),
-        descricao: null,
-        plataforma: "ambos",
-        status: "rascunho",
-        responsavel: null,
-        prioridade: "media",
-    });
-    await carregarEExibir();
-});
 
 filtroPeriodo.addEventListener("change", () =>
     atualizarSecao("marketing", { periodo: filtroPeriodo.value }),

@@ -48,9 +48,8 @@
       <div class="marketing-card-head">
         <div>
           <h2>Ideias para vídeo</h2>
-          <p>Rascunhos e ideias aprovadas para produção.</p>
+          <p>Lista de rascunhos e ideias aprovadas para acompanhamento.</p>
         </div>
-        <button type="button" class="btn-primario" id="marketingNovaIdeia">Nova ideia</button>
       </div>
       <div class="marketing-ideas" id="marketingIdeas"></div>
     </div>
