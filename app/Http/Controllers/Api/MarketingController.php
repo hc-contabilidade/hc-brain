@@ -70,6 +70,7 @@ class MarketingController extends Controller
             'serieYoutube' => self::serie('youtube', $periodo),
             'serieInstagram' => self::serie('instagram', $periodo),
             'videosYoutube' => self::videos('youtube', $periodo),
+            'videosInstagram' => self::videos('instagram', $periodo),
             'destaqueYoutube' => self::destaque('youtube', $periodo),
             'destaqueInstagram' => self::destaque('instagram', $periodo),
             'ideias' => MarketingIdeia::query()
@@ -187,7 +188,7 @@ class MarketingController extends Controller
     }
 
     /**
-     * @return list<array{rotulo: string, views: int, ganho: int, audiencia: int, saldo: int}>
+     * @return list<array{periodo: string, rotulo: string, views: int, ganho: int, audiencia: int, saldo: int}>
      */
     private static function serie(string $plataforma, string $periodo): array
     {
@@ -218,6 +219,7 @@ class MarketingController extends Controller
             }
 
             $meses[] = [
+                'periodo' => $chave,
                 'rotulo' => $mes->locale('pt_BR')->translatedFormat('M'),
                 'views' => (int) ($linha?->views ?? 0),
                 'ganho' => $ganho,

@@ -10,6 +10,7 @@ export interface PeriodoMarketing {
 }
 
 export interface PontoSerie {
+    periodo: string;
     rotulo: string;
     views: number;
     ganho: number;
@@ -91,6 +92,7 @@ export interface ResumoMarketing {
     serieYoutube: PontoSerie[];
     serieInstagram: PontoSerie[];
     videosYoutube: VideoRanking[];
+    videosInstagram: VideoRanking[];
     destaqueYoutube: ConteudoDestaque | null;
     destaqueInstagram: ConteudoDestaque | null;
     ideias: IdeiaVideo[];
