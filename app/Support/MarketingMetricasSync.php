@@ -82,6 +82,37 @@ final class MarketingMetricasSync
             $periodoAtual = now()->format('Y-m');
             $periodos = 0;
 
+            $periodoAnterior = Carbon::createFromFormat('Y-m', $periodoAtual)
+                ->startOfMonth()
+                ->subMonth()
+                ->format('Y-m');
+            $seguidoresAnteriores = (int) (MarketingMetrica::query()
+                ->where('plataforma', 'youtube')
+                ->where('periodo', $periodoAnterior)
+                ->value('seguidores') ?? 0);
+
+            // Seeder antigo (~8 mil) vs canal real (~centenas): descarta o snapshot fictício.
+            if (
+                $seguidoresAnteriores > 0
+                && $inscritosTotal > 0
+                && $seguidoresAnteriores > max(500, $inscritosTotal * 2)
+            ) {
+                $seguidoresAnteriores = 0;
+            }
+
+            // A API só entrega o total atual. Zera audiência antiga para o gráfico
+            // não misturar seeder com snapshot oficial.
+            MarketingMetrica::query()
+                ->where('plataforma', 'youtube')
+                ->update([
+                    'seguidores' => 0,
+                    'inscritos_ou_alcance' => 0,
+                ]);
+
+            $ganhoAtual = $seguidoresAnteriores > 0
+                ? max(0, $inscritosTotal - $seguidoresAnteriores)
+                : 0;
+
             foreach ($porMes as $periodo => $lista) {
                 $views = 0;
                 $likes = 0;
@@ -93,27 +124,7 @@ final class MarketingMetricasSync
                     $comentarios += $video['comentarios'];
                 }
 
-                $anterior = Carbon::createFromFormat('Y-m', $periodo)->startOfMonth()->subMonth()->format('Y-m');
-                $metricaAnterior = MarketingMetrica::query()
-                    ->where('periodo', $anterior)
-                    ->where('plataforma', 'youtube')
-                    ->first();
-
-                $seguidores = $periodo === $periodoAtual
-                    ? $inscritosTotal
-                    : (int) ($metricaAnterior?->seguidores ?? 0);
-
-                // Sem Analytics: saldo líquido vs snapshot anterior (pode ser 0 na 1ª sync).
-                $ganho = 0;
-                if ($periodo === $periodoAtual && $metricaAnterior !== null && $metricaAnterior->seguidores > 0) {
-                    $ganho = max(0, $inscritosTotal - (int) $metricaAnterior->seguidores);
-                } elseif ($periodo === $periodoAtual) {
-                    $existente = MarketingMetrica::query()
-                        ->where('periodo', $periodo)
-                        ->where('plataforma', 'youtube')
-                        ->first();
-                    $ganho = (int) ($existente?->inscritos_ou_alcance ?? 0);
-                }
+                $ehAtual = $periodo === $periodoAtual;
 
                 MarketingMetrica::query()->updateOrCreate(
                     ['periodo' => $periodo, 'plataforma' => 'youtube'],
@@ -122,8 +133,9 @@ final class MarketingMetricasSync
                         'likes' => $likes,
                         'comentarios' => $comentarios,
                         'compartilhamentos' => 0,
-                        'inscritos_ou_alcance' => $ganho,
-                        'seguidores' => $periodo === $periodoAtual ? $inscritosTotal : $seguidores,
+                        'inscritos_ou_alcance' => $ehAtual ? $ganhoAtual : 0,
+                        // Sem Analytics histórico: só o mês corrente leva o total real.
+                        'seguidores' => $ehAtual ? $inscritosTotal : 0,
                     ],
                 );
 
@@ -162,18 +174,10 @@ final class MarketingMetricasSync
 
             // Garante o mês atual mesmo sem uploads novos (só atualiza inscritos totais).
             if (! isset($porMes[$periodoAtual])) {
-                $anterior = Carbon::createFromFormat('Y-m', $periodoAtual)->startOfMonth()->subMonth()->format('Y-m');
-                $metricaAnterior = MarketingMetrica::query()
-                    ->where('periodo', $anterior)
-                    ->where('plataforma', 'youtube')
-                    ->first();
                 $existente = MarketingMetrica::query()
                     ->where('periodo', $periodoAtual)
                     ->where('plataforma', 'youtube')
                     ->first();
-                $ganho = $metricaAnterior !== null && $metricaAnterior->seguidores > 0
-                    ? max(0, $inscritosTotal - (int) $metricaAnterior->seguidores)
-                    : (int) ($existente?->inscritos_ou_alcance ?? 0);
 
                 MarketingMetrica::query()->updateOrCreate(
                     ['periodo' => $periodoAtual, 'plataforma' => 'youtube'],
@@ -182,7 +186,7 @@ final class MarketingMetricasSync
                         'likes' => (int) ($existente?->likes ?? 0),
                         'comentarios' => (int) ($existente?->comentarios ?? 0),
                         'compartilhamentos' => (int) ($existente?->compartilhamentos ?? 0),
-                        'inscritos_ou_alcance' => $ganho,
+                        'inscritos_ou_alcance' => $ganhoAtual,
                         'seguidores' => $inscritosTotal,
                     ],
                 );
