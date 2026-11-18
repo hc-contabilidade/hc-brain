@@ -177,6 +177,62 @@ class MarketingTest extends TestCase
         $this->assertTrue(MarketingConteudo::query()->where('titulo', 'Como ler o DAS sem medo')->exists());
     }
 
+    public function test_sync_instagram_grava_seguidores_e_destaque(): void
+    {
+        config([
+            'hc.marketing.youtube_api_key' => null,
+            'hc.marketing.youtube_channel_id' => null,
+            'hc.marketing.instagram_access_token' => 'token-teste',
+            'hc.marketing.instagram_user_id' => '17841400000000000',
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://graph.facebook.com/v21.0/17841400000000000?*' => Http::response([
+                'followers_count' => 3765,
+                'media_count' => 120,
+                'username' => 'healthcarecontabilidade',
+            ]),
+            'https://graph.facebook.com/v21.0/17841400000000000/media*' => Http::response([
+                'data' => [[
+                    'id' => 'media-1',
+                    'caption' => 'Checklist MEI em 60 segundos',
+                    'media_type' => 'VIDEO',
+                    'permalink' => 'https://instagram.com/p/abc',
+                    'timestamp' => now()->startOfMonth()->addDays(3)->toIso8601String(),
+                    'like_count' => 780,
+                    'comments_count' => 64,
+                ]],
+            ]),
+            'https://graph.facebook.com/v21.0/media-1/insights*' => Http::response([
+                'data' => [
+                    ['name' => 'plays', 'values' => [['value' => 5400]]],
+                    ['name' => 'reach', 'values' => [['value' => 4200]]],
+                ],
+            ]),
+        ]);
+
+        $this->artisan('hc:sincronizar-marketing')->assertSuccessful();
+
+        $periodo = now()->format('Y-m');
+
+        $this->assertDatabaseHas('marketing_metricas', [
+            'periodo' => $periodo,
+            'plataforma' => 'instagram',
+            'views' => 5400,
+            'likes' => 780,
+            'seguidores' => 3765,
+            'inscritos_ou_alcance' => 4200,
+        ]);
+
+        $this->assertDatabaseHas('marketing_conteudos', [
+            'plataforma' => 'instagram',
+            'periodo' => $periodo,
+            'titulo' => 'Checklist MEI em 60 segundos',
+            'destaque' => 1,
+        ]);
+    }
+
     public function test_seeder_preenche_metricas_e_ideias(): void
     {
         $this->assertGreaterThanOrEqual(3, MarketingMetrica::query()->count());
