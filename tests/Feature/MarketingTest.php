@@ -188,11 +188,13 @@ class MarketingTest extends TestCase
 
         Http::preventStrayRequests();
         Http::fake([
-            'https://graph.facebook.com/v21.0/17841400000000000?*' => Http::response([
-                'followers_count' => 3765,
-                'media_count' => 120,
-                'username' => 'healthcarecontabilidade',
-            ]),
+            'https://graph.facebook.com/v21.0/17841400000000000?*' => Http::sequence()
+                ->push(['followers_count' => 3765])
+                ->push([
+                    'followers_count' => 3765,
+                    'media_count' => 120,
+                    'username' => 'healthcarecontabilidade',
+                ]),
             'https://graph.facebook.com/v21.0/17841400000000000/media*' => Http::response([
                 'data' => [[
                     'id' => 'media-1',
@@ -230,6 +232,48 @@ class MarketingTest extends TestCase
             'periodo' => $periodo,
             'titulo' => 'Checklist MEI em 60 segundos',
             'destaque' => 1,
+        ]);
+    }
+
+    public function test_sync_instagram_resolve_ig_user_a_partir_do_page_id(): void
+    {
+        config([
+            'hc.marketing.youtube_api_key' => null,
+            'hc.marketing.youtube_channel_id' => null,
+            'hc.marketing.instagram_access_token' => 'token-teste',
+            'hc.marketing.instagram_user_id' => '111222333', // Page ID
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://graph.facebook.com/v21.0/111222333?*' => Http::sequence()
+                ->push([
+                    'error' => [
+                        'message' => '(#100) Tried accessing nonexisting field (followers_count).',
+                        'type' => 'OAuthException',
+                        'code' => 100,
+                    ],
+                ], 400)
+                ->push([
+                    'instagram_business_account' => ['id' => '17841400000000000'],
+                    'id' => '111222333',
+                ]),
+            'https://graph.facebook.com/v21.0/17841400000000000?*' => Http::response([
+                'followers_count' => 2100,
+                'media_count' => 10,
+                'username' => 'healthcarecontabilidade',
+            ]),
+            'https://graph.facebook.com/v21.0/17841400000000000/media*' => Http::response([
+                'data' => [],
+            ]),
+        ]);
+
+        $this->artisan('hc:sincronizar-marketing')->assertSuccessful();
+
+        $this->assertDatabaseHas('marketing_metricas', [
+            'periodo' => now()->format('Y-m'),
+            'plataforma' => 'instagram',
+            'seguidores' => 2100,
         ]);
     }
 

@@ -185,9 +185,10 @@ final class MarketingMetricasSync
         }
 
         $token = (string) config('hc.marketing.instagram_access_token');
-        $usuario = (string) config('hc.marketing.instagram_user_id');
+        $usuarioInformado = (string) config('hc.marketing.instagram_user_id');
 
         try {
+            $usuario = self::resolverIgUserId($usuarioInformado, $token);
             $perfil = self::instagramGet($usuario, [
                 'fields' => 'followers_count,media_count,username',
             ], $token);
@@ -283,6 +284,36 @@ final class MarketingMetricasSync
                 'aviso' => 'Instagram: '.$erro->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Aceita IG User ID ou Page ID. Se for Página, resolve o instagram_business_account.
+     */
+    private static function resolverIgUserId(string $idInformado, string $token): string
+    {
+        try {
+            self::instagramGet($idInformado, [
+                'fields' => 'followers_count',
+            ], $token);
+
+            return $idInformado;
+        } catch (Throwable) {
+            // Continua: pode ser Page ID sem o campo followers_count.
+        }
+
+        $pagina = self::instagramGet($idInformado, [
+            'fields' => 'instagram_business_account',
+        ], $token);
+
+        $igId = (string) data_get($pagina, 'instagram_business_account.id', '');
+        if ($igId === '') {
+            throw new \RuntimeException(
+                'HC_INSTAGRAM_USER_ID precisa ser o IG User ID (instagram_business_account), não o ID da Página/Facebook. '
+                .'No Explorer: {page-id}?fields=instagram_business_account'
+            );
+        }
+
+        return $igId;
     }
 
     /**
