@@ -112,7 +112,7 @@ function renderSerieSaldo(alvo: string, serie: PontoSerie[]): void {
 
     porId(alvo).innerHTML = temDados
         ? `<div class="marketing-chart marketing-chart-saldo">
-            <div class="marketing-saldo-note">Saldo líquido entre snapshots do canal (não é unfollow oficial da API).</div>
+            <div class="marketing-saldo-note">Saldo entre syncs reais do canal. Sem histórico antigo da API, meses anteriores ficam sem total até acumularem snapshots.</div>
             <div class="marketing-bars marketing-bars-saldo">${serie
                 .map((ponto) => {
                     const altura = Math.max(4, (Math.abs(ponto.saldo) / maxAbs) * 100);

@@ -205,9 +205,17 @@ class MarketingController extends Controller
 
             $audiencia = (int) ($linha?->seguidores ?? 0);
             $ganho = (int) ($linha?->inscritos_ou_alcance ?? 0);
-            $saldo = $audienciaAnterior !== null && $audienciaAnterior > 0 && $audiencia > 0
-                ? $audiencia - $audienciaAnterior
-                : $ganho;
+            // Só calcula saldo entre dois snapshots reais; evita misturar seeder (~milhares) com API.
+            $saldo = 0;
+            if ($audienciaAnterior !== null && $audienciaAnterior > 0 && $audiencia > 0) {
+                $candidato = $audiencia - $audienciaAnterior;
+                $teto = max($audienciaAnterior, $audiencia);
+                if ($teto > 0 && abs($candidato) <= (int) max(50, $teto * 0.35)) {
+                    $saldo = $candidato;
+                }
+            } elseif ($audiencia > 0) {
+                $saldo = $ganho;
+            }
 
             $meses[] = [
                 'rotulo' => $mes->locale('pt_BR')->translatedFormat('M'),
