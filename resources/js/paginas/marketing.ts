@@ -106,33 +106,6 @@ function renderSerieViews(alvo: string, serie: PontoSerie[], ganhoLabel: string)
         : `<div class="empty-state">Sem views neste recorte.</div>`;
 }
 
-function renderSerieSaldo(alvo: string, serie: PontoSerie[]): void {
-    const maxAbs = Math.max(...serie.map((ponto) => Math.abs(ponto.saldo)), 1);
-    const temDados = serie.some((ponto) => ponto.audiencia > 0 || ponto.saldo !== 0);
-
-    porId(alvo).innerHTML = temDados
-        ? `<div class="marketing-chart marketing-chart-saldo">
-            <div class="marketing-saldo-note">Saldo entre syncs reais do canal. Sem histórico antigo da API, meses anteriores ficam sem total até acumularem snapshots.</div>
-            <div class="marketing-bars marketing-bars-saldo">${serie
-                .map((ponto) => {
-                    const altura = Math.max(4, (Math.abs(ponto.saldo) / maxAbs) * 100);
-                    const sentido = ponto.saldo >= 0 ? "up" : "down";
-                    return `
-              <div class="marketing-month-col" title="${escapar(ponto.rotulo)} · saldo ${formatarDelta(ponto.saldo)} · total ${formatarNumero(ponto.audiencia)}">
-                <span class="marketing-month-saldo marketing-delta ${classeDelta(ponto.saldo)}">${formatarDelta(ponto.saldo)}</span>
-                <div class="marketing-saldo-track">
-                  <div class="marketing-saldo-zero"></div>
-                  <div class="marketing-saldo-bar ${sentido}" style="height:${altura}%"></div>
-                </div>
-                <span class="marketing-month-label">${escapar(ponto.rotulo)}</span>
-                <span class="marketing-month-audiencia">${ponto.audiencia > 0 ? formatarCurto(ponto.audiencia) : "—"}</span>
-              </div>`;
-                })
-                .join("")}</div>
-          </div>`
-        : `<div class="empty-state">Ainda sem histórico de inscritos. Rode a sync em meses seguintes para ver o saldo.</div>`;
-}
-
 function renderVideos(alvo: string, videos: VideoRanking[]): void {
     if (!videos.length) {
         porId(alvo).innerHTML = "";
@@ -163,21 +136,11 @@ function renderVideos(alvo: string, videos: VideoRanking[]): void {
       </div>`;
 }
 
-function renderInsight(
-    alvo: string,
-    destaque: ConteudoDestaque | null,
-    tipo: "youtube" | "instagram",
-    saldo: number,
-): void {
+function renderInsight(alvo: string, destaque: ConteudoDestaque | null): void {
     if (!destaque) {
         porId(alvo).innerHTML = "";
         return;
     }
-
-    const nota =
-        tipo === "youtube"
-            ? ` · saldo do canal ${formatarDelta(saldo)}`
-            : "";
 
     const href = destaque.url ?? "#";
 
@@ -186,7 +149,7 @@ function renderInsight(
         <span class="marketing-insight-tag">Destaque</span>
         <span class="marketing-insight-title">${escapar(destaque.titulo)}</span>
         <span class="marketing-insight-nums">
-          ${formatarCurto(destaque.views)} views · ${formatarCurto(destaque.likes)} likes${nota}
+          ${formatarCurto(destaque.views)} views · ${formatarCurto(destaque.likes)} likes
         </span>
       </a>`;
 }
@@ -239,8 +202,8 @@ function renderMarketing(dados: ResumoMarketing): void {
           ${celula("Likes", formatarCurto(dados.youtube.likes))}
           ${celula("Coment.", formatarCurto(dados.youtube.comentarios))}
           ${celula("Engaj.", `${(dados.youtube.engajamento * 100).toFixed(1).replace(".", ",")}%`)}
-          ${celula("Saldo", formatarDelta(dados.youtube.saldoInscritos), dados.youtube.saldoInscritos)}
-          ${celula("Total", formatarCurto(dados.youtube.inscritosTotal))}
+          ${celula("Inscritos", formatarCurto(dados.youtube.inscritosTotal))}
+          ${celula("Shares", formatarCurto(dados.youtube.compartilhamentos))}
         </div>
       </section>
       <section class="marketing-snap-group">
@@ -258,13 +221,7 @@ function renderMarketing(dados: ResumoMarketing): void {
 
     porId("marketingYoutubeStats").innerHTML = `
       <span>Inscritos ${formatarNumero(dados.youtube.inscritosTotal)}</span>
-      <span class="marketing-delta ${classeDelta(dados.youtube.saldoInscritos)}">saldo ${formatarDelta(dados.youtube.saldoInscritos)}</span>
-      <span class="marketing-delta up">+${formatarNumero(dados.youtube.inscritosNovos)} ganhos</span>
-      ${
-          dados.youtube.inscritosPerdidos > 0
-              ? `<span class="marketing-delta down">−${formatarNumero(dados.youtube.inscritosPerdidos)} líquidos perdidos</span>`
-              : ""
-      }
+      <span>Engajamento ${(dados.youtube.engajamento * 100).toFixed(1).replace(".", ",")}%</span>
     `;
 
     porId("marketingInstagramStats").innerHTML = `
@@ -277,21 +234,10 @@ function renderMarketing(dados: ResumoMarketing): void {
     `;
 
     renderSerieViews("marketingYoutubeChart", dados.serieYoutube, "Inscritos (sync)");
-    renderSerieSaldo("marketingYoutubeAudience", dados.serieYoutube);
     renderSerieViews("marketingInstagramChart", dados.serieInstagram, "Alcance");
     renderVideos("marketingYoutubeVideos", dados.videosYoutube ?? []);
-    renderInsight(
-        "marketingYoutubeInsight",
-        dados.destaqueYoutube,
-        "youtube",
-        dados.youtube.saldoInscritos,
-    );
-    renderInsight(
-        "marketingInstagramInsight",
-        dados.destaqueInstagram,
-        "instagram",
-        dados.instagram.variacaoSeguidores,
-    );
+    renderInsight("marketingYoutubeInsight", dados.destaqueYoutube);
+    renderInsight("marketingInstagramInsight", dados.destaqueInstagram);
     renderIdeias(dados.ideias);
     filtroPeriodo.value = dados.periodo;
 }
@@ -301,7 +247,6 @@ async function carregarEExibir(): Promise<void> {
         porId("marketingSnapshot").innerHTML =
             `<div class="empty-state">Nenhuma métrica de marketing na base ainda.</div>`;
         porId("marketingYoutubeChart").innerHTML = "";
-        porId("marketingYoutubeAudience").innerHTML = "";
         porId("marketingInstagramChart").innerHTML = "";
         porId("marketingYoutubeVideos").innerHTML = "";
         porId("marketingYoutubeInsight").innerHTML = "";
