@@ -287,33 +287,85 @@ final class MarketingMetricasSync
     }
 
     /**
-     * Aceita IG User ID ou Page ID. Se for Página, resolve o instagram_business_account.
+     * Aceita IG User ID, Page ID ou ID inválido — tenta descobrir a conta business pelo token.
      */
     private static function resolverIgUserId(string $idInformado, string $token): string
     {
+        // 1) Já é IG User?
         try {
             self::instagramGet($idInformado, [
-                'fields' => 'followers_count',
+                'fields' => 'username,followers_count',
             ], $token);
 
             return $idInformado;
         } catch (Throwable) {
-            // Continua: pode ser Page ID sem o campo followers_count.
+            // continua
         }
 
-        $pagina = self::instagramGet($idInformado, [
-            'fields' => 'instagram_business_account',
-        ], $token);
-
-        $igId = (string) data_get($pagina, 'instagram_business_account.id', '');
-        if ($igId === '') {
-            throw new \RuntimeException(
-                'HC_INSTAGRAM_USER_ID precisa ser o IG User ID (instagram_business_account), não o ID da Página/Facebook. '
-                .'No Explorer: {page-id}?fields=instagram_business_account'
-            );
+        // 2) É Page ID com Instagram ligado?
+        try {
+            $pagina = self::instagramGet($idInformado, [
+                'fields' => 'instagram_business_account',
+            ], $token);
+            $igId = (string) data_get($pagina, 'instagram_business_account.id', '');
+            if ($igId !== '') {
+                return $igId;
+            }
+        } catch (Throwable) {
+            // continua
         }
 
-        return $igId;
+        // 3) Descobre pelas Páginas que o token enxerga.
+        $encontrado = self::descobrirIgUserNasPaginas($token, $idInformado);
+        if ($encontrado !== null) {
+            return $encontrado;
+        }
+
+        throw new \RuntimeException(
+            'Não achei a conta Instagram business com este HC_INSTAGRAM_USER_ID. '
+            .'No Graph API Explorer (com o mesmo token), rode me/accounts?fields=id,name,instagram_business_account '
+            .'e use o id de instagram_business_account (geralmente começa com 178414…).'
+        );
+    }
+
+    private static function descobrirIgUserNasPaginas(string $token, string $idInformado): ?string
+    {
+        try {
+            $contas = self::instagramGet('me/accounts', [
+                'fields' => 'id,name,instagram_business_account{id,username}',
+                'limit' => 50,
+            ], $token);
+        } catch (Throwable) {
+            return null;
+        }
+
+        $primeiro = null;
+
+        foreach ($contas['data'] ?? [] as $conta) {
+            if (! is_array($conta)) {
+                continue;
+            }
+
+            $igId = (string) data_get($conta, 'instagram_business_account.id', '');
+            if ($igId === '') {
+                continue;
+            }
+
+            $pageId = (string) ($conta['id'] ?? '');
+            $username = (string) data_get($conta, 'instagram_business_account.username', '');
+
+            if (
+                $igId === $idInformado
+                || $pageId === $idInformado
+                || strcasecmp($username, 'healthcarecontabilidade') === 0
+            ) {
+                return $igId;
+            }
+
+            $primeiro ??= $igId;
+        }
+
+        return $primeiro;
     }
 
     /**
