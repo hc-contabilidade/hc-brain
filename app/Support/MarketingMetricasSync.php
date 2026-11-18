@@ -188,13 +188,14 @@ final class MarketingMetricasSync
         $usuarioInformado = (string) config('hc.marketing.instagram_user_id');
 
         try {
-            $usuario = self::resolverIgUserId($usuarioInformado, $token);
+            [$usuario, $graphBase] = self::resolverIgUserId($usuarioInformado, $token);
             $perfil = self::instagramGet($usuario, [
                 'fields' => 'followers_count,media_count,username',
-            ], $token);
+            ], $token, $graphBase);
 
             $seguidoresTotal = (int) ($perfil['followers_count'] ?? 0);
-            $midias = self::midiasInstagram($usuario, $token);
+            // Se Instagram Login não devolver followers_count, segue com mídia/insights.
+            $midias = self::midiasInstagram($usuario, $token, $graphBase);
             $porMes = self::agruparPorMes($midias);
             $periodoAtual = now()->format('Y-m');
             $periodos = 0;
@@ -288,16 +289,18 @@ final class MarketingMetricasSync
 
     /**
      * Aceita IG User ID, Page ID ou ID inválido — tenta descobrir a conta business pelo token.
+     *
+     * @return array{0: string, 1: string} [igUserId, graphBase]
      */
-    private static function resolverIgUserId(string $idInformado, string $token): string
+    private static function resolverIgUserId(string $idInformado, string $token): array
     {
-        // 1) Já é IG User?
+        // 1) Já é IG User no Graph Facebook?
         try {
             self::instagramGet($idInformado, [
                 'fields' => 'username,followers_count',
             ], $token);
 
-            return $idInformado;
+            return [$idInformado, self::INSTAGRAM_BASE];
         } catch (Throwable) {
             // continua
         }
@@ -309,7 +312,7 @@ final class MarketingMetricasSync
             ], $token);
             $igId = (string) data_get($pagina, 'instagram_business_account.id', '');
             if ($igId !== '') {
-                return $igId;
+                return [$igId, self::INSTAGRAM_BASE];
             }
         } catch (Throwable) {
             // continua
@@ -318,14 +321,16 @@ final class MarketingMetricasSync
         // 3) Descobre pelas Páginas que o token enxerga.
         $encontrado = self::descobrirIgUserNasPaginas($token, $idInformado);
         if ($encontrado !== null) {
-            return $encontrado;
+            return [$encontrado, self::INSTAGRAM_BASE];
         }
 
-        throw new \RuntimeException(
-            'Não achei a conta Instagram business com este HC_INSTAGRAM_USER_ID. '
-            .'No Graph API Explorer (com o mesmo token), rode me/accounts?fields=id,name,instagram_business_account '
-            .'e use o id de instagram_business_account (geralmente começa com 178414…).'
-        );
+        // 4) Token de Instagram Login (graph.instagram.com)?
+        $igLogin = self::descobrirIgUserInstagramLogin($token);
+        if ($igLogin !== null) {
+            return [$igLogin, 'https://graph.instagram.com/v21.0'];
+        }
+
+        throw new \RuntimeException(self::diagnosticoInstagram($token, $idInformado));
     }
 
     private static function descobrirIgUserNasPaginas(string $token, string $idInformado): ?string
@@ -368,10 +373,67 @@ final class MarketingMetricasSync
         return $primeiro;
     }
 
+    private static function descobrirIgUserInstagramLogin(string $token): ?string
+    {
+        try {
+            /** @var array<string, mixed> $me */
+            $me = Http::connectTimeout(5)
+                ->timeout(20)
+                ->acceptJson()
+                ->get('https://graph.instagram.com/v21.0/me', [
+                    'fields' => 'user_id,username,account_type',
+                    'access_token' => $token,
+                ])
+                ->throw()
+                ->json();
+
+            $id = (string) ($me['user_id'] ?? $me['id'] ?? '');
+
+            return $id !== '' ? $id : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private static function diagnosticoInstagram(string $token, string $idInformado): string
+    {
+        $detalhes = ['id_informado='.$idInformado];
+
+        try {
+            $me = self::instagramGet('me', ['fields' => 'id,name'], $token);
+            $detalhes[] = 'facebook_user='.(string) ($me['id'] ?? '?');
+        } catch (Throwable $erro) {
+            $detalhes[] = 'facebook_me='.$erro->getMessage();
+        }
+
+        try {
+            $contas = self::instagramGet('me/accounts', [
+                'fields' => 'id,name,instagram_business_account',
+                'limit' => 50,
+            ], $token);
+            $lista = is_array($contas['data'] ?? null) ? $contas['data'] : [];
+            $comIg = 0;
+            foreach ($lista as $conta) {
+                if (is_array($conta) && data_get($conta, 'instagram_business_account.id')) {
+                    $comIg++;
+                }
+            }
+            $detalhes[] = 'paginas='.count($lista);
+            $detalhes[] = 'paginas_com_instagram='.$comIg;
+        } catch (Throwable $erro) {
+            $detalhes[] = 'me/accounts='.$erro->getMessage();
+        }
+
+        return 'Token/ID do Instagram não enxergam a conta business. '
+            .'Gere de novo o token no Explorer com permissões pages_show_list, instagram_basic, instagram_manage_insights, pages_read_engagement; '
+            .'depois rode me/accounts?fields=id,name,instagram_business_account e use instagram_business_account.id. '
+            .'Diagnóstico: '.implode('; ', $detalhes);
+    }
+
     /**
      * @return list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, alcance: int, url: string}>
      */
-    private static function midiasInstagram(string $usuario, string $token): array
+    private static function midiasInstagram(string $usuario, string $token, string $graphBase = self::INSTAGRAM_BASE): array
     {
         $itens = [];
         $after = null;
@@ -385,7 +447,7 @@ final class MarketingMetricasSync
                 $params['after'] = $after;
             }
 
-            $lista = self::instagramGet($usuario.'/media', $params, $token);
+            $lista = self::instagramGet($usuario.'/media', $params, $token, $graphBase);
 
             foreach ($lista['data'] ?? [] as $item) {
                 if (! is_array($item)) {
@@ -398,7 +460,7 @@ final class MarketingMetricasSync
                     continue;
                 }
 
-                $insights = self::insightsMidiaInstagram($id, $token);
+                $insights = self::insightsMidiaInstagram($id, $token, $graphBase);
                 $caption = trim((string) ($item['caption'] ?? ''));
                 $titulo = $caption !== ''
                     ? mb_substr(preg_replace('/\s+/', ' ', $caption) ?? $caption, 0, 120)
@@ -427,12 +489,12 @@ final class MarketingMetricasSync
     /**
      * @return array{views: int, alcance: int}
      */
-    private static function insightsMidiaInstagram(string $mediaId, string $token): array
+    private static function insightsMidiaInstagram(string $mediaId, string $token, string $graphBase = self::INSTAGRAM_BASE): array
     {
         try {
             $resposta = self::instagramGet($mediaId.'/insights', [
                 'metric' => 'plays,impressions,reach',
-            ], $token);
+            ], $token, $graphBase);
 
             $views = 0;
             $alcance = 0;
@@ -617,14 +679,18 @@ final class MarketingMetricasSync
      * @param  array<string, scalar>  $params
      * @return array<string, mixed>
      */
-    private static function instagramGet(string $caminho, array $params, string $token): array
-    {
+    private static function instagramGet(
+        string $caminho,
+        array $params,
+        string $token,
+        string $graphBase = self::INSTAGRAM_BASE,
+    ): array {
         try {
             /** @var array<string, mixed> $json */
             $json = Http::connectTimeout(5)
                 ->timeout(25)
                 ->acceptJson()
-                ->get(self::INSTAGRAM_BASE.'/'.ltrim($caminho, '/'), [...$params, 'access_token' => $token])
+                ->get(rtrim($graphBase, '/').'/'.ltrim($caminho, '/'), [...$params, 'access_token' => $token])
                 ->throw()
                 ->json();
 
