@@ -277,6 +277,49 @@ class MarketingTest extends TestCase
         ]);
     }
 
+    public function test_sync_instagram_descobre_conta_via_me_accounts(): void
+    {
+        config([
+            'hc.marketing.youtube_api_key' => null,
+            'hc.marketing.youtube_channel_id' => null,
+            'hc.marketing.instagram_access_token' => 'token-teste',
+            'hc.marketing.instagram_user_id' => '999999999', // ID inválido / tipo errado
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://graph.facebook.com/v21.0/999999999?*' => Http::sequence()
+                ->push(['error' => ['message' => 'followers_count missing', 'code' => 100]], 400)
+                ->push(['error' => ['message' => 'instagram_business_account missing', 'code' => 100]], 400),
+            'https://graph.facebook.com/v21.0/me/accounts*' => Http::response([
+                'data' => [[
+                    'id' => 'page-1',
+                    'name' => 'HC Contabilidade',
+                    'instagram_business_account' => [
+                        'id' => '17841405822304914',
+                        'username' => 'healthcarecontabilidade',
+                    ],
+                ]],
+            ]),
+            'https://graph.facebook.com/v21.0/17841405822304914?*' => Http::response([
+                'followers_count' => 1880,
+                'media_count' => 40,
+                'username' => 'healthcarecontabilidade',
+            ]),
+            'https://graph.facebook.com/v21.0/17841405822304914/media*' => Http::response([
+                'data' => [],
+            ]),
+        ]);
+
+        $this->artisan('hc:sincronizar-marketing')->assertSuccessful();
+
+        $this->assertDatabaseHas('marketing_metricas', [
+            'periodo' => now()->format('Y-m'),
+            'plataforma' => 'instagram',
+            'seguidores' => 1880,
+        ]);
+    }
+
     public function test_seeder_preenche_metricas_e_ideias(): void
     {
         $this->assertGreaterThanOrEqual(3, MarketingMetrica::query()->count());
