@@ -44,8 +44,10 @@ class MarketingTest extends TestCase
             ->assertJsonPath('canais.youtube', 'https://youtube.com/@healthcarecontabilidade/videos')
             ->assertJsonPath('canais.instagram', 'https://instagram.com/healthcarecontabilidade/')
             ->assertJsonStructure([
-                'serieYoutube' => [['rotulo', 'views', 'ganho', 'audiencia']],
-                'serieInstagram' => [['rotulo', 'views', 'ganho', 'audiencia']],
+                'serieYoutube' => [['rotulo', 'views', 'ganho', 'audiencia', 'saldo']],
+                'serieInstagram' => [['rotulo', 'views', 'ganho', 'audiencia', 'saldo']],
+                'videosYoutube',
+                'youtube' => ['saldoInscritos', 'inscritosPerdidos', 'engajamento'],
                 'ideias' => [['id', 'titulo', 'plataforma', 'status']],
             ]);
     }

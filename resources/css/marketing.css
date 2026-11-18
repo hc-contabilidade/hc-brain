@@ -122,7 +122,7 @@
 
 .marketing-platforms {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.25fr 0.75fr;
     gap: 10px;
     margin-bottom: 12px;
 }
@@ -131,6 +131,23 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
+}
+.marketing-panel-yt {
+    border-color: color-mix(in srgb, var(--roxo) 22%, var(--border));
+}
+.marketing-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+.marketing-chart-title {
+    margin-bottom: 6px;
+    color: var(--texto-suave);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 .marketing-card-head {
     display: flex;
@@ -206,24 +223,122 @@
     align-items: flex-end;
     justify-content: center;
 }
-.marketing-month-pair {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    width: 60%;
-    max-width: 28px;
-    height: 100%;
-}
 .marketing-month-bar {
-    flex: 1;
+    width: min(22px, 55%);
     border-radius: 3px 3px 1px 1px;
     min-height: 3px;
 }
 .marketing-month-bar-views {
     background: var(--roxo);
 }
-.marketing-month-bar-ganho {
-    background: color-mix(in srgb, var(--roxo-claro) 55%, var(--surface-alto));
+.marketing-chart-saldo .marketing-saldo-note {
+    margin-bottom: 8px;
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
+    line-height: 1.35;
+}
+.marketing-bars-saldo {
+    align-items: stretch;
+    min-height: 120px;
+}
+.marketing-month-saldo {
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.marketing-saldo-track {
+    position: relative;
+    width: 100%;
+    height: 72px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.marketing-saldo-zero {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: 0;
+    border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+}
+.marketing-saldo-bar {
+    width: min(18px, 50%);
+    border-radius: 3px 3px 1px 1px;
+    min-height: 3px;
+}
+.marketing-saldo-bar.up {
+    background: var(--verde);
+}
+.marketing-saldo-bar.down {
+    background: var(--vermelho);
+}
+.marketing-month-audiencia {
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+.marketing-videos {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+.marketing-videos:empty {
+    display: none;
+}
+.marketing-videos-head {
+    margin-bottom: 8px;
+    color: var(--texto-suave);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.marketing-videos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.marketing-video-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) minmax(48px, 90px);
+    gap: 8px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+}
+.marketing-video-rank {
+    color: var(--texto-fraco, var(--texto-suave));
+    font-size: var(--texto-xs);
+    font-variant-numeric: tabular-nums;
+}
+.marketing-video-main strong {
+    display: block;
+    color: var(--texto-forte);
+    font-size: var(--texto-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.marketing-video-main span {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+.marketing-video-bar-wrap {
+    height: 6px;
+    border-radius: 99px;
+    background: var(--surface-alto);
+    overflow: hidden;
+}
+.marketing-video-bar {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--roxo);
+}
+.marketing-video-row:hover .marketing-video-main strong {
+    color: var(--roxo-claro);
 }
 .marketing-month-label {
     color: var(--texto-fraco, var(--texto-suave));
@@ -343,7 +458,8 @@
     .marketing-snap-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .marketing-platforms {
+    .marketing-platforms,
+    .marketing-charts-grid {
         grid-template-columns: 1fr;
     }
 }

@@ -14,6 +14,7 @@ export interface PontoSerie {
     views: number;
     ganho: number;
     audiencia: number;
+    saldo: number;
 }
 
 export interface MetricaYoutube {
@@ -22,9 +23,13 @@ export interface MetricaYoutube {
     comentarios: number;
     compartilhamentos: number;
     inscritosNovos: number;
+    inscritosPerdidos: number;
+    saldoInscritos: number;
     inscritosTotal: number;
     variacaoViews: number;
     variacaoInscritos: number;
+    variacaoAudiencia: number;
+    engajamento: number;
     inscritosOuAlcance: number;
 }
 
@@ -54,6 +59,17 @@ export interface ConteudoDestaque {
     url: string | null;
 }
 
+export interface VideoRanking {
+    titulo: string;
+    periodo: string;
+    publicadoEm: string | null;
+    views: number;
+    likes: number;
+    comentarios: number;
+    destaque: boolean;
+    url: string | null;
+}
+
 export interface IdeiaVideo {
     id: number;
     titulo: string;
@@ -74,6 +90,7 @@ export interface ResumoMarketing {
     instagram: MetricaInstagram;
     serieYoutube: PontoSerie[];
     serieInstagram: PontoSerie[];
+    videosYoutube: VideoRanking[];
     destaqueYoutube: ConteudoDestaque | null;
     destaqueInstagram: ConteudoDestaque | null;
     ideias: IdeiaVideo[];

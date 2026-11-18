@@ -69,6 +69,7 @@ class MarketingController extends Controller
             'instagram' => self::metricaInstagram($instagram, $instagramAnterior),
             'serieYoutube' => self::serie('youtube', $periodo),
             'serieInstagram' => self::serie('instagram', $periodo),
+            'videosYoutube' => self::videos('youtube', $periodo),
             'destaqueYoutube' => self::destaque('youtube', $periodo),
             'destaqueInstagram' => self::destaque('instagram', $periodo),
             'ideias' => MarketingIdeia::query()
@@ -136,16 +137,26 @@ class MarketingController extends Controller
         $ganhoAnterior = (int) ($anterior?->inscritos_ou_alcance ?? 0);
         $views = (int) ($atual?->views ?? 0);
         $viewsAnterior = (int) ($anterior?->views ?? 0);
+        $total = (int) ($atual?->seguidores ?? 0);
+        $totalAnterior = (int) ($anterior?->seguidores ?? 0);
+        // Saldo líquido de audiência entre snapshots (subidas e quedas).
+        $saldo = $totalAnterior > 0 ? $total - $totalAnterior : $ganho;
 
         return [
             'views' => $views,
             'likes' => (int) ($atual?->likes ?? 0),
             'comentarios' => (int) ($atual?->comentarios ?? 0),
             'compartilhamentos' => (int) ($atual?->compartilhamentos ?? 0),
-            'inscritosNovos' => $ganho,
-            'inscritosTotal' => (int) ($atual?->seguidores ?? 0),
+            'inscritosNovos' => max(0, $saldo),
+            'inscritosPerdidos' => max(0, -$saldo),
+            'saldoInscritos' => $saldo,
+            'inscritosTotal' => $total,
             'variacaoViews' => $views - $viewsAnterior,
             'variacaoInscritos' => $ganho - $ganhoAnterior,
+            'variacaoAudiencia' => $saldo,
+            'engajamento' => $views > 0
+                ? round((((int) ($atual?->likes ?? 0)) + ((int) ($atual?->comentarios ?? 0))) / $views, 4)
+                : 0,
             // Compatível com o contrato antigo da tela.
             'inscritosOuAlcance' => $ganho,
         ];
@@ -176,12 +187,13 @@ class MarketingController extends Controller
     }
 
     /**
-     * @return list<array{rotulo: string, views: int, ganho: int, audiencia: int}>
+     * @return list<array{rotulo: string, views: int, ganho: int, audiencia: int, saldo: int}>
      */
     private static function serie(string $plataforma, string $periodo): array
     {
         $fim = Carbon::createFromFormat('Y-m', $periodo)->startOfMonth();
         $meses = [];
+        $audienciaAnterior = null;
 
         for ($i = 5; $i >= 0; $i--) {
             $mes = $fim->copy()->subMonths($i);
@@ -191,15 +203,61 @@ class MarketingController extends Controller
                 ->where('plataforma', $plataforma)
                 ->first();
 
+            $audiencia = (int) ($linha?->seguidores ?? 0);
+            $ganho = (int) ($linha?->inscritos_ou_alcance ?? 0);
+            $saldo = $audienciaAnterior !== null && $audienciaAnterior > 0 && $audiencia > 0
+                ? $audiencia - $audienciaAnterior
+                : $ganho;
+
             $meses[] = [
                 'rotulo' => $mes->locale('pt_BR')->translatedFormat('M'),
                 'views' => (int) ($linha?->views ?? 0),
-                'ganho' => (int) ($linha?->inscritos_ou_alcance ?? 0),
-                'audiencia' => (int) ($linha?->seguidores ?? 0),
+                'ganho' => $ganho,
+                'audiencia' => $audiencia,
+                'saldo' => $saldo,
             ];
+
+            if ($audiencia > 0) {
+                $audienciaAnterior = $audiencia;
+            }
         }
 
         return $meses;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function videos(string $plataforma, string $periodo): array
+    {
+        $lista = MarketingConteudo::query()
+            ->where('plataforma', $plataforma)
+            ->where('periodo', $periodo)
+            ->orderByDesc('views')
+            ->limit(5)
+            ->get();
+
+        if ($lista->isEmpty()) {
+            $lista = MarketingConteudo::query()
+                ->where('plataforma', $plataforma)
+                ->orderByDesc('views')
+                ->limit(5)
+                ->get();
+        }
+
+        return $lista
+            ->map(fn (MarketingConteudo $conteudo) => [
+                'titulo' => $conteudo->titulo,
+                'periodo' => $conteudo->periodo,
+                'publicadoEm' => $conteudo->publicado_em?->format('Y-m-d'),
+                'views' => (int) $conteudo->views,
+                'likes' => (int) $conteudo->likes,
+                'comentarios' => (int) $conteudo->comentarios,
+                'destaque' => (bool) $conteudo->destaque,
+                'url' => $conteudo->url,
+            ])
+            ->values()
+            ->all();
     }
 
     /** @return array<string, mixed>|null */
