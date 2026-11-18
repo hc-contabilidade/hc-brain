@@ -103,7 +103,7 @@ final class MarketingMetricasSync
                     ? $inscritosTotal
                     : (int) ($metricaAnterior?->seguidores ?? 0);
 
-                // Sem Analytics: ganho do mês = diferença vs snapshot anterior, quando existir.
+                // Sem Analytics: saldo líquido vs snapshot anterior (pode ser 0 na 1ª sync).
                 $ganho = 0;
                 if ($periodo === $periodoAtual && $metricaAnterior !== null && $metricaAnterior->seguidores > 0) {
                     $ganho = max(0, $inscritosTotal - (int) $metricaAnterior->seguidores);
@@ -127,28 +127,32 @@ final class MarketingMetricasSync
                     ],
                 );
 
-                $destaque = collect($lista)->sortByDesc('views')->first();
-                if (is_array($destaque)) {
-                    MarketingConteudo::query()
-                        ->where('plataforma', 'youtube')
-                        ->where('periodo', $periodo)
-                        ->update(['destaque' => false]);
+                $ranking = collect($lista)->sortByDesc('views')->values();
+                MarketingConteudo::query()
+                    ->where('plataforma', 'youtube')
+                    ->where('periodo', $periodo)
+                    ->update(['destaque' => false]);
+
+                foreach ($ranking->take(5) as $indice => $video) {
+                    if (! is_array($video)) {
+                        continue;
+                    }
 
                     MarketingConteudo::query()->updateOrCreate(
                         [
-                            'titulo' => $destaque['titulo'],
+                            'titulo' => $video['titulo'],
                             'plataforma' => 'youtube',
                             'periodo' => $periodo,
                         ],
                         [
-                            'publicado_em' => $destaque['publicado_em'],
-                            'views' => $destaque['views'],
-                            'likes' => $destaque['likes'],
-                            'comentarios' => $destaque['comentarios'],
+                            'publicado_em' => $video['publicado_em'],
+                            'views' => $video['views'],
+                            'likes' => $video['likes'],
+                            'comentarios' => $video['comentarios'],
                             'ganho_inscritos' => 0,
                             'ganho_seguidores' => 0,
-                            'destaque' => true,
-                            'url' => $destaque['url'],
+                            'destaque' => $indice === 0,
+                            'url' => $video['url'],
                         ],
                     );
                 }
