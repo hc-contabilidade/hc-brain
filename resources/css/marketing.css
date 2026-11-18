@@ -135,12 +135,6 @@
 .marketing-panel-yt {
     border-color: color-mix(in srgb, var(--roxo) 22%, var(--border));
 }
-.marketing-charts-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 4px;
-}
 .marketing-chart-title {
     margin-bottom: 6px;
     color: var(--texto-suave);
@@ -230,52 +224,6 @@
 }
 .marketing-month-bar-views {
     background: var(--roxo);
-}
-.marketing-chart-saldo .marketing-saldo-note {
-    margin-bottom: 8px;
-    color: var(--texto-fraco, var(--texto-suave));
-    font-size: 10px;
-    line-height: 1.35;
-}
-.marketing-bars-saldo {
-    align-items: stretch;
-    min-height: 120px;
-}
-.marketing-month-saldo {
-    font-size: 10px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-.marketing-saldo-track {
-    position: relative;
-    width: 100%;
-    height: 72px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-}
-.marketing-saldo-zero {
-    position: absolute;
-    left: 10%;
-    right: 10%;
-    bottom: 0;
-    border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
-}
-.marketing-saldo-bar {
-    width: min(18px, 50%);
-    border-radius: 3px 3px 1px 1px;
-    min-height: 3px;
-}
-.marketing-saldo-bar.up {
-    background: var(--verde);
-}
-.marketing-saldo-bar.down {
-    background: var(--vermelho);
-}
-.marketing-month-audiencia {
-    color: var(--texto-fraco, var(--texto-suave));
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
 }
 .marketing-videos {
     margin-top: 12px;
@@ -458,8 +406,7 @@
     .marketing-snap-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .marketing-platforms,
-    .marketing-charts-grid {
+    .marketing-platforms {
         grid-template-columns: 1fr;
     }
 }
