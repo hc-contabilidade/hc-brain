@@ -33,6 +33,9 @@ final class MarketingMetricasSync
         $periodos += $youtube['periodos'];
         if ($youtube['aviso'] !== null) {
             $avisos[] = $youtube['aviso'];
+        } elseif (! self::instagramConfigurado()) {
+            // YouTube real no ar: não deixar meses de Instagram do seeder parecerem oficiais.
+            self::limparPlataforma('instagram');
         }
 
         $instagram = self::sincronizarInstagram();
@@ -103,16 +106,12 @@ final class MarketingMetricasSync
                 $seguidoresAnteriores = 0;
             }
 
-            MarketingMetrica::query()
-                ->where('plataforma', 'youtube')
-                ->update([
-                    'seguidores' => 0,
-                    'inscritos_ou_alcance' => 0,
-                ]);
-
             $ganhoAtual = $seguidoresAnteriores > 0
                 ? max(0, $inscritosTotal - $seguidoresAnteriores)
                 : 0;
+
+            // Remove rascunho/seeder: a base passa a refletir só o que a API devolveu.
+            self::limparPlataforma('youtube');
 
             foreach ($porMes as $periodo => $lista) {
                 $views = 0;
@@ -127,39 +126,32 @@ final class MarketingMetricasSync
 
                 $ehAtual = $periodo === $periodoAtual;
 
-                MarketingMetrica::query()->updateOrCreate(
-                    ['periodo' => $periodo, 'plataforma' => 'youtube'],
-                    [
-                        'views' => $views,
-                        'likes' => $likes,
-                        'comentarios' => $comentarios,
-                        'compartilhamentos' => 0,
-                        'inscritos_ou_alcance' => $ehAtual ? $ganhoAtual : 0,
-                        'seguidores' => $ehAtual ? $inscritosTotal : 0,
-                    ],
-                );
+                MarketingMetrica::query()->create([
+                    'periodo' => $periodo,
+                    'plataforma' => 'youtube',
+                    'views' => $views,
+                    'likes' => $likes,
+                    'comentarios' => $comentarios,
+                    'compartilhamentos' => 0,
+                    'inscritos_ou_alcance' => $ehAtual ? $ganhoAtual : 0,
+                    'seguidores' => $ehAtual ? $inscritosTotal : 0,
+                ]);
 
                 self::gravarRanking('youtube', $periodo, $lista);
                 $periodos++;
             }
 
             if (! isset($porMes[$periodoAtual])) {
-                $existente = MarketingMetrica::query()
-                    ->where('periodo', $periodoAtual)
-                    ->where('plataforma', 'youtube')
-                    ->first();
-
-                MarketingMetrica::query()->updateOrCreate(
-                    ['periodo' => $periodoAtual, 'plataforma' => 'youtube'],
-                    [
-                        'views' => (int) ($existente?->views ?? 0),
-                        'likes' => (int) ($existente?->likes ?? 0),
-                        'comentarios' => (int) ($existente?->comentarios ?? 0),
-                        'compartilhamentos' => (int) ($existente?->compartilhamentos ?? 0),
-                        'inscritos_ou_alcance' => $ganhoAtual,
-                        'seguidores' => $inscritosTotal,
-                    ],
-                );
+                MarketingMetrica::query()->create([
+                    'periodo' => $periodoAtual,
+                    'plataforma' => 'youtube',
+                    'views' => 0,
+                    'likes' => 0,
+                    'comentarios' => 0,
+                    'compartilhamentos' => 0,
+                    'inscritos_ou_alcance' => $ganhoAtual,
+                    'seguidores' => $inscritosTotal,
+                ]);
                 $periodos++;
             }
 
@@ -217,15 +209,11 @@ final class MarketingMetricasSync
                 $seguidoresAnteriores = 0;
             }
 
-            MarketingMetrica::query()
-                ->where('plataforma', 'instagram')
-                ->update([
-                    'seguidores' => 0,
-                ]);
-
             $ganhoAtual = $seguidoresAnteriores > 0
                 ? max(0, $seguidoresTotal - $seguidoresAnteriores)
                 : 0;
+
+            self::limparPlataforma('instagram');
 
             foreach ($porMes as $periodo => $lista) {
                 $views = 0;
@@ -242,39 +230,32 @@ final class MarketingMetricasSync
 
                 $ehAtual = $periodo === $periodoAtual;
 
-                MarketingMetrica::query()->updateOrCreate(
-                    ['periodo' => $periodo, 'plataforma' => 'instagram'],
-                    [
-                        'views' => $views,
-                        'likes' => $likes,
-                        'comentarios' => $comentarios,
-                        'compartilhamentos' => 0,
-                        'inscritos_ou_alcance' => $alcance > 0 ? $alcance : ($ehAtual ? $ganhoAtual : 0),
-                        'seguidores' => $ehAtual ? $seguidoresTotal : 0,
-                    ],
-                );
+                MarketingMetrica::query()->create([
+                    'periodo' => $periodo,
+                    'plataforma' => 'instagram',
+                    'views' => $views,
+                    'likes' => $likes,
+                    'comentarios' => $comentarios,
+                    'compartilhamentos' => 0,
+                    'inscritos_ou_alcance' => $alcance > 0 ? $alcance : ($ehAtual ? $ganhoAtual : 0),
+                    'seguidores' => $ehAtual ? $seguidoresTotal : 0,
+                ]);
 
                 self::gravarRanking('instagram', $periodo, $lista);
                 $periodos++;
             }
 
             if (! isset($porMes[$periodoAtual])) {
-                $existente = MarketingMetrica::query()
-                    ->where('periodo', $periodoAtual)
-                    ->where('plataforma', 'instagram')
-                    ->first();
-
-                MarketingMetrica::query()->updateOrCreate(
-                    ['periodo' => $periodoAtual, 'plataforma' => 'instagram'],
-                    [
-                        'views' => (int) ($existente?->views ?? 0),
-                        'likes' => (int) ($existente?->likes ?? 0),
-                        'comentarios' => (int) ($existente?->comentarios ?? 0),
-                        'compartilhamentos' => (int) ($existente?->compartilhamentos ?? 0),
-                        'inscritos_ou_alcance' => (int) ($existente?->inscritos_ou_alcance ?? $ganhoAtual),
-                        'seguidores' => $seguidoresTotal,
-                    ],
-                );
+                MarketingMetrica::query()->create([
+                    'periodo' => $periodoAtual,
+                    'plataforma' => 'instagram',
+                    'views' => 0,
+                    'likes' => 0,
+                    'comentarios' => 0,
+                    'compartilhamentos' => 0,
+                    'inscritos_ou_alcance' => $ganhoAtual,
+                    'seguidores' => $seguidoresTotal,
+                ]);
                 $periodos++;
             }
 
@@ -763,5 +744,11 @@ final class MarketingMetricasSync
     {
         return (string) config('hc.marketing.instagram_access_token') !== ''
             && (string) config('hc.marketing.instagram_user_id') !== '';
+    }
+
+    private static function limparPlataforma(string $plataforma): void
+    {
+        MarketingMetrica::query()->where('plataforma', $plataforma)->delete();
+        MarketingConteudo::query()->where('plataforma', $plataforma)->delete();
     }
 }

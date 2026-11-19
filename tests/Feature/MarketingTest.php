@@ -203,6 +203,12 @@ class MarketingTest extends TestCase
             'destaque' => 0,
             'url' => 'https://www.youtube.com/shorts/vid-short',
         ]);
+
+        // Meses do seeder não podem sobreviver à sync real.
+        $this->assertDatabaseMissing('marketing_metricas', [
+            'periodo' => '2026-06',
+            'plataforma' => 'youtube',
+        ]);
     }
 
     public function test_sync_instagram_grava_seguidores_e_destaque(): void

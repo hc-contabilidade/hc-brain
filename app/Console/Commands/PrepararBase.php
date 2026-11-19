@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\MarketingConteudo;
+use App\Models\MarketingIdeia;
 use App\Models\MarketingMetrica;
 use App\Models\User;
 use Database\Seeders\MarketingSeeder;
@@ -46,16 +47,31 @@ class PrepararBase extends Command
             return false;
         }
 
+        // Com API configurada, métricas/conteúdos vêm da sync — o seeder só completa ideias.
+        if ($this->marketingApisConfiguradas()) {
+            return MarketingIdeia::query()->count() === 0;
+        }
+
         if (MarketingMetrica::query()->count() === 0) {
             return true;
         }
 
-        // Deploy no Render free: métricas antigas existem, mas faltam conteúdos/seguidores.
+        // Deploy local/demo: métricas antigas existem, mas faltam conteúdos.
         if (Schema::hasTable('marketing_conteudos') && MarketingConteudo::query()->count() === 0) {
             return true;
         }
 
-        return MarketingMetrica::query()->where('seguidores', '>', 0)->doesntExist();
+        return MarketingIdeia::query()->count() === 0;
+    }
+
+    private function marketingApisConfiguradas(): bool
+    {
+        $youtube = (string) config('hc.marketing.youtube_api_key') !== ''
+            && (string) config('hc.marketing.youtube_channel_id') !== '';
+        $instagram = (string) config('hc.marketing.instagram_access_token') !== ''
+            && (string) config('hc.marketing.instagram_user_id') !== '';
+
+        return $youtube || $instagram;
     }
 
     private function acessoInicial(): int

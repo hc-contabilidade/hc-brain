@@ -8,29 +8,26 @@ use App\Models\MarketingMetrica;
 use Illuminate\Database\Seeder;
 
 /**
- * Dados fictícios para o rascunho da tela Marketing.
- * Métricas reais virão do hc:sincronizar-marketing.
+ * Rascunho local da tela Marketing.
+ *
+ * Com YouTube/Instagram configurados, NÃO grava métricas nem conteúdos
+ * (esses vêm só do hc:sincronizar-marketing). Sem APIs e base vazia,
+ * preenche números de demonstração para o layout.
  */
 class MarketingSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach ($this->metricas() as $linha) {
-            MarketingMetrica::query()->updateOrCreate(
-                ['periodo' => $linha['periodo'], 'plataforma' => $linha['plataforma']],
-                $linha,
-            );
+        if (! $this->apisConfiguradas() && MarketingMetrica::query()->count() === 0) {
+            foreach ($this->metricas() as $linha) {
+                MarketingMetrica::query()->create($linha);
+            }
         }
 
-        foreach ($this->conteudos() as $linha) {
-            MarketingConteudo::query()->updateOrCreate(
-                [
-                    'titulo' => $linha['titulo'],
-                    'plataforma' => $linha['plataforma'],
-                    'periodo' => $linha['periodo'],
-                ],
-                $linha,
-            );
+        if (! $this->apisConfiguradas() && MarketingConteudo::query()->count() === 0) {
+            foreach ($this->conteudos() as $linha) {
+                MarketingConteudo::query()->create($linha);
+            }
         }
 
         if (MarketingIdeia::query()->count() > 0) {
@@ -40,6 +37,16 @@ class MarketingSeeder extends Seeder
         foreach ($this->ideias() as $ordem => $ideia) {
             MarketingIdeia::query()->create([...$ideia, 'ordem' => $ordem + 1]);
         }
+    }
+
+    private function apisConfiguradas(): bool
+    {
+        $youtube = (string) config('hc.marketing.youtube_api_key') !== ''
+            && (string) config('hc.marketing.youtube_channel_id') !== '';
+        $instagram = (string) config('hc.marketing.instagram_access_token') !== ''
+            && (string) config('hc.marketing.instagram_user_id') !== '';
+
+        return $youtube || $instagram;
     }
 
     /** @return list<array<string, mixed>> */
@@ -56,7 +63,6 @@ class MarketingSeeder extends Seeder
             ['periodo' => '2026-08', 'plataforma' => 'instagram', 'views' => 8300, 'likes' => 1050, 'comentarios' => 74, 'compartilhamentos' => 120, 'inscritos_ou_alcance' => 5400, 'seguidores' => 3370],
             ['periodo' => '2026-09', 'plataforma' => 'youtube', 'views' => 4200, 'likes' => 310, 'comentarios' => 48, 'compartilhamentos' => 22, 'inscritos_ou_alcance' => 45, 'seguidores' => 7932],
             ['periodo' => '2026-09', 'plataforma' => 'instagram', 'views' => 9100, 'likes' => 1200, 'comentarios' => 95, 'compartilhamentos' => 140, 'inscritos_ou_alcance' => 6400, 'seguidores' => 3495],
-            // Outubro: salto de inscritos após o vídeo destaque (+100 vs setembro).
             ['periodo' => '2026-10', 'plataforma' => 'youtube', 'views' => 9100, 'likes' => 720, 'comentarios' => 112, 'compartilhamentos' => 64, 'inscritos_ou_alcance' => 145, 'seguidores' => 8077],
             ['periodo' => '2026-10', 'plataforma' => 'instagram', 'views' => 12800, 'likes' => 1680, 'comentarios' => 140, 'compartilhamentos' => 210, 'inscritos_ou_alcance' => 8200, 'seguidores' => 3680],
             ['periodo' => '2026-11', 'plataforma' => 'youtube', 'views' => 4800, 'likes' => 340, 'comentarios' => 52, 'compartilhamentos' => 24, 'inscritos_ou_alcance' => 52, 'seguidores' => 8129],
@@ -71,6 +77,7 @@ class MarketingSeeder extends Seeder
             [
                 'titulo' => 'Como ler o DAS sem medo',
                 'plataforma' => 'youtube',
+                'formato' => 'video',
                 'periodo' => '2026-10',
                 'publicado_em' => '2026-10-08',
                 'views' => 6800,
@@ -84,6 +91,7 @@ class MarketingSeeder extends Seeder
             [
                 'titulo' => 'Bastidores da abertura de empresa',
                 'plataforma' => 'youtube',
+                'formato' => 'video',
                 'periodo' => '2026-10',
                 'publicado_em' => '2026-10-22',
                 'views' => 1600,
@@ -97,6 +105,7 @@ class MarketingSeeder extends Seeder
             [
                 'titulo' => 'Checklist MEI em 60 segundos',
                 'plataforma' => 'instagram',
+                'formato' => 'post',
                 'periodo' => '2026-10',
                 'publicado_em' => '2026-10-14',
                 'views' => 5400,
@@ -110,6 +119,7 @@ class MarketingSeeder extends Seeder
             [
                 'titulo' => 'Reels: mitos do Simples Nacional',
                 'plataforma' => 'instagram',
+                'formato' => 'post',
                 'periodo' => '2026-09',
                 'publicado_em' => '2026-09-18',
                 'views' => 3900,
