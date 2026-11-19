@@ -37,6 +37,7 @@ const estado = {
     window: 6 as 3 | 6,
     compare: true,
     contentChannel: "all" as "all" | "yt" | "ig",
+    contentFormat: "all" as "all" | "video" | "short",
     sort: "views" as "views" | "likes" | "engagement",
 };
 
@@ -499,10 +500,35 @@ function conteudosDoResumo(): ConteudoLinha[] {
     return [...youtube, ...instagram];
 }
 
+function formatoConteudo(item: ConteudoLinha): "video" | "short" | "post" {
+    if (item.canal === "ig") {
+        return "post";
+    }
+
+    return item.formato === "short" ? "short" : "video";
+}
+
+function rotuloFormato(formato: "video" | "short" | "post"): string {
+    return { video: "Vídeo", short: "Short", post: "Post" }[formato];
+}
+
 function renderConteudos(): void {
-    const itens = conteudosDoResumo().filter(
-        (item) => estado.contentChannel === "all" || item.canal === estado.contentChannel,
-    );
+    const itens = conteudosDoResumo().filter((item) => {
+        if (estado.contentChannel !== "all" && item.canal !== estado.contentChannel) {
+            return false;
+        }
+
+        if (estado.contentFormat === "all") {
+            return true;
+        }
+
+        // Filtro de formato vale para YouTube; Instagram só entra em "Todos".
+        if (item.canal !== "yt") {
+            return false;
+        }
+
+        return formatoConteudo(item) === estado.contentFormat;
+    });
     const pontuacao = (item: ConteudoLinha) =>
         estado.sort === "engagement"
             ? (engajamento(item.views, item.likes, item.comentarios) ?? -1)
@@ -515,11 +541,8 @@ function renderConteudos(): void {
         ? itens
               .map((item, index) => {
                   const cor = item.canal === "yt" ? "var(--mkt-yt)" : "var(--mkt-ig)";
-                  const ehShort = item.formato === "short";
+                  const formato = formatoConteudo(item);
                   const canalNome = item.canal === "yt" ? "YouTube" : "Instagram";
-                  const formatoTag = ehShort
-                      ? ' <span class="mkt-pill yt">Short</span>'
-                      : "";
                   const href = item.url ?? "#";
                   const taxa = engajamento(item.views, item.likes, item.comentarios);
 
@@ -527,8 +550,9 @@ function renderConteudos(): void {
             <td><span class="mkt-medal ${index === 0 ? "first" : ""}">${index + 1}</span></td>
             <td class="mkt-table-content">
               <span class="mkt-content-name">${escapar(item.titulo)}</span>
-              <span class="mkt-platform-tag" style="color:${cor}">${wrapIcone(item.canal === "yt" ? "video" : "image")}${canalNome}${formatoTag}</span>
+              <span class="mkt-platform-tag" style="color:${cor}">${wrapIcone(item.canal === "yt" ? "video" : "image")}${canalNome}</span>
             </td>
+            <td class="mkt-format-cell"><span class="mkt-pill ${formato}">${rotuloFormato(formato)}</span></td>
             <td class="number">${formatarNumero(item.views)}<div class="mkt-relative-track" aria-hidden="true"><span style="background:${cor};width:${(item.views / maximo) * 100}%"></span></div></td>
             <td class="number">${formatarNumero(item.likes)}</td>
             <td class="number">${formatarNumero(item.comentarios)}</td>
@@ -537,7 +561,7 @@ function renderConteudos(): void {
           </tr>`;
               })
               .join("")
-        : `<tr><td class="mkt-empty-cell" colspan="7">Nenhum conteúdo armazenado para este mês e canal.</td></tr>`;
+        : `<tr><td class="mkt-empty-cell" colspan="8">Nenhum conteúdo armazenado para este mês e filtro.</td></tr>`;
 
     porId("marketingContentCount").textContent = `${itens.length} ${
         itens.length === 1 ? "conteúdo" : "conteúdos"
@@ -547,6 +571,13 @@ function renderConteudos(): void {
         botao.setAttribute(
             "aria-pressed",
             String(botao.dataset.contentChannel === estado.contentChannel),
+        );
+    });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-content-format]").forEach((botao) => {
+        botao.setAttribute(
+            "aria-pressed",
+            String(botao.dataset.contentFormat === estado.contentFormat),
         );
     });
 }
@@ -840,6 +871,14 @@ document.querySelectorAll<HTMLButtonElement>("[data-window]").forEach((botao) =>
 document.querySelectorAll<HTMLButtonElement>("[data-content-channel]").forEach((botao) => {
     botao.addEventListener("click", () => {
         estado.contentChannel = botao.dataset.contentChannel as typeof estado.contentChannel;
+        renderConteudos();
+        desenharIcones(porId("marketingContents"));
+    });
+});
+
+document.querySelectorAll<HTMLButtonElement>("[data-content-format]").forEach((botao) => {
+    botao.addEventListener("click", () => {
+        estado.contentFormat = botao.dataset.contentFormat as typeof estado.contentFormat;
         renderConteudos();
         desenharIcones(porId("marketingContents"));
     });

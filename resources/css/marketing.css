@@ -758,6 +758,31 @@ html[data-tema="claro"] .marketing-page {
     background: var(--mkt-ig-tint);
 }
 
+.marketing-page .mkt-pill.video {
+    color: var(--mkt-yt);
+    background: var(--mkt-yt-tint);
+}
+
+.marketing-page .mkt-pill.short {
+    color: #b45309;
+    background: rgb(180 83 9 / 14%);
+    font-weight: 650;
+}
+
+html[data-tema="claro"] .marketing-page .mkt-pill.short {
+    color: #9a3412;
+    background: #fff7ed;
+}
+
+.marketing-page .mkt-pill.post {
+    color: var(--mkt-ig);
+    background: var(--mkt-ig-tint);
+}
+
+.marketing-page .mkt-format-cell {
+    white-space: nowrap;
+}
+
 .marketing-page .mkt-ideas-toolbar {
     display: flex;
     flex-wrap: wrap;

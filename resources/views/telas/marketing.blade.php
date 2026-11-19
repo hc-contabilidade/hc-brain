@@ -140,6 +140,11 @@
               <i data-lucide="image" class="mkt-icon" aria-hidden="true"></i>Instagram
             </button>
           </div>
+          <div class="mkt-segmented" role="group" aria-label="Formato do YouTube">
+            <button type="button" data-content-format="all" aria-pressed="true">Todos</button>
+            <button type="button" data-content-format="video" aria-pressed="false">Vídeos</button>
+            <button type="button" data-content-format="short" aria-pressed="false">Shorts</button>
+          </div>
           <label class="mkt-row-start">
             <span class="mkt-field-label">Ordenar</span>
             <select id="marketingContentSort" class="mkt-select">
@@ -156,6 +161,7 @@
             <tr>
               <th style="width:44px">Pos.</th>
               <th>Conteúdo</th>
+              <th style="width:88px">Formato</th>
               <th class="number">Visualizações</th>
               <th class="number">Curtidas</th>
               <th class="number">Comentários</th>
