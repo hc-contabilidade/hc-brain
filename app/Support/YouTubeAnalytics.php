@@ -48,7 +48,8 @@ final class YouTubeAnalytics
 
     public static function enderecoDeRetorno(): string
     {
-        return (string) (config('services.google.youtube_redirect') ?: route('youtube.retorno'));
+        // Mesma URI das agendas (já autorizada no Cloud) — evita redirect_uri_mismatch.
+        return (string) (config('services.google.redirect') ?: route('google.retorno'));
     }
 
     public static function urlDeAutorizacao(string $estado): string

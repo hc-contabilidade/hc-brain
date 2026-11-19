@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  */
 class YoutubeAnalyticsController extends Controller
 {
-    private const ESTADO = 'youtube_analytics_estado';
+    public const ESTADO = 'youtube_analytics_estado';
 
     public function conectar(Request $request): RedirectResponse
     {
@@ -23,6 +23,7 @@ class YoutubeAnalyticsController extends Controller
         abort_unless(YouTubeAnalytics::configurada(), 503, 'Defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no ambiente.');
 
         $estado = Str::random(40);
+        $request->session()->forget('google_estado');
         $request->session()->put(self::ESTADO, $estado);
 
         return redirect()->away(YouTubeAnalytics::urlDeAutorizacao($estado));

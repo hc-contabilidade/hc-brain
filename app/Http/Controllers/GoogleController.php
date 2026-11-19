@@ -25,6 +25,7 @@ class GoogleController extends Controller
         abort_unless(GoogleAgenda::configurada(), 503, 'Defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no ambiente para conectar agendas.');
 
         $estado = Str::random(40);
+        $request->session()->forget(YoutubeAnalyticsController::ESTADO);
         $request->session()->put(self::ESTADO, $estado);
 
         return redirect()->away(GoogleAgenda::urlDeAutorizacao($estado));
@@ -37,6 +38,11 @@ class GoogleController extends Controller
     public function retorno(Request $request): RedirectResponse
     {
         abort_unless($request->user()->ehAdministrador(), 403, 'Só um administrador conecta agendas do Google.');
+
+        // YouTube Insights reusa /google/retorno (URI já cadastrada no Cloud).
+        if ($request->session()->has(YoutubeAnalyticsController::ESTADO)) {
+            return app(YoutubeAnalyticsController::class)->retorno($request);
+        }
 
         $estado = $request->session()->pull(self::ESTADO);
 

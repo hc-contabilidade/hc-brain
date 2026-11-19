@@ -111,13 +111,17 @@ class MarketingTest extends TestCase
             ]),
         ]);
 
+        config(['services.google.redirect' => 'https://hc-brain-1.onrender.com/google/retorno']);
+
         $admin = $this->administrador();
         $ida = $this->actingAs($admin)->get('/youtube/conectar');
-        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $ida->headers->get('Location'));
-        $this->assertStringContainsString('yt-analytics.readonly', (string) $ida->headers->get('Location'));
+        $location = (string) $ida->headers->get('Location');
+        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $location);
+        $this->assertStringContainsString('yt-analytics.readonly', $location);
+        $this->assertStringContainsString(rawurlencode('https://hc-brain-1.onrender.com/google/retorno'), $location);
 
         $this->actingAs($admin)
-            ->get('/youtube/retorno?'.http_build_query([
+            ->get('/google/retorno?'.http_build_query([
                 'state' => session('youtube_analytics_estado'),
                 'code' => 'codigo',
             ]))
