@@ -874,10 +874,104 @@ html[data-tema="claro"] .marketing-page {
 .marketing-dialog .mkt-dialog-header h2 {
     margin: 0;
     font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--texto-forte);
+}
+
+.marketing-dialog .mkt-icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--texto-suave);
+    cursor: pointer;
+}
+
+.marketing-dialog .mkt-icon-btn:hover {
+    color: var(--roxo);
+    background: var(--roxo-fundo);
+}
+
+.marketing-dialog .mkt-icon {
+    display: inline-block;
+    width: 17px;
+    height: 17px;
+}
+
+.marketing-dialog .mkt-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .marketing-dialog .mkt-dialog-body {
     font-size: 12px;
+}
+
+.marketing-dialog .mkt-eyebrow {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--roxo);
+}
+
+.marketing-dialog.marketing-data-dialog {
+    width: min(520px, calc(100% - 28px));
+    padding: 22px 22px 18px;
+}
+
+.marketing-dialog .mkt-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.marketing-dialog .mkt-data-table th {
+    padding: 10px 0;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--texto-suave);
+    font-weight: 600;
+    background: transparent;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.marketing-dialog .mkt-data-table td {
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--texto-forte);
+    vertical-align: middle;
+}
+
+.marketing-dialog .mkt-data-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.marketing-dialog .mkt-data-table th.number,
+.marketing-dialog .mkt-data-table td.number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.marketing-dialog .mkt-data-table td.number {
+    font-weight: 550;
+}
+
+.marketing-dialog .mkt-data-note {
+    margin: 14px 0 0;
+    font-size: 11px;
+    color: var(--texto-suave);
+    line-height: 1.5;
 }
 
 .marketing-dialog .mkt-criteria-row {

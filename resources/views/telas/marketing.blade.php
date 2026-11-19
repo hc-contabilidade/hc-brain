@@ -275,9 +275,12 @@
     </dl>
   </dialog>
 
-  <dialog id="marketingDataDialog" class="marketing-dialog" aria-labelledby="marketingDataTitle">
+  <dialog id="marketingDataDialog" class="marketing-dialog marketing-data-dialog" aria-labelledby="marketingDataTitle">
     <header class="mkt-dialog-header">
-      <h2 id="marketingDataTitle">Dados do gráfico</h2>
+      <div>
+        <p class="mkt-eyebrow" style="margin-bottom:4px">Histórico</p>
+        <h2 id="marketingDataTitle">Dados do gráfico</h2>
+      </div>
       <button class="mkt-icon-btn" type="button" data-close="marketingDataDialog" aria-label="Fechar dados">
         <i data-lucide="x" class="mkt-icon" aria-hidden="true"></i>
       </button>

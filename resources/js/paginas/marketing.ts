@@ -650,6 +650,38 @@ function abrirIdeia(id: number): void {
     desenharIcones(porId("marketingIdeaDialog"));
 }
 
+function rotuloMesHistorico(periodo: string): string {
+    const base = rotulosPeriodo.get(periodo);
+
+    if (base) {
+        const partes = base.trim().split(/\s+/);
+        const mes = partes[0] ?? periodo;
+        const ano = partes[1] ?? periodo.slice(0, 4);
+
+        return `${capital(mes)} de ${ano}`;
+    }
+
+    return periodo;
+}
+
+function valorOuTraco(valor: number): string {
+    return valor > 0 ? formatarNumero(valor) : "—";
+}
+
+function notaHistorico(serie: PontoSerie[]): string {
+    const parcial = serie.find((ponto) => ponto.periodo === mesAtual);
+    const hoje = new Date();
+    const dataParcial = hoje.toLocaleDateString("pt-BR");
+
+    if (parcial) {
+        const mesNome = capital((rotulosPeriodo.get(mesAtual) ?? mesAtual).split(" ")[0] ?? "Mês");
+
+        return `Traço = histórico indisponível. ${mesNome} contém dados parciais até ${dataParcial}.`;
+    }
+
+    return "Traço = histórico indisponível.";
+}
+
 function mostrarDados(canal: "yt" | "ig"): void {
     if (!resumoAtual) {
         return;
@@ -661,13 +693,13 @@ function mostrarDados(canal: "yt" | "ig"): void {
     const linhas = serie
         .map((ponto) => {
             const extra =
-                canal === "ig" ? `<td class="number">${formatarNumero(ponto.ganho)}</td>` : "";
+                canal === "ig" ? `<td class="number">${valorOuTraco(ponto.ganho)}</td>` : "";
 
             return `<tr>
-          <td>${escapar(capital(rotuloCompleto(ponto.periodo)))}</td>
-          <td class="number">${formatarNumero(ponto.views)}</td>
+          <td>${escapar(rotuloMesHistorico(ponto.periodo))}</td>
+          <td class="number">${valorOuTraco(ponto.views)}</td>
           ${extra}
-          <td class="number">${formatarNumero(ponto.audiencia)}</td>
+          <td class="number">${valorOuTraco(ponto.audiencia)}</td>
         </tr>`;
         })
         .join("");
@@ -676,7 +708,7 @@ function mostrarDados(canal: "yt" | "ig"): void {
         `${canal === "yt" ? "YouTube" : "Instagram"} · dados do gráfico`;
     porId("marketingDataBody").innerHTML = `
       <div class="mkt-table-wrap">
-        <table class="mkt-table">
+        <table class="mkt-data-table">
           <thead>
             <tr>
               <th>Mês</th>
@@ -685,11 +717,12 @@ function mostrarDados(canal: "yt" | "ig"): void {
               <th class="number">${audiencia}</th>
             </tr>
           </thead>
-          <tbody>${linhas}</tbody>
+          <tbody>${linhas || `<tr><td class="mkt-empty-cell" colspan="${canal === "ig" ? 4 : 3}">Sem histórico para esta janela.</td></tr>`}</tbody>
         </table>
       </div>
-      <p style="color:var(--texto-suave);margin:12px 0 0;font-size:11px">Valores vindos da última sincronização de cada mês.</p>`;
+      <p class="mkt-data-note">${escapar(notaHistorico(serie))}</p>`;
     (porId("marketingDataDialog") as HTMLDialogElement).showModal();
+    desenharIcones(porId("marketingDataDialog"));
 }
 
 function renderPainel(): void {
