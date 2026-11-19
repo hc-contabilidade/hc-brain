@@ -515,7 +515,11 @@ function renderConteudos(): void {
         ? itens
               .map((item, index) => {
                   const cor = item.canal === "yt" ? "var(--mkt-yt)" : "var(--mkt-ig)";
+                  const ehShort = item.formato === "short";
                   const canalNome = item.canal === "yt" ? "YouTube" : "Instagram";
+                  const formatoTag = ehShort
+                      ? ' <span class="mkt-pill yt">Short</span>'
+                      : "";
                   const href = item.url ?? "#";
                   const taxa = engajamento(item.views, item.likes, item.comentarios);
 
@@ -523,7 +527,7 @@ function renderConteudos(): void {
             <td><span class="mkt-medal ${index === 0 ? "first" : ""}">${index + 1}</span></td>
             <td class="mkt-table-content">
               <span class="mkt-content-name">${escapar(item.titulo)}</span>
-              <span class="mkt-platform-tag" style="color:${cor}">${wrapIcone(item.canal === "yt" ? "video" : "image")}${canalNome}</span>
+              <span class="mkt-platform-tag" style="color:${cor}">${wrapIcone(item.canal === "yt" ? "video" : "image")}${canalNome}${formatoTag}</span>
             </td>
             <td class="number">${formatarNumero(item.views)}<div class="mkt-relative-track" aria-hidden="true"><span style="background:${cor};width:${(item.views / maximo) * 100}%"></span></div></td>
             <td class="number">${formatarNumero(item.likes)}</td>

@@ -19,3 +19,6 @@ Schedule::command('hc:sincronizar-comercial')->everyFifteenMinutes()->withoutOve
 Schedule::command('hc:sincronizar-agendas')->everyFiveMinutes()->withoutOverlapping();
 // Omie via API é pesado: fica de hora em hora (só no minuto 0).
 Schedule::command('hc:sincronizar-omie')->hourly()->withoutOverlapping(120);
+// YouTube/Instagram: 1× ao dia (no free do Render só roda se o cron externo
+// acorda o Web com ?tarefa=schedule — ou dispare ?tarefa=marketing sob demanda).
+Schedule::command('hc:sincronizar-marketing')->dailyAt('07:00')->withoutOverlapping(30);

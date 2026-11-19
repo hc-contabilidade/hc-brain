@@ -473,6 +473,7 @@ final class MarketingMetricasSync
                     'likes' => (int) ($item['like_count'] ?? 0),
                     'comentarios' => (int) ($item['comments_count'] ?? 0),
                     'alcance' => $insights['alcance'],
+                    'formato' => 'post',
                     'url' => (string) ($item['permalink'] ?? config('hc.marketing.instagram_url')),
                 ];
             }
@@ -521,7 +522,7 @@ final class MarketingMetricasSync
     }
 
     /**
-     * @param  list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string}>  $lista
+     * @param  list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string, formato?: string}>  $lista
      */
     private static function gravarRanking(
         string $plataforma,
@@ -538,7 +539,9 @@ final class MarketingMetricasSync
             ->where('periodo', $periodo)
             ->update(['destaque' => false]);
 
-        foreach ($ranking->take(5) as $indice => $item) {
+        $formatoPadrao = $plataforma === 'instagram' ? 'post' : 'video';
+
+        foreach ($ranking->take(10) as $indice => $item) {
             if (! is_array($item)) {
                 continue;
             }
@@ -550,6 +553,7 @@ final class MarketingMetricasSync
                     'periodo' => $periodo,
                 ],
                 [
+                    'formato' => (string) ($item['formato'] ?? $formatoPadrao),
                     'publicado_em' => $item['publicado_em'],
                     'views' => $item['views'],
                     'likes' => $item['likes'],
@@ -564,14 +568,18 @@ final class MarketingMetricasSync
     }
 
     /**
-     * @return list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string}>
+     * Busca uploads recentes (vídeos longos + Shorts). A playlist de uploads
+     * do canal inclui Shorts; sem isso o ranking só via “Videos” omitiria cortes.
+     *
+     * @return list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string, formato: string}>
      */
     private static function videosDoCanal(string $uploadsPlaylistId, string $chave): array
     {
         $videoIds = [];
         $pageToken = null;
 
-        for ($pagina = 0; $pagina < 2; $pagina++) {
+        // Até 400 uploads (8×50): cobre Shorts antigos ainda relevantes por views.
+        for ($pagina = 0; $pagina < 8; $pagina++) {
             $params = [
                 'part' => 'contentDetails,snippet',
                 'playlistId' => $uploadsPlaylistId,
@@ -605,7 +613,7 @@ final class MarketingMetricasSync
         $videos = [];
         foreach (array_chunk($videoIds, 50) as $lote) {
             $detalhe = self::youtubeGet('videos', [
-                'part' => 'snippet,statistics',
+                'part' => 'snippet,statistics,contentDetails',
                 'id' => implode(',', $lote),
             ], $chave);
 
@@ -617,18 +625,27 @@ final class MarketingMetricasSync
                 $id = (string) ($item['id'] ?? '');
                 $snippet = is_array($item['snippet'] ?? null) ? $item['snippet'] : [];
                 $statistics = is_array($item['statistics'] ?? null) ? $item['statistics'] : [];
+                $contentDetails = is_array($item['contentDetails'] ?? null) ? $item['contentDetails'] : [];
                 $publicado = (string) ($snippet['publishedAt'] ?? '');
                 if ($id === '' || $publicado === '') {
                     continue;
                 }
 
+                $titulo = mb_substr((string) ($snippet['title'] ?? 'Sem título'), 0, 255);
+                $descricao = (string) ($snippet['description'] ?? '');
+                $duracao = self::duracaoEmSegundos((string) ($contentDetails['duration'] ?? ''));
+                $ehShort = self::eYoutubeShort($titulo, $descricao, $duracao);
+
                 $videos[] = [
-                    'titulo' => mb_substr((string) ($snippet['title'] ?? 'Sem título'), 0, 255),
+                    'titulo' => $titulo,
                     'publicado_em' => Carbon::parse($publicado)->toDateString(),
                     'views' => (int) ($statistics['viewCount'] ?? 0),
                     'likes' => (int) ($statistics['likeCount'] ?? 0),
                     'comentarios' => (int) ($statistics['commentCount'] ?? 0),
-                    'url' => 'https://www.youtube.com/watch?v='.$id,
+                    'formato' => $ehShort ? 'short' : 'video',
+                    'url' => $ehShort
+                        ? 'https://www.youtube.com/shorts/'.$id
+                        : 'https://www.youtube.com/watch?v='.$id,
                 ];
             }
         }
@@ -636,9 +653,42 @@ final class MarketingMetricasSync
         return $videos;
     }
 
+    private static function duracaoEmSegundos(string $iso8601): int
+    {
+        if ($iso8601 === '' || ! str_starts_with($iso8601, 'PT')) {
+            return 0;
+        }
+
+        $segundos = 0;
+        if (preg_match('/(\d+)H/', $iso8601, $horas) === 1) {
+            $segundos += (int) $horas[1] * 3600;
+        }
+        if (preg_match('/(\d+)M/', $iso8601, $minutos) === 1) {
+            $segundos += (int) $minutos[1] * 60;
+        }
+        if (preg_match('/(\d+)S/', $iso8601, $segs) === 1) {
+            $segundos += (int) $segs[1];
+        }
+
+        return $segundos;
+    }
+
     /**
-     * @param  list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string}>  $itens
-     * @return array<string, list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string}>>
+     * Shorts na Data API não têm flag oficial: usa duração (até 3 min) ou #shorts.
+     */
+    private static function eYoutubeShort(string $titulo, string $descricao, int $duracaoSegundos): bool
+    {
+        $texto = mb_strtolower($titulo.' '.$descricao);
+        if (str_contains($texto, '#shorts') || str_contains($texto, '#short')) {
+            return true;
+        }
+
+        return $duracaoSegundos > 0 && $duracaoSegundos <= 180;
+    }
+
+    /**
+     * @param  list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string, formato?: string}>  $itens
+     * @return array<string, list<array{titulo: string, publicado_em: string, views: int, likes: int, comentarios: int, url: string, formato?: string}>>
      */
     private static function agruparPorMes(array $itens): array
     {

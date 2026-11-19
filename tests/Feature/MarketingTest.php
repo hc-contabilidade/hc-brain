@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\MarketingConteudo;
 use App\Models\MarketingIdeia;
 use App\Models\MarketingMetrica;
 use App\Models\User;
@@ -122,6 +121,7 @@ class MarketingTest extends TestCase
             'https://www.googleapis.com/youtube/v3/playlistItems*' => Http::response([
                 'items' => [
                     ['contentDetails' => ['videoId' => 'vid-top']],
+                    ['contentDetails' => ['videoId' => 'vid-short']],
                     ['contentDetails' => ['videoId' => 'vid-outro']],
                 ],
             ]),
@@ -131,8 +131,10 @@ class MarketingTest extends TestCase
                         'id' => 'vid-top',
                         'snippet' => [
                             'title' => 'Como ler o DAS sem medo',
+                            'description' => 'Aula completa',
                             'publishedAt' => now()->startOfMonth()->addDays(2)->toIso8601String(),
                         ],
+                        'contentDetails' => ['duration' => 'PT12M4S'],
                         'statistics' => [
                             'viewCount' => '6800',
                             'likeCount' => '540',
@@ -140,11 +142,27 @@ class MarketingTest extends TestCase
                         ],
                     ],
                     [
+                        'id' => 'vid-short',
+                        'snippet' => [
+                            'title' => 'DAS em 30 segundos #shorts',
+                            'description' => 'Corte rápido',
+                            'publishedAt' => now()->startOfMonth()->addDays(5)->toIso8601String(),
+                        ],
+                        'contentDetails' => ['duration' => 'PT28S'],
+                        'statistics' => [
+                            'viewCount' => '4100',
+                            'likeCount' => '320',
+                            'commentCount' => '40',
+                        ],
+                    ],
+                    [
                         'id' => 'vid-outro',
                         'snippet' => [
                             'title' => 'Bastidores HC',
+                            'description' => 'Making of',
                             'publishedAt' => now()->startOfMonth()->addDays(10)->toIso8601String(),
                         ],
+                        'contentDetails' => ['duration' => 'PT8M10S'],
                         'statistics' => [
                             'viewCount' => '1200',
                             'likeCount' => '90',
@@ -162,8 +180,8 @@ class MarketingTest extends TestCase
         $this->assertDatabaseHas('marketing_metricas', [
             'periodo' => $periodo,
             'plataforma' => 'youtube',
-            'views' => 8000,
-            'likes' => 630,
+            'views' => 12100,
+            'likes' => 950,
             'seguidores' => 8200,
         ]);
 
@@ -171,11 +189,20 @@ class MarketingTest extends TestCase
             'plataforma' => 'youtube',
             'periodo' => $periodo,
             'titulo' => 'Como ler o DAS sem medo',
+            'formato' => 'video',
             'views' => 6800,
             'destaque' => 1,
         ]);
 
-        $this->assertTrue(MarketingConteudo::query()->where('titulo', 'Como ler o DAS sem medo')->exists());
+        $this->assertDatabaseHas('marketing_conteudos', [
+            'plataforma' => 'youtube',
+            'periodo' => $periodo,
+            'titulo' => 'DAS em 30 segundos #shorts',
+            'formato' => 'short',
+            'views' => 4100,
+            'destaque' => 0,
+            'url' => 'https://www.youtube.com/shorts/vid-short',
+        ]);
     }
 
     public function test_sync_instagram_grava_seguidores_e_destaque(): void

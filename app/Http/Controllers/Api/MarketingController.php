@@ -244,14 +244,14 @@ class MarketingController extends Controller
             ->where('plataforma', $plataforma)
             ->where('periodo', $periodo)
             ->orderByDesc('views')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         if ($lista->isEmpty()) {
             $lista = MarketingConteudo::query()
                 ->where('plataforma', $plataforma)
                 ->orderByDesc('views')
-                ->limit(5)
+                ->limit(10)
                 ->get();
         }
 
@@ -264,6 +264,7 @@ class MarketingController extends Controller
                 'likes' => (int) $conteudo->likes,
                 'comentarios' => (int) $conteudo->comentarios,
                 'destaque' => (bool) $conteudo->destaque,
+                'formato' => (string) ($conteudo->formato ?: ($plataforma === 'instagram' ? 'post' : 'video')),
                 'url' => $conteudo->url,
             ])
             ->values()
@@ -304,6 +305,7 @@ class MarketingController extends Controller
             'ganhoInscritos' => (int) $conteudo->ganho_inscritos,
             'ganhoSeguidores' => (int) $conteudo->ganho_seguidores,
             'destaque' => (bool) $conteudo->destaque,
+            'formato' => (string) ($conteudo->formato ?: ($plataforma === 'instagram' ? 'post' : 'video')),
             'url' => $conteudo->url,
         ];
     }

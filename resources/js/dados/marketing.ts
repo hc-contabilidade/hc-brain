@@ -47,6 +47,8 @@ export interface MetricaInstagram {
     inscritosOuAlcance: number;
 }
 
+export type FormatoConteudo = "video" | "short" | "post";
+
 export interface ConteudoDestaque {
     titulo: string;
     periodo: string;
@@ -57,6 +59,7 @@ export interface ConteudoDestaque {
     ganhoInscritos: number;
     ganhoSeguidores: number;
     destaque: boolean;
+    formato?: FormatoConteudo | string;
     url: string | null;
 }
 
@@ -68,6 +71,7 @@ export interface VideoRanking {
     likes: number;
     comentarios: number;
     destaque: boolean;
+    formato?: FormatoConteudo | string;
     url: string | null;
 }
 
