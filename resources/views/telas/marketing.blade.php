@@ -11,6 +11,7 @@
         <p class="mkt-eyebrow">Marketing</p>
         <h1 class="mkt-title">Redes HC</h1>
         <p class="mkt-lead">Os resultados e conteúdos dos canais da Health Care em um só lugar.</p>
+        <p class="mkt-lead" id="marketingYoutubeStatus" style="margin-top:8px"></p>
       </div>
       <div class="mkt-row-start">
         <a id="marketingLinkYoutube" href="https://youtube.com/@healthcarecontabilidade/videos" target="_blank" rel="noopener noreferrer" class="mkt-external">
@@ -21,6 +22,12 @@
           <i data-lucide="image" class="mkt-icon" aria-hidden="true"></i>Instagram
           <i data-lucide="external-link" class="mkt-icon" aria-hidden="true"></i>
         </a>
+        <a id="marketingYoutubeConnect" href="{{ route('youtube.conectar') }}" class="mkt-external" hidden>
+          Conectar Insights
+        </a>
+        <button id="marketingYoutubeDisconnect" type="button" class="mkt-text-action" hidden>
+          Desconectar Insights
+        </button>
       </div>
     </div>
 
@@ -259,8 +266,8 @@
     </header>
     <dl class="mkt-dialog-body">
       <div class="mkt-criteria-row">
-        <dt>Visualizações</dt>
-        <dd>Contagem de visualizações registrada para cada rede no mês selecionado. Uma pessoa pode gerar mais de uma visualização.</dd>
+        <dt>Visualizações (YouTube Insights)</dt>
+        <dd>Com o Analytics conectado, são as visualizações do canal no período — o mesmo critério do YouTube Studio. Sem Insights, a sync antiga soma views vitalícias dos vídeos publicados no mês.</dd>
       </div>
       <div class="mkt-criteria-row">
         <dt>Alcance do Instagram</dt>

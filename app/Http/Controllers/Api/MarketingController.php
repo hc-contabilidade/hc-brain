@@ -7,6 +7,7 @@ use App\Http\Requests\SalvarMarketingIdeiaRequest;
 use App\Models\MarketingConteudo;
 use App\Models\MarketingIdeia;
 use App\Models\MarketingMetrica;
+use App\Support\YouTubeAnalytics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
@@ -65,6 +66,7 @@ class MarketingController extends Controller
                 'youtube' => (string) config('hc.marketing.youtube_url'),
                 'instagram' => (string) config('hc.marketing.instagram_url'),
             ],
+            'youtubeInsights' => YouTubeAnalytics::conectada(),
             'youtube' => self::metricaYoutube($youtube, $youtubeAnterior),
             'instagram' => self::metricaInstagram($instagram, $instagramAnterior),
             'serieYoutube' => self::serie('youtube', $periodo),

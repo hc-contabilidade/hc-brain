@@ -37,6 +37,8 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+        /* OAuth do YouTube Analytics (Insights). Cadastre a mesma URI no Cloud. */
+        'youtube_redirect' => env('GOOGLE_YOUTUBE_REDIRECT_URI'),
     ],
 
     'slack' => [

@@ -91,6 +91,7 @@ export interface ResumoMarketing {
         youtube: string;
         instagram: string;
     };
+    youtubeInsights: boolean;
     youtube: MetricaYoutube;
     instagram: MetricaInstagram;
     serieYoutube: PontoSerie[];
@@ -100,6 +101,19 @@ export interface ResumoMarketing {
     destaqueYoutube: ConteudoDestaque | null;
     destaqueInstagram: ConteudoDestaque | null;
     ideias: IdeiaVideo[];
+}
+
+export interface YoutubeAnalyticsStatus {
+    configurada: boolean;
+    conectada: boolean;
+    conta: {
+        id: number;
+        email: string;
+        nome: string | null;
+        channelId: string | null;
+        sincronizadaEm: string | null;
+        erro: string | null;
+    } | null;
 }
 
 export type PayloadIdeia = {
@@ -119,6 +133,14 @@ export function carregarMarketing(periodo: string): Promise<ResumoMarketing> {
     return obter<ResumoMarketing>(
         `/marketing/${encodeURIComponent(periodo || "atual")}`,
     );
+}
+
+export function carregarYoutubeAnalytics(): Promise<YoutubeAnalyticsStatus> {
+    return obter<YoutubeAnalyticsStatus>("/marketing/youtube-analytics");
+}
+
+export function desconectarYoutubeAnalytics(): Promise<void> {
+    return remover("/marketing/youtube-analytics");
 }
 
 export function criarIdeia(dados: PayloadIdeia): Promise<IdeiaVideo> {

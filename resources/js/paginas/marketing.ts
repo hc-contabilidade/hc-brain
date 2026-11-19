@@ -5,18 +5,41 @@
 import {
     carregarMarketing,
     carregarPeriodosMarketing,
+    carregarYoutubeAnalytics,
+    desconectarYoutubeAnalytics,
     type IdeiaVideo,
     type PontoSerie,
     type ResumoMarketing,
     type VideoRanking,
+    type YoutubeAnalyticsStatus,
 } from "../dados/marketing.ts";
 import { campo, porId, selecao } from "../comum/dom.ts";
 import { atualizarSecao, observarEstado, obterSecao } from "../comum/estado.ts";
 import { escapar } from "../comum/formato.ts";
 import { desenharIcones, icone } from "../comum/icones.ts";
+import { usuarioLogado } from "../comum/sessao.ts";
 import { iniciarPagina } from "../comum/shell.ts";
 
 iniciarPagina("marketing");
+
+const ehAdmin = usuarioLogado().perfil === "Administrador";
+const connectBtn = porId("marketingYoutubeConnect") as HTMLAnchorElement;
+const disconnectBtn = porId("marketingYoutubeDisconnect") as HTMLButtonElement;
+const youtubeStatusEl = porId("marketingYoutubeStatus");
+
+const oauthResultado = new URLSearchParams(window.location.search).get("youtube");
+if (oauthResultado) {
+    const mensagens: Record<string, string> = {
+        conectada: "YouTube Insights conectado. Rode a sync de Marketing para atualizar os números.",
+        recusada: "Conexão do YouTube Insights cancelada.",
+        sessao: "Sessão expirada no retorno do Google. Tente conectar de novo.",
+        oauth: "Falha no OAuth do Google. Confira Client ID/Secret e a URI /youtube/retorno.",
+        sem_refresh: "Google não devolveu refresh token. Reconecte com prompt de consentimento.",
+        sem_canal: "Conta conectada sem canal YouTube. Use a conta dona do canal HC.",
+    };
+    youtubeStatusEl.textContent = mensagens[oauthResultado] ?? `YouTube Insights: ${oauthResultado}`;
+    window.history.replaceState({}, "", window.location.pathname);
+}
 
 const filtroPeriodo = selecao("marketingMonthFilter");
 const compararInput = campo("marketingCompare");
@@ -416,9 +439,13 @@ function renderMetricas(): void {
     const igAnteriorSeguidores = ig.seguidores - ig.variacaoSeguidores;
     const igEng = engajamento(ig.views, ig.likes, ig.comentarios);
 
+    const ytViewsRotulo = resumoAtual.youtubeInsights
+        ? "Visualizações no período"
+        : "Visualizações";
+
     porId("yt-primary").innerHTML =
         metricaPrincipal(
-            "Visualizações",
+            ytViewsRotulo,
             formatarNumero(yt.views),
             variacao(yt.views, ytAnteriorViews, "percent"),
             true,
@@ -437,6 +464,11 @@ function renderMetricas(): void {
             false,
             true,
         );
+
+    const ytChartTitle = porId("yt-chart-title");
+    ytChartTitle.textContent = resumoAtual.youtubeInsights
+        ? "Evolução das visualizações no período"
+        : "Evolução das visualizações";
 
     porId("yt-secondary").innerHTML = [
         ["Curtidas", yt.likes, "heart"],
@@ -739,6 +771,11 @@ function mostrarDados(canal: "yt" | "ig"): void {
         })
         .join("");
 
+    const viewsCabecalho =
+        canal === "yt" && resumoAtual.youtubeInsights
+            ? "Visualizações no período"
+            : "Visualizações";
+
     porId("marketingDataTitle").textContent =
         `${canal === "yt" ? "YouTube" : "Instagram"} · dados do gráfico`;
     porId("marketingDataBody").innerHTML = `
@@ -747,7 +784,7 @@ function mostrarDados(canal: "yt" | "ig"): void {
           <thead>
             <tr>
               <th>Mês</th>
-              <th class="number">Visualizações</th>
+              <th class="number">${viewsCabecalho}</th>
               ${extraCabecalho}
               <th class="number">${audiencia}</th>
             </tr>
@@ -783,8 +820,9 @@ function renderPainel(): void {
           }`;
 
     porId("marketingPeriodNote").innerHTML = `${wrapIcone(parcial ? "circle-help" : "calendar")}<span>${nota}</span>`;
-    porId("marketingFooterNote").textContent =
-        `Dados das fontes integradas · período ${rotuloCompleto(resumoAtual.periodo)}`;
+    porId("marketingFooterNote").textContent = resumoAtual.youtubeInsights
+        ? `YouTube Insights (Analytics) · período ${rotuloCompleto(resumoAtual.periodo)}`
+        : `YouTube Data API (fallback) · período ${rotuloCompleto(resumoAtual.periodo)}`;
 
     renderMetricas();
     renderConteudos();
@@ -804,6 +842,51 @@ function aplicarLinks(dados: ResumoMarketing): void {
     (porId("marketingCanalYoutube") as HTMLAnchorElement).href = dados.canais.youtube;
     (porId("marketingCanalInstagram") as HTMLAnchorElement).href = dados.canais.instagram;
 }
+
+async function atualizarStatusYoutube(): Promise<void> {
+    let status: YoutubeAnalyticsStatus;
+    try {
+        status = await carregarYoutubeAnalytics();
+    } catch {
+        youtubeStatusEl.textContent =
+            "Não foi possível consultar o status do YouTube Insights.";
+        return;
+    }
+
+    if (!ehAdmin) {
+        connectBtn.hidden = true;
+        disconnectBtn.hidden = true;
+    } else if (!status.configurada) {
+        connectBtn.hidden = true;
+        disconnectBtn.hidden = true;
+        youtubeStatusEl.textContent =
+            "Defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET para conectar o YouTube Insights.";
+    } else if (status.conectada) {
+        connectBtn.hidden = true;
+        disconnectBtn.hidden = false;
+        const email = status.conta?.email ?? "conta Google";
+        const sync = status.conta?.sincronizadaEm
+            ? ` · sync ${status.conta.sincronizadaEm}`
+            : "";
+        const erro = status.conta?.erro ? ` · ${status.conta.erro}` : "";
+        youtubeStatusEl.textContent = `YouTube Insights conectado (${email})${sync}${erro}`;
+    } else {
+        connectBtn.hidden = false;
+        disconnectBtn.hidden = true;
+        if (!oauthResultado) {
+            youtubeStatusEl.textContent =
+                "Conecte o YouTube Insights (conta dona do canal) para espelhar o Studio.";
+        }
+    }
+}
+
+disconnectBtn.addEventListener("click", async () => {
+    if (!confirm("Desconectar o YouTube Insights deste ambiente?")) {
+        return;
+    }
+    await desconectarYoutubeAnalytics();
+    await atualizarStatusYoutube();
+});
 
 async function carregarEExibir(): Promise<void> {
     if (!periodos.length) {
@@ -930,4 +1013,5 @@ observarEstado(["marketing"], () => {
 });
 
 await carregarEExibir();
+await atualizarStatusYoutube();
 desenharIcones(porId("marketing"));

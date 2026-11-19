@@ -12,7 +12,7 @@ use Throwable;
 /**
  * Sincroniza métricas de redes para o painel Marketing.
  *
- * YouTube: Data API v3 (API key).
+ * YouTube: Analytics API (Insights/OAuth) quando conectado; senão Data API key.
  * Instagram: Graph API (token Meta + IG user id).
  */
 final class MarketingMetricasSync
@@ -55,16 +55,143 @@ final class MarketingMetricasSync
      */
     private static function sincronizarYoutube(): array
     {
+        if (YouTubeAnalytics::conectada()) {
+            return self::sincronizarYoutubeAnalytics();
+        }
+
         $chave = (string) config('hc.marketing.youtube_api_key');
         $canal = (string) config('hc.marketing.youtube_channel_id');
 
         if ($chave === '' || $canal === '') {
             return [
                 'periodos' => 0,
-                'aviso' => 'YouTube sem HC_YOUTUBE_API_KEY / HC_YOUTUBE_CHANNEL_ID.',
+                'aviso' => 'YouTube Insights: conecte o Analytics em /marketing (OAuth) ou defina HC_YOUTUBE_API_KEY / HC_YOUTUBE_CHANNEL_ID.',
             ];
         }
 
+        $resultado = self::sincronizarYoutubeDataApi($chave, $canal);
+        if ($resultado['aviso'] === null) {
+            $resultado['aviso'] = 'YouTube: sync pela Data API (views vitalícias por publicação). Para Insights do Studio, conecte o YouTube Analytics.';
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Insights do canal (views/likes/etc. no período), como no YouTube Studio.
+     *
+     * @return array{periodos: int, aviso: string|null}
+     */
+    private static function sincronizarYoutubeAnalytics(): array
+    {
+        $conta = YouTubeAnalytics::contaAtiva();
+        if ($conta === null) {
+            return ['periodos' => 0, 'aviso' => 'YouTube Insights: nenhuma conta Analytics conectada.'];
+        }
+
+        try {
+            $token = YouTubeAnalytics::tokenDeAcesso($conta);
+            $channelId = (string) ($conta->channel_id ?: config('hc.marketing.youtube_channel_id'));
+            if ($channelId === '') {
+                $channelId = (string) (YouTubeAnalytics::descobrirChannelId($token) ?? '');
+            }
+            if ($channelId === '') {
+                return ['periodos' => 0, 'aviso' => 'YouTube Insights: canal não identificado. Defina HC_YOUTUBE_CHANNEL_ID ou reconecte.'];
+            }
+
+            if ($conta->channel_id !== $channelId) {
+                $conta->update(['channel_id' => $channelId, 'erro' => null]);
+            }
+
+            $fim = now()->toDateString();
+            $inicio = now()->startOfMonth()->subMonths(11)->toDateString();
+            $mensais = YouTubeAnalytics::metricasMensais($token, $channelId, $inicio, $fim);
+            $inscritosTotal = YouTubeAnalytics::inscritosTotais($token, $channelId);
+            $periodoAtual = now()->format('Y-m');
+
+            self::limparPlataforma('youtube');
+
+            $periodos = 0;
+            foreach ($mensais as $linha) {
+                $ehAtual = $linha['periodo'] === $periodoAtual;
+                MarketingMetrica::query()->create([
+                    'periodo' => $linha['periodo'],
+                    'plataforma' => 'youtube',
+                    'views' => $linha['views'],
+                    'likes' => $linha['likes'],
+                    'comentarios' => $linha['comentarios'],
+                    'compartilhamentos' => $linha['compartilhamentos'],
+                    'inscritos_ou_alcance' => $linha['inscritos_ganhos'],
+                    'seguidores' => $ehAtual ? $inscritosTotal : 0,
+                ]);
+
+                $inicioMes = Carbon::createFromFormat('Y-m', $linha['periodo'])->startOfMonth()->toDateString();
+                $fimMes = Carbon::createFromFormat('Y-m', $linha['periodo'])->endOfMonth()->toDateString();
+                if ($ehAtual) {
+                    $fimMes = min($fimMes, $fim);
+                }
+
+                $ranking = YouTubeAnalytics::rankingVideos($token, $channelId, $inicioMes, $fimMes, 10);
+                $meta = YouTubeAnalytics::metadadosVideos(
+                    $token,
+                    array_map(fn (array $item) => $item['video_id'], $ranking),
+                );
+
+                $lista = [];
+                foreach ($ranking as $item) {
+                    $info = $meta[$item['video_id']] ?? null;
+                    if ($info === null) {
+                        continue;
+                    }
+                    $lista[] = [
+                        'titulo' => $info['titulo'],
+                        'publicado_em' => $info['publicado_em'],
+                        'views' => $item['views'],
+                        'likes' => $item['likes'],
+                        'comentarios' => $item['comentarios'],
+                        'formato' => $info['formato'],
+                        'url' => $info['url'],
+                    ];
+                }
+
+                self::gravarRanking('youtube', $linha['periodo'], $lista);
+                $periodos++;
+            }
+
+            if ($periodos === 0 || ! collect($mensais)->contains(fn (array $l) => $l['periodo'] === $periodoAtual)) {
+                MarketingMetrica::query()->create([
+                    'periodo' => $periodoAtual,
+                    'plataforma' => 'youtube',
+                    'views' => 0,
+                    'likes' => 0,
+                    'comentarios' => 0,
+                    'compartilhamentos' => 0,
+                    'inscritos_ou_alcance' => 0,
+                    'seguidores' => $inscritosTotal,
+                ]);
+                $periodos++;
+            }
+
+            $conta->update(['sincronizada_em' => now(), 'erro' => null]);
+
+            return ['periodos' => $periodos, 'aviso' => null];
+        } catch (Throwable $erro) {
+            $conta->update(['erro' => mb_substr($erro->getMessage(), 0, 240)]);
+
+            return [
+                'periodos' => 0,
+                'aviso' => 'YouTube Insights: '.$erro->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Fallback: Data API key (views vitalícias dos uploads no mês de publicação).
+     *
+     * @return array{periodos: int, aviso: string|null}
+     */
+    private static function sincronizarYoutubeDataApi(string $chave, string $canal): array
+    {
         try {
             $canalDados = self::youtubeGet('channels', [
                 'part' => 'statistics,contentDetails',
@@ -110,7 +237,6 @@ final class MarketingMetricasSync
                 ? max(0, $inscritosTotal - $seguidoresAnteriores)
                 : 0;
 
-            // Remove rascunho/seeder: a base passa a refletir só o que a API devolveu.
             self::limparPlataforma('youtube');
 
             foreach ($porMes as $periodo => $lista) {

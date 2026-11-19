@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContaYoutubeAnalytics;
 use App\Models\MarketingIdeia;
 use App\Models\MarketingMetrica;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -42,6 +44,7 @@ class MarketingTest extends TestCase
             ->assertJsonPath('destaqueYoutube.ganhoInscritos', 118)
             ->assertJsonPath('canais.youtube', 'https://youtube.com/@healthcarecontabilidade/videos')
             ->assertJsonPath('canais.instagram', 'https://instagram.com/healthcarecontabilidade/')
+            ->assertJsonPath('youtubeInsights', false)
             ->assertJsonStructure([
                 'serieYoutube' => [['periodo', 'rotulo', 'views', 'ganho', 'audiencia', 'saldo']],
                 'serieInstagram' => [['periodo', 'rotulo', 'views', 'ganho', 'audiencia', 'saldo']],
@@ -50,6 +53,234 @@ class MarketingTest extends TestCase
                 'youtube' => ['saldoInscritos', 'inscritosPerdidos', 'engajamento'],
                 'ideias' => [['id', 'titulo', 'plataforma', 'status']],
             ]);
+    }
+
+    private function administrador(): User
+    {
+        return User::create([
+            'name' => 'Admin Marketing',
+            'email' => 'admin.marketing@hc.com.br',
+            'password' => 'senha-de-teste',
+            'perfil' => 'Administrador',
+            'area' => 'Gestão',
+            'status' => 'Ativo',
+        ]);
+    }
+
+    public function test_so_administrador_conecta_e_desconecta_youtube_insights(): void
+    {
+        config(['services.google.client_id' => 'cliente', 'services.google.client_secret' => 'segredo']);
+
+        ContaYoutubeAnalytics::create([
+            'email' => 'canal@hc.com.br',
+            'nome' => 'HC Canal',
+            'channel_id' => 'UC-teste',
+            'refresh_token' => 'refresh',
+        ]);
+
+        $colaborador = User::create([
+            'name' => 'Colab',
+            'email' => 'colab.marketing@hc.com.br',
+            'password' => 'senha-de-teste',
+            'perfil' => 'Colaborador',
+            'area' => 'Gestão',
+            'status' => 'Ativo',
+        ]);
+
+        $this->actingAs($colaborador)->get('/youtube/conectar')->assertForbidden();
+        $this->actingAs($colaborador)->deleteJson('/api/marketing/youtube-analytics')->assertForbidden();
+        $this->assertDatabaseCount('contas_youtube_analytics', 1);
+    }
+
+    public function test_conectar_youtube_insights_grava_refresh_token_e_canal(): void
+    {
+        config(['services.google.client_id' => 'cliente', 'services.google.client_secret' => 'segredo']);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response([
+                'access_token' => 'acesso',
+                'refresh_token' => 'refresh-canal-hc',
+            ]),
+            'openidconnect.googleapis.com/v1/userinfo' => Http::response([
+                'email' => 'canal@hc.com.br',
+                'name' => 'HC Canal',
+            ]),
+            'www.googleapis.com/youtube/v3/channels*' => Http::response([
+                'items' => [['id' => 'UC5Evg8Q8ZMf1fm91vHPJ-mw', 'snippet' => ['title' => 'HC']]],
+            ]),
+        ]);
+
+        $admin = $this->administrador();
+        $ida = $this->actingAs($admin)->get('/youtube/conectar');
+        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $ida->headers->get('Location'));
+        $this->assertStringContainsString('yt-analytics.readonly', (string) $ida->headers->get('Location'));
+
+        $this->actingAs($admin)
+            ->get('/youtube/retorno?'.http_build_query([
+                'state' => session('youtube_analytics_estado'),
+                'code' => 'codigo',
+            ]))
+            ->assertRedirect('/marketing?youtube=conectada');
+
+        $conta = ContaYoutubeAnalytics::sole();
+        $this->assertSame('canal@hc.com.br', $conta->email);
+        $this->assertSame('UC5Evg8Q8ZMf1fm91vHPJ-mw', $conta->channel_id);
+        $this->assertSame('refresh-canal-hc', $conta->refresh_token);
+        $this->assertNotSame('refresh-canal-hc', DB::table('contas_youtube_analytics')->value('refresh_token'));
+    }
+
+    public function test_status_youtube_analytics_e_desconexao(): void
+    {
+        config(['services.google.client_id' => 'cliente', 'services.google.client_secret' => 'segredo']);
+
+        ContaYoutubeAnalytics::create([
+            'email' => 'canal@hc.com.br',
+            'nome' => 'HC Canal',
+            'channel_id' => 'UC-teste',
+            'refresh_token' => 'refresh',
+            'sincronizada_em' => '2026-11-19 15:00:00',
+        ]);
+
+        $admin = $this->administrador();
+
+        $this->actingAs($admin)
+            ->getJson('/api/marketing/youtube-analytics')
+            ->assertOk()
+            ->assertJsonPath('configurada', true)
+            ->assertJsonPath('conectada', true)
+            ->assertJsonPath('conta.email', 'canal@hc.com.br')
+            ->assertJsonPath('conta.channelId', 'UC-teste');
+
+        $this->actingAs($admin)
+            ->deleteJson('/api/marketing/youtube-analytics')
+            ->assertNoContent();
+
+        $this->assertDatabaseCount('contas_youtube_analytics', 0);
+    }
+
+    public function test_sync_youtube_analytics_grava_views_do_periodo_e_ranking(): void
+    {
+        $this->travelTo('2026-11-19 12:00:00');
+
+        config([
+            'hc.marketing.youtube_api_key' => 'chave-nao-deve-ser-usada',
+            'hc.marketing.youtube_channel_id' => 'UC5Evg8Q8ZMf1fm91vHPJ-mw',
+            'hc.marketing.instagram_access_token' => null,
+            'hc.marketing.instagram_user_id' => null,
+            'services.google.client_id' => 'cliente',
+            'services.google.client_secret' => 'segredo',
+        ]);
+
+        ContaYoutubeAnalytics::create([
+            'email' => 'canal@hc.com.br',
+            'nome' => 'HC Canal',
+            'channel_id' => 'UC5Evg8Q8ZMf1fm91vHPJ-mw',
+            'refresh_token' => 'refresh-canal',
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'acesso-analytics']),
+            'youtubeanalytics.googleapis.com/v2/reports*' => function ($request) {
+                $query = [];
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+                if (($query['dimensions'] ?? '') === 'month') {
+                    return Http::response([
+                        'rows' => [
+                            ['2026-10', 12, 2, 1, 0, 3, 1],
+                            ['2026-11', 165, 40, 8, 5, 18, 2],
+                        ],
+                    ]);
+                }
+
+                // Ranking por vídeo no período
+                return Http::response([
+                    'rows' => [
+                        ['vid-insights', 120, 30, 6, 4],
+                        ['vid-short-insights', 45, 10, 2, 1],
+                    ],
+                ]);
+            },
+            'www.googleapis.com/youtube/v3/channels*' => Http::response([
+                'items' => [[
+                    'statistics' => ['subscriberCount' => '170'],
+                ]],
+            ]),
+            'www.googleapis.com/youtube/v3/videos*' => Http::response([
+                'items' => [
+                    [
+                        'id' => 'vid-insights',
+                        'snippet' => [
+                            'title' => 'MEI na prática',
+                            'description' => 'Aula',
+                            'publishedAt' => '2026-11-14T12:00:00Z',
+                        ],
+                        'contentDetails' => ['duration' => 'PT10M'],
+                    ],
+                    [
+                        'id' => 'vid-short-insights',
+                        'snippet' => [
+                            'title' => 'Corte DAS #shorts',
+                            'description' => 'Short',
+                            'publishedAt' => '2026-11-15T12:00:00Z',
+                        ],
+                        'contentDetails' => ['duration' => 'PT25S'],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->artisan('hc:sincronizar-marketing')->assertSuccessful();
+
+        $this->assertDatabaseHas('marketing_metricas', [
+            'periodo' => '2026-11',
+            'plataforma' => 'youtube',
+            'views' => 165,
+            'likes' => 40,
+            'comentarios' => 8,
+            'compartilhamentos' => 5,
+            'inscritos_ou_alcance' => 18,
+            'seguidores' => 170,
+        ]);
+
+        $this->assertDatabaseHas('marketing_metricas', [
+            'periodo' => '2026-10',
+            'plataforma' => 'youtube',
+            'views' => 12,
+            'seguidores' => 0,
+        ]);
+
+        $this->assertDatabaseHas('marketing_conteudos', [
+            'plataforma' => 'youtube',
+            'periodo' => '2026-11',
+            'titulo' => 'MEI na prática',
+            'formato' => 'video',
+            'views' => 120,
+            'destaque' => 1,
+        ]);
+
+        $this->assertDatabaseHas('marketing_conteudos', [
+            'plataforma' => 'youtube',
+            'periodo' => '2026-11',
+            'titulo' => 'Corte DAS #shorts',
+            'formato' => 'short',
+            'views' => 45,
+            'url' => 'https://www.youtube.com/shorts/vid-short-insights',
+        ]);
+
+        $this->assertDatabaseMissing('marketing_metricas', [
+            'periodo' => '2026-06',
+            'plataforma' => 'youtube',
+        ]);
+
+        $this->actingAs(User::firstOrFail())
+            ->getJson('/api/marketing/2026-11')
+            ->assertOk()
+            ->assertJsonPath('youtubeInsights', true)
+            ->assertJsonPath('youtube.views', 165)
+            ->assertJsonPath('youtube.inscritosTotal', 170);
     }
 
     public function test_cria_atualiza_e_exclui_ideia(): void

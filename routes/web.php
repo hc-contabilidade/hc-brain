@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\SenhaController;
 use App\Http\Controllers\GoogleController;
 use App\Http\Controllers\Interno\AgendarController;
 use App\Http\Controllers\TelaController;
+use App\Http\Controllers\YoutubeAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -64,12 +65,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/google/conectar', [GoogleController::class, 'conectar'])->name('google.conectar');
     Route::get('/google/retorno', [GoogleController::class, 'retorno'])->name('google.retorno');
 
+    Route::get('/youtube/conectar', [YoutubeAnalyticsController::class, 'conectar'])->name('youtube.conectar');
+    Route::get('/youtube/retorno', [YoutubeAnalyticsController::class, 'retorno'])->name('youtube.retorno');
+
     Route::prefix('api')->group(function () {
         Route::get('/contadores', [Api\ContadorController::class, 'index']);
         Route::get('/inicio', [Api\InicioController::class, 'index']);
         Route::get('/comercial', [Api\ComercialController::class, 'index']);
         Route::get('/comercial/{periodo}', [Api\ComercialController::class, 'show']);
         Route::get('/marketing/periodos', [Api\MarketingController::class, 'periodos']);
+        Route::get('/marketing/youtube-analytics', [Api\YoutubeAnalyticsContaController::class, 'show']);
+        Route::delete('/marketing/youtube-analytics', [Api\YoutubeAnalyticsContaController::class, 'destroy']);
         Route::get('/marketing/ideias', [Api\MarketingController::class, 'ideias']);
         Route::post('/marketing/ideias', [Api\MarketingController::class, 'storeIdeia']);
         Route::put('/marketing/ideias/{ideia}', [Api\MarketingController::class, 'updateIdeia']);
