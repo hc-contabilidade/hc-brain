@@ -3,9 +3,12 @@
 namespace App\Support;
 
 use App\Models\ContaYoutubeAnalytics;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 /**
  * OAuth + YouTube Analytics API v2 (Insights do canal, como no Studio).
@@ -144,18 +147,14 @@ final class YouTubeAnalytics
         string $inicio,
         string $fim,
     ): array {
-        $resposta = Http::withToken($accessToken)
-            ->timeout(30)
-            ->get(self::ANALYTICS, [
-                'ids' => 'channel=='.$channelId,
-                'startDate' => $inicio,
-                'endDate' => $fim,
-                'metrics' => 'views,likes,comments,shares,subscribersGained,subscribersLost',
-                'dimensions' => 'month',
-                'sort' => 'month',
-            ])
-            ->throw()
-            ->json();
+        $resposta = self::analyticsGet($accessToken, [
+            'ids' => 'channel=='.$channelId,
+            'startDate' => $inicio,
+            'endDate' => $fim,
+            'metrics' => 'views,likes,comments,shares,subscribersGained,subscribersLost',
+            'dimensions' => 'month',
+            'sort' => 'month',
+        ]);
 
         $linhas = [];
 
@@ -190,16 +189,12 @@ final class YouTubeAnalytics
         string $inicio,
         string $fim,
     ): ?array {
-        $resposta = Http::withToken($accessToken)
-            ->timeout(30)
-            ->get(self::ANALYTICS, [
-                'ids' => 'channel=='.$channelId,
-                'startDate' => $inicio,
-                'endDate' => $fim,
-                'metrics' => 'views,likes,comments,shares,subscribersGained,subscribersLost',
-            ])
-            ->throw()
-            ->json();
+        $resposta = self::analyticsGet($accessToken, [
+            'ids' => 'channel=='.$channelId,
+            'startDate' => $inicio,
+            'endDate' => $fim,
+            'metrics' => 'views,likes,comments,shares,subscribersGained,subscribersLost',
+        ]);
 
         $row = $resposta['rows'][0] ?? null;
         if (! is_array($row) || count($row) < 6) {
@@ -229,19 +224,15 @@ final class YouTubeAnalytics
         string $fim,
         int $limite = 10,
     ): array {
-        $resposta = Http::withToken($accessToken)
-            ->timeout(30)
-            ->get(self::ANALYTICS, [
-                'ids' => 'channel=='.$channelId,
-                'startDate' => $inicio,
-                'endDate' => $fim,
-                'metrics' => 'views,likes,comments,shares',
-                'dimensions' => 'video',
-                'sort' => '-views',
-                'maxResults' => $limite,
-            ])
-            ->throw()
-            ->json();
+        $resposta = self::analyticsGet($accessToken, [
+            'ids' => 'channel=='.$channelId,
+            'startDate' => $inicio,
+            'endDate' => $fim,
+            'metrics' => 'views,likes,comments,shares',
+            'dimensions' => 'video',
+            'sort' => '-views',
+            'maxResults' => $limite,
+        ]);
 
         $itens = [];
 
@@ -268,6 +259,28 @@ final class YouTubeAnalytics
     private static function metricaNaoNegativa(mixed $valor): int
     {
         return max(0, (int) $valor);
+    }
+
+    /**
+     * @param  array<string, scalar>  $params
+     * @return array<string, mixed>
+     */
+    private static function analyticsGet(string $accessToken, array $params): array
+    {
+        /** @var array<string, mixed> $json */
+        $json = Http::withToken($accessToken)
+            ->connectTimeout(5)
+            ->timeout(30)
+            ->retry([500, 1500, 3000], 0, function (Throwable $exception) {
+                return $exception instanceof ConnectionException
+                    || ($exception instanceof RequestException
+                        && ($exception->response?->serverError() || $exception->response?->status() === 429));
+            })
+            ->get(self::ANALYTICS, $params)
+            ->throw()
+            ->json();
+
+        return $json;
     }
 
     /**

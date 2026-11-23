@@ -159,30 +159,35 @@ final class MarketingMetricasSync
                     $fimMes = min($fimMes, $fim);
                 }
 
-                $ranking = YouTubeAnalytics::rankingVideos($token, $channelId, $inicioMes, $fimMes, 10);
-                $meta = YouTubeAnalytics::metadadosVideos(
-                    $token,
-                    array_map(fn (array $item) => $item['video_id'], $ranking),
-                );
+                try {
+                    $ranking = YouTubeAnalytics::rankingVideos($token, $channelId, $inicioMes, $fimMes, 10);
+                    $meta = YouTubeAnalytics::metadadosVideos(
+                        $token,
+                        array_map(fn (array $item) => $item['video_id'], $ranking),
+                    );
 
-                $lista = [];
-                foreach ($ranking as $item) {
-                    $info = $meta[$item['video_id']] ?? null;
-                    if ($info === null) {
-                        continue;
+                    $lista = [];
+                    foreach ($ranking as $item) {
+                        $info = $meta[$item['video_id']] ?? null;
+                        if ($info === null) {
+                            continue;
+                        }
+                        $lista[] = [
+                            'titulo' => $info['titulo'],
+                            'publicado_em' => $info['publicado_em'],
+                            'views' => $item['views'],
+                            'likes' => $item['likes'],
+                            'comentarios' => $item['comentarios'],
+                            'formato' => $info['formato'],
+                            'url' => $info['url'],
+                        ];
                     }
-                    $lista[] = [
-                        'titulo' => $info['titulo'],
-                        'publicado_em' => $info['publicado_em'],
-                        'views' => $item['views'],
-                        'likes' => $item['likes'],
-                        'comentarios' => $item['comentarios'],
-                        'formato' => $info['formato'],
-                        'url' => $info['url'],
-                    ];
+
+                    self::gravarRanking('youtube', $linha['periodo'], $lista);
+                } catch (Throwable) {
+                    // 500 intermitente da Analytics no ranking não pode zerar o mês já gravado.
                 }
 
-                self::gravarRanking('youtube', $linha['periodo'], $lista);
                 $periodos++;
             }
 
