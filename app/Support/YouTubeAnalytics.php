@@ -167,12 +167,12 @@ final class YouTubeAnalytics
             $mes = (string) $row[0]; // YYYY-MM
             $linhas[] = [
                 'periodo' => $mes,
-                'views' => (int) $row[1],
-                'likes' => (int) $row[2],
-                'comentarios' => (int) $row[3],
-                'compartilhamentos' => (int) $row[4],
-                'inscritos_ganhos' => (int) $row[5],
-                'inscritos_perdidos' => (int) $row[6],
+                'views' => self::metricaNaoNegativa($row[1]),
+                'likes' => self::metricaNaoNegativa($row[2]),
+                'comentarios' => self::metricaNaoNegativa($row[3]),
+                'compartilhamentos' => self::metricaNaoNegativa($row[4]),
+                'inscritos_ganhos' => self::metricaNaoNegativa($row[5]),
+                'inscritos_perdidos' => self::metricaNaoNegativa($row[6]),
             ];
         }
 
@@ -208,12 +208,12 @@ final class YouTubeAnalytics
 
         return [
             'periodo' => Carbon::parse($inicio)->format('Y-m'),
-            'views' => (int) $row[0],
-            'likes' => (int) $row[1],
-            'comentarios' => (int) $row[2],
-            'compartilhamentos' => (int) $row[3],
-            'inscritos_ganhos' => (int) $row[4],
-            'inscritos_perdidos' => (int) $row[5],
+            'views' => self::metricaNaoNegativa($row[0]),
+            'likes' => self::metricaNaoNegativa($row[1]),
+            'comentarios' => self::metricaNaoNegativa($row[2]),
+            'compartilhamentos' => self::metricaNaoNegativa($row[3]),
+            'inscritos_ganhos' => self::metricaNaoNegativa($row[4]),
+            'inscritos_perdidos' => self::metricaNaoNegativa($row[5]),
         ];
     }
 
@@ -252,14 +252,22 @@ final class YouTubeAnalytics
 
             $itens[] = [
                 'video_id' => (string) $row[0],
-                'views' => (int) $row[1],
-                'likes' => (int) $row[2],
-                'comentarios' => (int) $row[3],
-                'compartilhamentos' => (int) $row[4],
+                'views' => self::metricaNaoNegativa($row[1]),
+                'likes' => self::metricaNaoNegativa($row[2]),
+                'comentarios' => self::metricaNaoNegativa($row[3]),
+                'compartilhamentos' => self::metricaNaoNegativa($row[4]),
             ];
         }
 
         return $itens;
+    }
+
+    /**
+     * Analytics às vezes devolve -1 quando a métrica está indisponível/oculta.
+     */
+    private static function metricaNaoNegativa(mixed $valor): int
+    {
+        return max(0, (int) $valor);
     }
 
     /**

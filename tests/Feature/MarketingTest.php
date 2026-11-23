@@ -206,7 +206,8 @@ class MarketingTest extends TestCase
                     return Http::response([
                         'rows' => [
                             ['vid-insights', 120, 30, 6, 4],
-                            ['vid-short-insights', 45, 10, 2, 1],
+                            // Analytics devolve -1 quando likes estão ocultos/indisponíveis.
+                            ['vid-short-insights', 45, -1, 2, 1],
                         ],
                     ]);
                 }
@@ -285,6 +286,7 @@ class MarketingTest extends TestCase
             'titulo' => 'Corte DAS #shorts',
             'formato' => 'short',
             'views' => 45,
+            'likes' => 0,
             'url' => 'https://www.youtube.com/shorts/vid-short-insights',
         ]);
 
