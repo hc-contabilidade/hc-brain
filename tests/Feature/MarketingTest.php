@@ -191,9 +191,9 @@ class MarketingTest extends TestCase
                 parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
                 if (($query['dimensions'] ?? '') === 'month') {
-                    // Mês parcial: histórico só até o fim do mês anterior (alinhado).
+                    // Mês parcial: histórico até o 1º dia do mês anterior (exigência da API).
                     $this->assertSame('2025-12-01', $query['startDate'] ?? null);
-                    $this->assertSame('2026-10-31', $query['endDate'] ?? null);
+                    $this->assertSame('2026-10-01', $query['endDate'] ?? null);
 
                     return Http::response([
                         'rows' => [

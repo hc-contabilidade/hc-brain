@@ -106,11 +106,12 @@ final class MarketingMetricasSync
             $agora = now();
             $fim = $agora->toDateString();
             $periodoAtual = $agora->format('Y-m');
+            // dimensions=month: startDate e endDate precisam ser o 1º dia de um mês
+            // (não o último). O mês corrente parcial vem sem essa dimension.
             $inicioHistorico = $agora->copy()->startOfMonth()->subMonths(11)->toDateString();
-            $fimHistorico = $agora->copy()->startOfMonth()->subDay()->toDateString();
+            $fimHistorico = $agora->copy()->startOfMonth()->subMonth()->toDateString(); // 1º do mês anterior
             $mesParcial = ! $agora->isSameDay($agora->copy()->endOfMonth());
 
-            // dimensions=month exige fim no último dia do mês; mês corrente parcial vem à parte.
             $mensais = $inicioHistorico <= $fimHistorico
                 ? YouTubeAnalytics::metricasMensais($token, $channelId, $inicioHistorico, $fimHistorico)
                 : [];
@@ -125,8 +126,13 @@ final class MarketingMetricasSync
                 if ($atual !== null) {
                     $mensais[] = $atual;
                 }
-            } elseif ($inicioHistorico <= $fim) {
-                $mensais = YouTubeAnalytics::metricasMensais($token, $channelId, $inicioHistorico, $fim);
+            } elseif ($inicioHistorico <= $agora->copy()->startOfMonth()->toDateString()) {
+                $mensais = YouTubeAnalytics::metricasMensais(
+                    $token,
+                    $channelId,
+                    $inicioHistorico,
+                    $agora->copy()->startOfMonth()->toDateString(),
+                );
             }
 
             $inscritosTotal = YouTubeAnalytics::inscritosTotais($token, $channelId);

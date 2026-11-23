@@ -134,7 +134,7 @@ final class YouTubeAnalytics
 
     /**
      * Relatório mensal de Insights do canal.
-     * Com dimensions=month a API exige início no 1º dia e fim no último dia de algum mês.
+     * Com dimensions=month a API exige startDate e endDate no 1º dia de um mês.
      *
      * @return list<array{periodo: string, views: int, likes: int, comentarios: int, compartilhamentos: int, inscritos_ganhos: int, inscritos_perdidos: int}>
      */
