@@ -191,19 +191,33 @@ class MarketingTest extends TestCase
                 parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
                 if (($query['dimensions'] ?? '') === 'month') {
+                    // Mês parcial: histórico só até o fim do mês anterior (alinhado).
+                    $this->assertSame('2025-12-01', $query['startDate'] ?? null);
+                    $this->assertSame('2026-10-31', $query['endDate'] ?? null);
+
                     return Http::response([
                         'rows' => [
                             ['2026-10', 12, 2, 1, 0, 3, 1],
-                            ['2026-11', 165, 40, 8, 5, 18, 2],
                         ],
                     ]);
                 }
 
-                // Ranking por vídeo no período
+                if (($query['dimensions'] ?? '') === 'video') {
+                    return Http::response([
+                        'rows' => [
+                            ['vid-insights', 120, 30, 6, 4],
+                            ['vid-short-insights', 45, 10, 2, 1],
+                        ],
+                    ]);
+                }
+
+                // Totais do mês corrente (sem dimensions=month).
+                $this->assertSame('2026-11-01', $query['startDate'] ?? null);
+                $this->assertSame('2026-11-19', $query['endDate'] ?? null);
+
                 return Http::response([
                     'rows' => [
-                        ['vid-insights', 120, 30, 6, 4],
-                        ['vid-short-insights', 45, 10, 2, 1],
+                        [165, 40, 8, 5, 18, 2],
                     ],
                 ]);
             },

@@ -103,11 +103,33 @@ final class MarketingMetricasSync
                 $conta->update(['channel_id' => $channelId, 'erro' => null]);
             }
 
-            $fim = now()->toDateString();
-            $inicio = now()->startOfMonth()->subMonths(11)->toDateString();
-            $mensais = YouTubeAnalytics::metricasMensais($token, $channelId, $inicio, $fim);
+            $agora = now();
+            $fim = $agora->toDateString();
+            $periodoAtual = $agora->format('Y-m');
+            $inicioHistorico = $agora->copy()->startOfMonth()->subMonths(11)->toDateString();
+            $fimHistorico = $agora->copy()->startOfMonth()->subDay()->toDateString();
+            $mesParcial = ! $agora->isSameDay($agora->copy()->endOfMonth());
+
+            // dimensions=month exige fim no último dia do mês; mês corrente parcial vem à parte.
+            $mensais = $inicioHistorico <= $fimHistorico
+                ? YouTubeAnalytics::metricasMensais($token, $channelId, $inicioHistorico, $fimHistorico)
+                : [];
+
+            if ($mesParcial) {
+                $atual = YouTubeAnalytics::metricasPeriodo(
+                    $token,
+                    $channelId,
+                    $agora->copy()->startOfMonth()->toDateString(),
+                    $fim,
+                );
+                if ($atual !== null) {
+                    $mensais[] = $atual;
+                }
+            } elseif ($inicioHistorico <= $fim) {
+                $mensais = YouTubeAnalytics::metricasMensais($token, $channelId, $inicioHistorico, $fim);
+            }
+
             $inscritosTotal = YouTubeAnalytics::inscritosTotais($token, $channelId);
-            $periodoAtual = now()->format('Y-m');
 
             self::limparPlataforma('youtube');
 

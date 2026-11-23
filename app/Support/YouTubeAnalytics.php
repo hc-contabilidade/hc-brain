@@ -134,6 +134,7 @@ final class YouTubeAnalytics
 
     /**
      * Relatório mensal de Insights do canal.
+     * Com dimensions=month a API exige início no 1º dia e fim no último dia de algum mês.
      *
      * @return list<array{periodo: string, views: int, likes: int, comentarios: int, compartilhamentos: int, inscritos_ganhos: int, inscritos_perdidos: int}>
      */
@@ -176,6 +177,44 @@ final class YouTubeAnalytics
         }
 
         return $linhas;
+    }
+
+    /**
+     * Totais do canal num intervalo (mês parcial). Sem dimensions=month.
+     *
+     * @return array{periodo: string, views: int, likes: int, comentarios: int, compartilhamentos: int, inscritos_ganhos: int, inscritos_perdidos: int}|null
+     */
+    public static function metricasPeriodo(
+        string $accessToken,
+        string $channelId,
+        string $inicio,
+        string $fim,
+    ): ?array {
+        $resposta = Http::withToken($accessToken)
+            ->timeout(30)
+            ->get(self::ANALYTICS, [
+                'ids' => 'channel=='.$channelId,
+                'startDate' => $inicio,
+                'endDate' => $fim,
+                'metrics' => 'views,likes,comments,shares,subscribersGained,subscribersLost',
+            ])
+            ->throw()
+            ->json();
+
+        $row = $resposta['rows'][0] ?? null;
+        if (! is_array($row) || count($row) < 6) {
+            return null;
+        }
+
+        return [
+            'periodo' => Carbon::parse($inicio)->format('Y-m'),
+            'views' => (int) $row[0],
+            'likes' => (int) $row[1],
+            'comentarios' => (int) $row[2],
+            'compartilhamentos' => (int) $row[3],
+            'inscritos_ganhos' => (int) $row[4],
+            'inscritos_perdidos' => (int) $row[5],
+        ];
     }
 
     /**
