@@ -257,6 +257,10 @@ class GraficoCanal {
             html += `<span class="mkt-tooltip-row"><span>Alcance</span><b>${formatarNumero(ponto.ganho)}</b></span>`;
         }
 
+        if (this.canal === "yt") {
+            html += `<span class="mkt-tooltip-row"><span>Inscritos no mês</span><b>${formatarNumero(ponto.ganho)}</b></span>`;
+        }
+
         html += `<span class="mkt-tooltip-row"><span>${audienciaLabel}</span><b>${formatarNumero(ponto.audiencia)}</b></span>`;
         this.tooltip.innerHTML = html;
         this.tooltip.hidden = false;
@@ -387,7 +391,9 @@ class GraficoCanal {
             }
 
             const rotuloAria = `${capital(rotuloCompleto(record.periodo))}, ${formatarNumero(record.views)} visualizações${
-                this.canal === "ig" ? `, alcance ${formatarNumero(record.ganho)}` : ""
+                this.canal === "ig"
+                    ? `, alcance ${formatarNumero(record.ganho)}`
+                    : `, ${formatarNumero(record.ganho)} inscritos no mês`
             }`;
             botoes.push(
                 `<button type="button" class="mkt-chart-point" data-index="${index}" aria-label="${escapar(rotuloAria)}" style="left:${left + step * index}px;top:0;width:${step}px;height:${height}px"></button>`,
@@ -454,6 +460,11 @@ function renderMetricas(): void {
             "Inscritos",
             formatarNumero(yt.inscritosTotal),
             variacao(yt.inscritosTotal, ytAnteriorInscritos > 0 ? ytAnteriorInscritos : null, "absolute"),
+        ) +
+        metricaPrincipal(
+            "Inscritos no mês",
+            formatarNumero(yt.inscritosOuAlcance),
+            variacao(yt.inscritosOuAlcance, yt.inscritosOuAlcance - yt.variacaoInscritos, "absolute"),
         ) +
         metricaPrincipal(
             "Engajamento",
@@ -735,6 +746,19 @@ function valorOuTraco(valor: number): string {
     return valor > 0 ? formatarNumero(valor) : "—";
 }
 
+/** Zero no mês com outras métricas é um ganho real; traço só quando o mês não tem dado. */
+function ganhoDoMes(ponto: PontoSerie): string {
+    if (ponto.ganho > 0) {
+        return formatarNumero(ponto.ganho);
+    }
+
+    if (ponto.views > 0 || ponto.audiencia > 0) {
+        return formatarNumero(0);
+    }
+
+    return "—";
+}
+
 function notaHistorico(serie: PontoSerie[]): string {
     const parcial = serie.find((ponto) => ponto.periodo === mesAtual);
     const hoje = new Date();
@@ -756,11 +780,13 @@ function mostrarDados(canal: "yt" | "ig"): void {
 
     const serie = historicoSerie(canal === "yt" ? resumoAtual.serieYoutube : resumoAtual.serieInstagram);
     const audiencia = canal === "yt" ? "Inscritos" : "Seguidores";
-    const extraCabecalho = canal === "ig" ? `<th class="number">Alcance</th>` : "";
+    const extraCabecalho =
+        canal === "ig"
+            ? `<th class="number">Alcance</th>`
+            : `<th class="number">Inscritos no mês</th>`;
     const linhas = serie
         .map((ponto) => {
-            const extra =
-                canal === "ig" ? `<td class="number">${valorOuTraco(ponto.ganho)}</td>` : "";
+            const extra = `<td class="number">${ganhoDoMes(ponto)}</td>`;
 
             return `<tr>
           <td>${escapar(rotuloMesHistorico(ponto.periodo))}</td>
@@ -789,7 +815,7 @@ function mostrarDados(canal: "yt" | "ig"): void {
               <th class="number">${audiencia}</th>
             </tr>
           </thead>
-          <tbody>${linhas || `<tr><td class="mkt-empty-cell" colspan="${canal === "ig" ? 4 : 3}">Sem histórico para esta janela.</td></tr>`}</tbody>
+          <tbody>${linhas || `<tr><td class="mkt-empty-cell" colspan="4">Sem histórico para esta janela.</td></tr>`}</tbody>
         </table>
       </div>
       <p class="mkt-data-note">${escapar(notaHistorico(serie))}</p>`;

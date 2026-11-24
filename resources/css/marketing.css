@@ -307,7 +307,7 @@ html[data-tema="claro"] .marketing-page {
 
 .marketing-page .mkt-primary-metrics {
     display: grid;
-    grid-template-columns: 1.35fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
     gap: 12px;
     padding: 23px 21px 18px;
 }

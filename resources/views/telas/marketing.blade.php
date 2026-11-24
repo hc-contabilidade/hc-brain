@@ -282,6 +282,10 @@
         <dd>Representam o total registrado no mês. A variação indica a diferença absoluta em relação ao mês anterior.</dd>
       </div>
       <div class="mkt-criteria-row">
+        <dt>Inscritos no mês</dt>
+        <dd>Quantos inscritos o canal ganhou naquele mês. Com o YouTube Insights conectado, o número vem do Analytics. Sem Insights, só o mês corrente tem uma estimativa pela diferença do total.</dd>
+      </div>
+      <div class="mkt-criteria-row">
         <dt>Comparação entre meses</dt>
         <dd>A variação de visualizações usa o mês anterior como base. Meses em andamento mostram dados parciais até a última sincronização.</dd>
       </div>
